@@ -1,0 +1,101 @@
+name: SMK-37 HYBRID — build pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - hybrid-core-integration
+  pull_request:
+    branches:
+      - main
+      - hybrid-core-integration
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: smk37-hybrid-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  host-tests:
+    name: Hybrid core host tests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout hybrid repository
+        uses: actions/checkout@v4
+
+      - name: Compile and run core tests
+        run: |
+          cc -std=c99 -Wall -Wextra -Werror \
+            -Iinclude src/hybrid_core.c tests/test_hybrid_core.c \
+            -o /tmp/test_hybrid_core
+          /tmp/test_hybrid_core
+
+  smk37-reference-build:
+    name: SMK-37 GHOULBOX reference build (JieLi AC79)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout hybrid repository
+        uses: actions/checkout@v4
+
+      - name: Install host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential clang git python3 python3-pip python3-venv \
+            xz-utils ca-certificates
+          python3 -m pip install --user --break-system-packages Pillow fonttools
+
+      - name: Install JieLi pi32v2 toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.jieli"
+          curl -fL --retry 3 https://pkgman.jieliapp.com/s/linux-toolchain \
+            | tar -xJ -C "$HOME/.jieli"
+          tc_dir="$(find "$HOME/.jieli" -maxdepth 1 -type d -name 'jieli-linux-toolchains-*' | sort | tail -n 1)"
+          test -n "$tc_dir"
+          test -x "$tc_dir/pi32v2/bin/clang"
+          ln -sfn "$tc_dir" "$HOME/.jieli/toolchain"
+          echo "JIELI_TOOLCHAIN=$HOME/.jieli/toolchain" >> "$GITHUB_ENV"
+
+      - name: Checkout JieLi AC79 SDK
+        run: |
+          git clone --depth 1 --branch AC79NN_SDK_V1.2.1_2023-12-13 \
+            https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git "$RUNNER_TEMP/fw-AC79_AIoT_SDK"
+          test -f "$RUNNER_TEMP/fw-AC79_AIoT_SDK/cpu/wl82/tools/uboot.boot"
+          echo "AC79_SDK=$RUNNER_TEMP/fw-AC79_AIoT_SDK" >> "$GITHUB_ENV"
+
+      - name: Checkout upstream GHOULBOX SMK-37 build sources
+        run: |
+          git clone --depth 1 --branch ghoulbox-smk37 \
+            https://github.com/genkigenki/Felucca.git "$RUNNER_TEMP/Felucca"
+          git -C "$RUNNER_TEMP/Felucca" rev-parse HEAD | tee upstream-felucca-commit.txt
+
+      - name: Build SMK-37 Pro reference package
+        working-directory: ${{ runner.temp }}/Felucca
+        env:
+          BOARD: smk37
+          MODEL: pro
+          JIELI_TOOLCHAIN: ${{ env.JIELI_TOOLCHAIN }}
+          AC79_SDK: ${{ env.AC79_SDK }}
+        run: |
+          python3 tools/build.py --board smk37 --model pro
+
+      - name: Verify reference package exists
+        run: |
+          test -s "$RUNNER_TEMP/Felucca/build/ghoulbox-smk37.fwsc"
+          sha256sum "$RUNNER_TEMP/Felucca/build/ghoulbox-smk37.fwsc"
+
+      - name: Upload GHOULBOX reference build (not HYBRID firmware)
+        uses: actions/upload-artifact@v4
+        with:
+          name: smk37-ghoulbox-reference-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/Felucca/build/ghoulbox-smk37.fwsc
+            upstream-felucca-commit.txt
+          if-no-files-found: error
+          retention-days: 14
