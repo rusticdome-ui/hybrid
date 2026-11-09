@@ -148,11 +148,11 @@ jobs:
           except OSError:
               sys.exit(0)
           for line in lines:
-              match = re.match(r"(build/hybrid/[^:]+\\.o):\\s*file format", line)
+              match = re.match(r"(build/hybrid/[^:]+\.o):\s*file format", line)
               if match:
                   current = match.group(1)
                   continue
-              match = re.match(r"\\s*\\d+\\s+(\\S+)\\s+([0-9a-fA-F]{8,16})\\s+", line)
+              match = re.match(r"\s*\d+\s+(\S+)\s+([0-9a-fA-F]{8,16})\s+", line)
               if not match or current is None:
                   continue
               name, raw_size = match.groups()
@@ -172,12 +172,12 @@ jobs:
               totals[current][category] += size
           categories = (".text", ".data", ".bss", ".pool", ".ram_text")
           with open(target, "w", encoding="utf-8") as out:
-              out.write("Relocatable object section sizes (pre-GC; not final linked occupancy)\\n")
+              out.write("Relocatable object section sizes (pre-GC; not final linked occupancy)\n")
               for obj, values in sorted(totals.items()):
-                  out.write(obj + ": " + ", ".join(f"{k}={values[k]}" for k in categories if values[k]) + "\\n")
-              out.write("TOTAL: " + ", ".join(f"{k}={sum(v[k] for v in totals.values())}" for k in categories) + "\\n")
+                  out.write(obj + ": " + ", ".join(f"{k}={values[k]}" for k in categories if values[k]) + "\n")
+              out.write("TOTAL: " + ", ".join(f"{k}={sum(v[k] for v in totals.values())}" for k in categories) + "\n")
           PY
-          find "$RUNNER_TEMP/ac79-diagnostics" -maxdepth 1 -type f -printf '%f %s bytes\\n'
+          find "$RUNNER_TEMP/ac79-diagnostics" -maxdepth 1 -type f -printf '%f %s bytes\n'
       - name: Upload AC79 linker diagnostics
         if: always()
         uses: actions/upload-artifact@v4
