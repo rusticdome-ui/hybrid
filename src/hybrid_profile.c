@@ -8,18 +8,33 @@ extern char _ustack_lo[], _ustack_top[], _sstack_lo[], _sstack_top[];
 static volatile hybrid_profile_snapshot_t stats;
 static uint32_t started[HYBRID_PROF_COUNT];
 static uint8_t active[HYBRID_PROF_COUNT];
+static uintptr_t stack_low, stack_top, stack_fill_top;
+static uint8_t stack_ready;
+#define STACK_CANARY 0xA5A5A5A5u
 static void sample_stack(void) {
- volatile uint8_t marker=0;
- uintptr_t p=(uintptr_t)&marker, lo=(uintptr_t)_ustack_lo, top=(uintptr_t)_ustack_top;
- uint32_t used=0, capacity=0;
- (void)marker;
- if(p>=lo && p<top) { used=(uint32_t)(top-p); capacity=(uint32_t)(top-lo); }
- else { lo=(uintptr_t)_sstack_lo; top=(uintptr_t)_sstack_top;
-  if(p>=lo && p<top) { used=(uint32_t)(top-p); capacity=(uint32_t)(top-lo); } }
- if(capacity) { stats.stack_used_bytes=used; stats.stack_capacity_bytes=capacity;
-  if(used>stats.stack_peak_bytes) stats.stack_peak_bytes=used;
-  stats.flags|=HYBRID_PROFILE_STACK_VALID; }
+ uint32_t *p;
+ uint32_t used;
+ if (!stack_ready) {
+  volatile uint8_t marker=0;
+  uintptr_t here=(uintptr_t)&marker;
+  uintptr_t lo=(uintptr_t)_ustack_lo, top=(uintptr_t)_ustack_top;
+  (void)marker;
+  if(here<lo || here>=top) { lo=(uintptr_t)_sstack_lo; top=(uintptr_t)_sstack_top; }
+  if(here<lo || here>=top) return;
+  stack_low=lo; stack_top=top;
+  stack_fill_top=(here>lo+64u ? (here-64u)&~(uintptr_t)3u : lo);
+  for(p=(uint32_t *)stack_low;(uintptr_t)p<stack_fill_top;++p) *p=STACK_CANARY;
+  stack_ready=1;
+  stats.stack_capacity_bytes=(uint32_t)(stack_top-stack_low);
+  stats.flags|=HYBRID_PROFILE_STACK_VALID;
+ }
+ p=(uint32_t *)stack_fill_top;
+ while((uintptr_t)p>=stack_low+4u && *p!=STACK_CANARY) --p;
+ used=(uint32_t)(stack_top-((uintptr_t)p+4u));
+ if(used>stats.stack_peak_bytes) stats.stack_peak_bytes=used;
+ stats.stack_used_bytes=used;
 }
+
 void hybrid_profile_init(void) {
  uint32_t i; volatile uint32_t *p=(volatile uint32_t *)&stats;
  for(i=0;i<(uint32_t)(sizeof(stats)/sizeof(uint32_t));++i) p[i]=0;
