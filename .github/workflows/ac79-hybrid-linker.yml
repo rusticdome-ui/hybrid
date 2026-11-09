@@ -13,6 +13,8 @@ on:
   pull_request:
     paths:
       - "tools/ac79_link_engines.py"
+      - "src/**"
+      - "include/**"
       - "ac79/**"
 
 permissions:
@@ -27,7 +29,7 @@ jobs:
       - name: Install host dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends build-essential clang git python3 python3-pip xz-utils ca-certificates
+          sudo apt-get install -y --no-install-recommends build-essential clang llvm binutils git python3 python3-pip xz-utils ca-certificates
           python3 -m pip install --user --break-system-packages Pillow fonttools
       - name: Install JieLi pi32v2 toolchain
         shell: bash
