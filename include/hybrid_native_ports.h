@@ -8,6 +8,12 @@
 #ifndef SMK37_HYBRID_NATIVE_PORTS_H
 #define SMK37_HYBRID_NATIVE_PORTS_H
 #include <stdint.h>
+#include "hybrid_core.h"
+
+extern const hybrid_engine_ops_t hybrid_amb_ops;
+extern const hybrid_engine_ops_t hybrid_dub_ops;
+extern const hybrid_engine_ops_t hybrid_zen_ops;
+int hybrid_register_native_engines(hybrid_core_t *core);
 
 void amb_en_init(void);
 void amb_en_set(int param, int value);
