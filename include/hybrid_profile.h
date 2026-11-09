@@ -11,6 +11,7 @@ typedef struct {
  uint32_t buffer_used_bytes, buffer_capacity_bytes, buffer_peak_bytes, flags;
 } hybrid_profile_snapshot_t;
 enum { HYBRID_PROFILE_STACK_VALID=1u, HYBRID_PROFILE_BUFFER_VALID=2u };
+extern volatile hybrid_profile_snapshot_t hybrid_profile_live;
 void hybrid_profile_init(void);
 void hybrid_profile_begin(hybrid_profile_id_t id);
 void hybrid_profile_end(hybrid_profile_id_t id, uint32_t frames);
