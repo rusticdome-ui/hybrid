@@ -44,6 +44,8 @@ jobs:
           "$RUNNER_TEMP/test_hybrid_core"
           cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c tests/test_hybrid_stress.c -o "$RUNNER_TEMP/test_hybrid_stress"
           "$RUNNER_TEMP/test_hybrid_stress"
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Itests/fakes -Iinclude src/hybrid_profile.c tests/test_hybrid_profile.c -o "$RUNNER_TEMP/test_hybrid_profile"
+          "$RUNNER_TEMP/test_hybrid_profile"
       - name: Install JieLi pi32v2 toolchain
         shell: bash
         run: |
