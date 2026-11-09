@@ -37,6 +37,10 @@ jobs:
           test -x "$tc_dir/pi32v2/bin/clang"
           ln -sfn "$tc_dir" "$HOME/.jieli/toolchain"
           echo "JIELI_TOOLCHAIN=$HOME/.jieli/toolchain" >> "$GITHUB_ENV"
+      - name: Checkout AC79 SDK
+        run: |
+          git clone --depth 1 --branch AC79NN_SDK_V1.2.1_2023-12-13 https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git "$RUNNER_TEMP/sdk"
+          echo "AC79_SDK=$RUNNER_TEMP/sdk" >> "$GITHUB_ENV"
       - name: Checkout upstream sources
         run: |
           git clone --depth 1 --branch smk37 https://github.com/genkigenki/fm1-amb.git "$RUNNER_TEMP/amb"
@@ -57,7 +61,7 @@ jobs:
           BOARD: smk37
           MODEL: pro
           JIELI_TOOLCHAIN: ${{ env.JIELI_TOOLCHAIN }}
-        run: python3 tools/build.py --board smk37 --model pro
+        run: python3 tools/build.py --board smk37 --model pro --sdk "$AC79_SDK"
       - name: Upload linked AC79 package for inspection only
         uses: actions/upload-artifact@v4
         with:
