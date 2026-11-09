@@ -131,6 +131,6 @@ def main():
     (out/"NAMESPACE-MANIFEST.txt").write_text(
         "Exported DSP globals: "+str(len(exports))+"\nObjects: "+", ".join(x.name for x in [amb_obj,dub_obj,*zen_objs,hybrid_core_obj,hybrid_adapter_obj])+"\n")
     print("DSP objects compiled, namespaced and added to Felucca's final AC79 link.")
-    print("Audio ISR/mixer integration remains a separate required gate.")
+    print("HYBRID mixer hooks installed: GHOULBOX native mix plus AMB-1, DUB-1 and ZEN-1 overlays.")
 
 if __name__=="__main__": main()
