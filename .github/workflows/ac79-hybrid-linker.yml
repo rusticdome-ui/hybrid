@@ -1,0 +1,73 @@
+name: AC79 isolated DSP linker check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ac79-hybrid-linker]
+    paths:
+      - "tools/ac79_link_engines.py"
+      - "ac79/**"
+      - ".github/workflows/ac79-hybrid-linker.yml"
+  pull_request:
+    paths:
+      - "tools/ac79_link_engines.py"
+      - "ac79/**"
+
+permissions:
+  contents: read
+
+jobs:
+  compile-and-link-dsps:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential clang git python3 python3-pip xz-utils ca-certificates
+          python3 -m pip install --user --break-system-packages Pillow fonttools
+      - name: Install JieLi pi32v2 toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.jieli"
+          curl -fL --retry 3 https://pkgman.jieliapp.com/s/linux-toolchain | tar -xJ -C "$HOME/.jieli"
+          tc_dir="$(find "$HOME/.jieli" -maxdepth 1 -type d -name 'jieli-linux-toolchains-*' | sort | tail -n 1)"
+          test -x "$tc_dir/pi32v2/bin/clang"
+          ln -sfn "$tc_dir" "$HOME/.jieli/toolchain"
+          echo "JIELI_TOOLCHAIN=$HOME/.jieli/toolchain" >> "$GITHUB_ENV"
+      - name: Checkout AC79 SDK
+        run: |
+          git clone --depth 1 --branch AC79NN_SDK_V1.2.1_2023-12-13 https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git "$RUNNER_TEMP/sdk"
+          echo "AC79_SDK=$RUNNER_TEMP/sdk" >> "$GITHUB_ENV"
+      - name: Checkout upstream sources
+        run: |
+          git clone --depth 1 --branch smk37 https://github.com/genkigenki/fm1-amb.git "$RUNNER_TEMP/amb"
+          git clone --depth 1 --branch smk37 https://github.com/genkigenki/fm1-dub.git "$RUNNER_TEMP/dub"
+          git clone --depth 1 --branch smk37 https://github.com/genkigenki/zen-1.git "$RUNNER_TEMP/zen"
+          git clone --depth 1 --branch ghoulbox-smk37 https://github.com/genkigenki/Felucca.git "$RUNNER_TEMP/Felucca"
+      - name: Compile DSP objects and patch final AC79 link
+        run: |
+          python3 tools/ac79_link_engines.py \
+            --amb "$RUNNER_TEMP/amb/firmware/src/dsp" \
+            --dub "$RUNNER_TEMP/dub/firmware/src/dsp" \
+            --zen "$RUNNER_TEMP/zen/firmware/src/dsp" \
+            --felucca "$RUNNER_TEMP/Felucca" \
+            --toolchain "$JIELI_TOOLCHAIN"
+      - name: Build SMK-37 package with DSP objects
+        working-directory: ${{ runner.temp }}/Felucca
+        env:
+          BOARD: smk37
+          MODEL: pro
+          JIELI_TOOLCHAIN: ${{ env.JIELI_TOOLCHAIN }}
+        run: python3 tools/build.py --board smk37 --model pro --sdk "$AC79_SDK"
+      - name: Upload linked AC79 package for inspection only
+        uses: actions/upload-artifact@v4
+        with:
+          name: smk37-ac79-dsp-linked-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/Felucca/build/ghoulbox-smk37.fwsc
+            ${{ runner.temp }}/Felucca/build/hybrid/NAMESPACE-MANIFEST.txt
+          if-no-files-found: error
+          retention-days: 7
