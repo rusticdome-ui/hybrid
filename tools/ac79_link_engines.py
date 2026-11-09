@@ -6,7 +6,8 @@ from pathlib import Path
 
 CFLAGS = ["-target", "pi32v2", "-Os", "-ffunction-sections", "-fdata-sections",
           "-fno-builtin", "-Wall", "-Wno-unused-function", "-DBOARD_SMK37=1"]
-ZEN = ("fumi.c", "fm6_core.c", "fm6_patch.c", "tuning.c", "smooth.c", "bend.c", "reverb.c", "bed.c")
+# fumi.c textually includes tuning.c, smooth.c, bend.c, fm6_core.c, fm6_patch.c, reverb.c and bed.c. Compile it once to avoid duplicate definitions.
+ZEN = ("fumi.c",)
 
 def run(args):
     print("+", " ".join(map(str, args)), flush=True)
