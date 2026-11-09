@@ -80,8 +80,6 @@ jobs:
         env:
           BOARD: smk37
           MODEL: pro
-          JIELI_TOOLCHAIN: ${{ env.JIELI_TOOLCHAIN }}
-          AC79_SDK: ${{ env.AC79_SDK }}
         run: |
           python3 tools/build.py --board smk37 --model pro
 
