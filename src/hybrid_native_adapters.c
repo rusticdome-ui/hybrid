@@ -8,6 +8,7 @@
  */
 #include <stdint.h>
 #include "hybrid_core.h"
+#include "hybrid_profile.h"
 #include "hybrid_native_ports.h"
 
 #define HYBRID_RENDER_MAX 128u
@@ -44,9 +45,11 @@ static void amb_render(void *state, int32_t *out, uint16_t frames)
 {
     (void)state;
     if (!out || frames < 32u || frames > HYBRID_RENDER_MAX || (frames & 31u)) return;
+    hybrid_profile_begin(HYBRID_PROF_AMB);
     clear_native();
     amb_en_render(native_lr, frames, HYBRID_NATIVE_GAIN_Q12);
     native24_to_q15(out, frames);
+    hybrid_profile_end(HYBRID_PROF_AMB, frames);
 }
 static void amb_panic(void *state) { (void)state; amb_en_panic(); }
 
@@ -69,9 +72,11 @@ static void dub_render(void *state, int32_t *out, uint16_t frames)
 {
     (void)state;
     if (!out || !frames || frames > HYBRID_RENDER_MAX) return;
+    hybrid_profile_begin(HYBRID_PROF_DUB);
     clear_native();
     dub_en_render(native_lr, frames, HYBRID_NATIVE_GAIN_Q12);
     native24_to_q15(out, frames);
+    hybrid_profile_end(HYBRID_PROF_DUB, frames);
 }
 static void dub_panic(void *state) { (void)state; dub_en_panic(); }
 
@@ -92,9 +97,11 @@ static void zen_render(void *state, int32_t *out, uint16_t frames)
 {
     (void)state;
     if (!out || !frames || frames > HYBRID_RENDER_MAX) return;
+    hybrid_profile_begin(HYBRID_PROF_ZEN);
     clear_native();
     zen_fm_render(native_lr, frames, HYBRID_NATIVE_GAIN_Q12);
     native24_to_q15(out, frames);
+    hybrid_profile_end(HYBRID_PROF_ZEN, frames);
 }
 static void zen_panic(void *state) { (void)state; zen_fm_panic(); }
 
@@ -130,6 +137,9 @@ static uint8_t hybrid_audio_ready;
 
 int hybrid_audio_init(void)
 {
+    hybrid_profile_init();
+    hybrid_profile_buffers((uint32_t)sizeof(hybrid_audio_core) + (uint32_t)sizeof(hybrid_audio_mix) + (uint32_t)sizeof(native_lr),
+                           (uint32_t)sizeof(hybrid_audio_core) + (uint32_t)sizeof(hybrid_audio_mix) + (uint32_t)sizeof(native_lr));
     hybrid_init_defaults(&hybrid_audio_core);
     if (hybrid_register_native_engines(&hybrid_audio_core) != 0)
         return -1;
@@ -145,8 +155,11 @@ void hybrid_audio_process(int32_t *out_q15, uint32_t frames, int32_t master_q12)
     if (!hybrid_audio_ready || !out_q15 || !frames ||
         frames > HYBRID_MAX_FRAMES || master_q12 <= 0)
         return;
-    if (hybrid_process(&hybrid_audio_core, hybrid_audio_mix, (uint16_t)frames) != 0)
+    hybrid_profile_audio_block_begin();
+    if (hybrid_process(&hybrid_audio_core, hybrid_audio_mix, (uint16_t)frames) != 0) {
+        hybrid_profile_audio_block_end();
         return;
+    }
     for (i = 0; i < frames * 2u; ++i) {
         int64_t v = (int64_t)out_q15[i] +
                     ((int64_t)hybrid_audio_mix[i] * master_q12 >> 12);
@@ -154,6 +167,7 @@ void hybrid_audio_process(int32_t *out_q15, uint32_t frames, int32_t master_q12)
         if (v < -32768) v = -32768;
         out_q15[i] = (int32_t)v;
     }
+    hybrid_profile_audio_block_end();
 }
 
 void hybrid_audio_note_on(uint8_t note, uint8_t velocity)
