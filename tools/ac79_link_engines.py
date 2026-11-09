@@ -74,11 +74,9 @@ def main():
     anchor='''    tc("pi32v2/bin/ld", "-T", ld, OUT / "crt0.o", OUT / "fm1_vec.o", OUT / "fm1_isr.o",
        OUT / "felucca.o", "-o", elf)'''
     zen_link_args = ", ".join(f'OUT / "hybrid" / "{Path(name).stem}.o"' for name in ZEN)
-    replacement = (
-        '    tc("pi32v2/bin/ld", "-T", ld, OUT / "crt0.o", OUT / "fm1_vec.o", OUT / "fm1_isr.o",\\n'
-        '       OUT / "felucca.o", OUT / "hybrid" / "amb.o", OUT / "hybrid" / "dub.o",\\n'
-        f'       {zen_link_args}, "-o", elf)'
-    )
+    replacement = f"""    tc("pi32v2/bin/ld", "-T", ld, OUT / "crt0.o", OUT / "fm1_vec.o", OUT / "fm1_isr.o",
+       OUT / "felucca.o", OUT / "hybrid" / "amb.o", OUT / "hybrid" / "dub.o",
+       {zen_link_args}, "-o", elf)"""
     if replacement not in src:
         if src.count(anchor)!=1:
             raise SystemExit("Felucca AC79 linker invocation changed; refusing unsafe patch")
