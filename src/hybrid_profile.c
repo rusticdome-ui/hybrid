@@ -22,7 +22,7 @@ static void sample_stack(void) {
   if(here<lo || here>=top) { lo=(uintptr_t)_sstack_lo; top=(uintptr_t)_sstack_top; }
   if(here<lo || here>=top) return;
   stack_low=lo; stack_top=top;
-  stack_fill_top=(here>lo+64u ? (here-64u)&~(uintptr_t)3u : lo);
+  stack_fill_top=(here>lo+256u ? (here-256u)&~(uintptr_t)3u : lo);
   for(p=(uint32_t *)stack_low;(uintptr_t)p<stack_fill_top;++p) *p=STACK_CANARY;
   stack_ready=1;
   hybrid_profile_live.stack_capacity_bytes=(uint32_t)(stack_top-stack_low);
