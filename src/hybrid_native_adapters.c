@@ -43,7 +43,7 @@ static void amb_control(void *state, uint16_t p, int32_t v)
 static void amb_render(void *state, int32_t *out, uint16_t frames)
 {
     (void)state;
-    if (!out || !frames || frames > HYBRID_RENDER_MAX) return;
+    if (!out || frames < 32u || frames > HYBRID_RENDER_MAX || (frames & 31u)) return;
     clear_native();
     amb_en_render(native_lr, frames, HYBRID_NATIVE_GAIN_Q12);
     native24_to_q15(out, frames);
