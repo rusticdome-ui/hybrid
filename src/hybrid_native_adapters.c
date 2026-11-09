@@ -138,8 +138,7 @@ static uint8_t hybrid_audio_ready;
 int hybrid_audio_init(void)
 {
     hybrid_profile_init();
-    hybrid_profile_buffers((uint32_t)sizeof(hybrid_audio_core) + (uint32_t)sizeof(hybrid_audio_mix) + (uint32_t)sizeof(native_lr),
-                           (uint32_t)sizeof(hybrid_audio_core) + (uint32_t)sizeof(hybrid_audio_mix) + (uint32_t)sizeof(native_lr));
+    hybrid_profile_buffers(0u, (uint32_t)sizeof(hybrid_audio_mix) + (uint32_t)sizeof(native_lr));
     hybrid_init_defaults(&hybrid_audio_core);
     if (hybrid_register_native_engines(&hybrid_audio_core) != 0)
         return -1;
@@ -155,6 +154,8 @@ void hybrid_audio_process(int32_t *out_q15, uint32_t frames, int32_t master_q12)
     if (!hybrid_audio_ready || !out_q15 || !frames ||
         frames > HYBRID_MAX_FRAMES || master_q12 <= 0)
         return;
+    hybrid_profile_buffers(frames * 2u * (uint32_t)sizeof(int32_t) * 2u,
+                           (uint32_t)sizeof(hybrid_audio_mix) + (uint32_t)sizeof(native_lr));
     hybrid_profile_audio_block_begin();
     if (hybrid_process(&hybrid_audio_core, hybrid_audio_mix, (uint16_t)frames) != 0) {
         hybrid_profile_audio_block_end();
