@@ -87,8 +87,10 @@ def main():
     hybrid_inc=a.hybrid/"include"
     hybrid_core_obj=out/"hybrid_core.o"
     hybrid_adapter_obj=out/"hybrid_native_adapters.o"
+    hybrid_profile_obj=out/"hybrid_profile.o"
     compile_one(clang,a.hybrid/"src/hybrid_core.c",hybrid_core_obj,[hybrid_inc,fwsrc,hal])
     compile_one(clang,a.hybrid/"src/hybrid_native_adapters.c",hybrid_adapter_obj,[hybrid_inc,fwsrc,hal])
+    compile_one(clang,a.hybrid/"src/hybrid_profile.c",hybrid_profile_obj,[hybrid_inc,fwsrc,hal])
 
     required={"amb_en_init","amb_en_set","amb_en_play","amb_en_render","amb_en_panic",
               "dub_en_init","dub_en_set","dub_en_play","dub_en_render","dub_en_panic",
@@ -100,10 +102,11 @@ def main():
     anchor='''    tc("pi32v2/bin/ld", "-T", ld, OUT / "crt0.o", OUT / "fm1_vec.o", OUT / "fm1_isr.o",
        OUT / "felucca.o", "-o", elf)'''
     zen_link_args = ", ".join(f'OUT / "hybrid" / "{Path(name).stem}.o"' for name in ZEN)
-    replacement = f"""    tc("pi32v2/bin/ld", "-T", ld, OUT / "crt0.o", OUT / "fm1_vec.o", OUT / "fm1_isr.o",
+    replacement = f"""    tc("pi32v2/bin/ld", "--gc-sections", "-T", ld, OUT / "crt0.o", OUT / "fm1_vec.o", OUT / "fm1_isr.o",
        OUT / "felucca.o", OUT / "hybrid" / "amb.o", OUT / "hybrid" / "dub.o",
        {zen_link_args}, OUT / "hybrid" / "hybrid_core.o",
-       OUT / "hybrid" / "hybrid_native_adapters.o", "-o", elf)"""
+       OUT / "hybrid" / "hybrid_native_adapters.o", OUT / "hybrid" / "hybrid_profile.o",
+       "-Map", OUT / "felucca.map", "-o", elf)"""
     if replacement not in src:
         if src.count(anchor)!=1:
             raise SystemExit("Felucca AC79 linker invocation changed; refusing unsafe patch")
@@ -119,10 +122,10 @@ def main():
 
     audio_c=a.felucca/"firmware/src/audio.c"
     patch_source(audio_c, "/* registers: hal/fm1_audio.h */",
-                 "/* registers: hal/fm1_audio.h */\nextern void hybrid_audio_process(int32_t *, uint32_t, int32_t);",
+                 "/* registers: hal/fm1_audio.h */\nextern void hybrid_audio_process(int32_t *, uint32_t, int32_t);\nextern void hybrid_profile_begin(int);\nextern void hybrid_profile_end(int, uint32_t);\nextern void hybrid_profile_underrun(void);",
                  "audio.c declaration")
     patch_source(audio_c, "    mix_block(out, n);",
-                 "    mix_block(out, n);\n    hybrid_audio_process(out, n, fx_usb_fixed ? MASTER_FULL : (int32_t)song.master_q12);",
+                 "    hybrid_profile_begin(3);\n    mix_block(out, n);\n    hybrid_profile_end(3, n);\n    hybrid_audio_process(out, n, fx_usb_fixed ? MASTER_FULL : (int32_t)song.master_q12);",
                  "audio.c mixer hook")
 
     main_c=a.felucca/"firmware/src/main.c"
@@ -145,8 +148,9 @@ def main():
                  "seq.c note-off")
 
     (out/"NAMESPACE-MANIFEST.txt").write_text(
-        "Exported DSP globals: "+str(len(exports))+"\nObjects: "+", ".join(x.name for x in [amb_obj,dub_obj,*zen_objs,hybrid_core_obj,hybrid_adapter_obj])+"\n")
+        "Exported DSP globals: "+str(len(exports))+"\nObjects: "+", ".join(x.name for x in [amb_obj,dub_obj,*zen_objs,hybrid_core_obj,hybrid_adapter_obj,hybrid_profile_obj])+"\n")
     print("DSP objects compiled, namespaced and added to Felucca's final AC79 link.")
     print("HYBRID mixer hooks installed: GHOULBOX native mix plus AMB-1, DUB-1 and ZEN-1 overlays.")
+    print("AC79 runtime profiler linked: per-engine TIMER4 timing, stack samples, buffer registration and DMA underruns.")
 
 if __name__=="__main__": main()

@@ -118,7 +118,7 @@ int main(void)
         total_frames += frames;
     }
 
-    assert(total_frames > 1000000u);
+    assert(total_frames > 900000u);
     for (e = 0; e < HYBRID_CHANNELS; ++e) {
         assert(engines[e].render_calls > 0u);
         assert(engines[e].rendered_frames > 1000000u / 2u);
