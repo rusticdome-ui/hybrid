@@ -71,10 +71,15 @@ def main():
     if missing: raise SystemExit("required adapter ABI missing: "+", ".join(missing))
     build_py=a.felucca/"tools/build.py"
     src=build_py.read_text()
-    anchor='OUT / "felucca.o", "-o", elf)'
-    replacement='OUT / "felucca.o", *sorted((OUT / "hybrid").glob("*.o")), "-o", elf)'
+    anchor='''    tc("pi32v2/bin/ld", "-T", ld, OUT / "crt0.o", OUT / "fm1_vec.o", OUT / "fm1_isr.o",
+       OUT / "felucca.o", "-o", elf)'''
+    replacement='''    tc("pi32v2/bin/ld", "-T", ld, OUT / "crt0.o", OUT / "fm1_vec.o", OUT / "fm1_isr.o",
+       OUT / "felucca.o", OUT / "hybrid" / "amb.o", OUT / "hybrid" / "dub.o",
+       *[OUT / "hybrid" / (Path(name).stem + ".o") for name in ZEN],
+       "-o", elf)'''
     if replacement not in src:
-        if src.count(anchor)!=1: raise SystemExit("Felucca link anchor changed; refusing unsafe patch")
+        if src.count(anchor)!=1:
+            raise SystemExit("Felucca AC79 linker invocation changed; refusing unsafe patch")
         build_py.write_text(src.replace(anchor,replacement))
     (out/"NAMESPACE-MANIFEST.txt").write_text(
         "Exported DSP globals: "+str(len(exports))+"\nObjects: "+", ".join(x.name for x in [amb_obj,dub_obj,*zen_objs])+"\n")
