@@ -13,10 +13,10 @@ The per-object values below were read from the JieLi pi32v2 `objdump -h` output 
 ## HYBRID object sizes
 
 | Object | .text | .rodata | .data | .bss | .pool |
-|---|---:|---:|---:|---:|
-| AMB-1 (`amb.o`) | 28,364 | 80 | 26,594 | 262,824 |
-| DUB-1 (`dub.o`) | 57,254 | 162 | 46,565 | 262,824 |
-| ZEN-1 (`fumi.o`) | 37,550 | 40 | 10,488 | 135,300 |
+|---|---:|---:|---:|---:|---:|
+| AMB-1 (`amb.o`) | 28,364 | 1,592 | 80 | 26,594 | 262,824 |
+| DUB-1 (`dub.o`) | 57,254 | 6,170 | 162 | 46,565 | 262,824 |
+| ZEN-1 (`fumi.o`) | 37,550 | 290,817 | 40 | 10,488 | 135,300 |
 | HYBRID core | 1,746 | 0 | 0 | 0 | 0 |
 | Native adapters/mixer | 870 | 138 | 0 | 11,652 | 0 |
 | Runtime profiler | 502 | 0 | 0 | 44 | 0 |
