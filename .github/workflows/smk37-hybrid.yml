@@ -33,6 +33,14 @@ jobs:
             -o /tmp/test_hybrid_core
           /tmp/test_hybrid_core
 
+      - name: Compile and run native adapter contract tests
+        run: |
+          cc -std=c99 -Wall -Wextra -Werror -Iinclude \\
+            src/hybrid_core.c src/hybrid_native_adapters.c \\
+            tests/native_port_stubs.c tests/test_native_adapters.c \\
+            -o /tmp/test_native_adapters
+          /tmp/test_native_adapters
+
   smk37-reference-build:
     name: SMK-37 GHOULBOX reference build (JieLi AC79)
     runs-on: ubuntu-24.04
