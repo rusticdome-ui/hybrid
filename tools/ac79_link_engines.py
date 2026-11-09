@@ -105,7 +105,8 @@ def main():
     replacement = f"""    tc("pi32v2/bin/ld", "--gc-sections", "-T", ld, OUT / "crt0.o", OUT / "fm1_vec.o", OUT / "fm1_isr.o",
        OUT / "felucca.o", OUT / "hybrid" / "amb.o", OUT / "hybrid" / "dub.o",
        {zen_link_args}, OUT / "hybrid" / "hybrid_core.o",
-       OUT / "hybrid" / "hybrid_native_adapters.o", OUT / "hybrid" / "hybrid_profile.o", "-o", elf)"""
+       OUT / "hybrid" / "hybrid_native_adapters.o", OUT / "hybrid" / "hybrid_profile.o",
+       "-Map", OUT / "felucca.map", "-o", elf)"""
     if replacement not in src:
         if src.count(anchor)!=1:
             raise SystemExit("Felucca AC79 linker invocation changed; refusing unsafe patch")
