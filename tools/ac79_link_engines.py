@@ -121,10 +121,10 @@ def main():
 
     audio_c=a.felucca/"firmware/src/audio.c"
     patch_source(audio_c, "/* registers: hal/fm1_audio.h */",
-                 "/* registers: hal/fm1_audio.h */\nextern void hybrid_audio_process(int32_t *, uint32_t, int32_t);",
+                 "/* registers: hal/fm1_audio.h */\nextern void hybrid_audio_process(int32_t *, uint32_t, int32_t);\nextern void hybrid_profile_begin(int);\nextern void hybrid_profile_end(int, uint32_t);\nextern void hybrid_profile_underrun(void);",
                  "audio.c declaration")
     patch_source(audio_c, "    mix_block(out, n);",
-                 "    mix_block(out, n);\n    hybrid_audio_process(out, n, fx_usb_fixed ? MASTER_FULL : (int32_t)song.master_q12);",
+                 "    hybrid_profile_begin(3);\n    mix_block(out, n);\n    hybrid_profile_end(3, n);\n    hybrid_audio_process(out, n, fx_usb_fixed ? MASTER_FULL : (int32_t)song.master_q12);",
                  "audio.c mixer hook")
 
     main_c=a.felucca/"firmware/src/main.c"
