@@ -113,7 +113,24 @@ jobs:
           cp "$RUNNER_TEMP/hybrid-"* "$RUNNER_TEMP/ac79-diagnostics/" 2>/dev/null
           cp "$RUNNER_TEMP/Felucca/build/felucca.map" "$RUNNER_TEMP/ac79-diagnostics/" 2>/dev/null
           cp "$RUNNER_TEMP/Felucca/build/hybrid/"*.map "$RUNNER_TEMP/ac79-diagnostics/" 2>/dev/null
-          if [ -f "$RUNNER_TEMP/Felucca/build/felucca.elf" ]; then "$JIELI_TOOLCHAIN/common/bin/objdump" -h "$RUNNER_TEMP/Felucca/build/felucca.elf" > "$RUNNER_TEMP/ac79-diagnostics/hybrid-sections.txt"; fi
+          cd "$RUNNER_TEMP/Felucca"
+          if [ -f build/felucca.o ] && [ -f build/hybrid/amb.o ]; then
+            LD_SCRIPT=build/app.ld
+            [ -f "$LD_SCRIPT" ] || LD_SCRIPT=firmware/app.ld
+            "$JIELI_TOOLCHAIN/pi32v2/bin/ld" --noinhibit-exec --gc-sections -T "$LD_SCRIPT" \
+              build/crt0.o build/fm1_vec.o build/fm1_isr.o build/felucca.o \
+              build/hybrid/amb.o build/hybrid/dub.o build/hybrid/fumi.o \
+              build/hybrid/hybrid_core.o build/hybrid/hybrid_native_adapters.o build/hybrid/hybrid_profile.o \
+              -Map build/felucca-diagnostic.map -o build/felucca-diagnostic.elf \
+              > "$RUNNER_TEMP/ac79-diagnostics/diagnostic-link.txt" 2>&1
+            "$JIELI_TOOLCHAIN/common/bin/objdump" -h build/felucca-diagnostic.elf > "$RUNNER_TEMP/ac79-diagnostics/hybrid-sections.txt" 2>&1
+            "$JIELI_TOOLCHAIN/common/bin/objdump" -h build/hybrid/amb.o build/hybrid/dub.o build/hybrid/fumi.o \
+              build/hybrid/hybrid_core.o build/hybrid/hybrid_native_adapters.o build/hybrid/hybrid_profile.o \
+              > "$RUNNER_TEMP/ac79-diagnostics/hybrid-object-sections.txt" 2>&1
+            cp build/felucca-diagnostic.map "$RUNNER_TEMP/ac79-diagnostics/" 2>/dev/null
+          fi
+          find "$JIELI_TOOLCHAIN" -type f \\( -name 'libgcc.a' -o -name 'libclang_rt.builtins*.a' \\) \
+            > "$RUNNER_TEMP/ac79-diagnostics/compiler-runtime-libraries.txt" 2>/dev/null
           find "$RUNNER_TEMP/ac79-diagnostics" -maxdepth 1 -type f -print
       - name: Upload AC79 linker diagnostics
         if: always()
