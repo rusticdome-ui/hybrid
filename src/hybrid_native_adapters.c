@@ -119,3 +119,51 @@ const hybrid_engine_ops_t hybrid_zen_ops = {
     "ZEN-1", zen_init, zen_reset, zen_note_on, zen_note_off,
     zen_control, zen_render, zen_panic, 0, 0
 };
+
+
+/* Runtime bridge used by Felucca's audio ISR. GHOULBOX remains the native
+ * fourth engine: its mix_block() runs first and is never replaced. These
+ * three DSPs are mixed afterwards in the same signed-Q15 domain. */
+static hybrid_core_t hybrid_audio_core;
+static int32_t hybrid_audio_mix[HYBRID_MAX_FRAMES * 2u];
+static uint8_t hybrid_audio_ready;
+
+int hybrid_audio_init(void)
+{
+    hybrid_init_defaults(&hybrid_audio_core);
+    if (hybrid_register_native_engines(&hybrid_audio_core) != 0)
+        return -1;
+    if (hybrid_start(&hybrid_audio_core) != 0)
+        return -1;
+    hybrid_audio_ready = 1;
+    return 0;
+}
+
+void hybrid_audio_process(int32_t *out_q15, uint32_t frames, int32_t master_q12)
+{
+    uint32_t i;
+    if (!hybrid_audio_ready || !out_q15 || !frames ||
+        frames > HYBRID_MAX_FRAMES || master_q12 <= 0)
+        return;
+    if (hybrid_process(&hybrid_audio_core, hybrid_audio_mix, (uint16_t)frames) != 0)
+        return;
+    for (i = 0; i < frames * 2u; ++i) {
+        int64_t v = (int64_t)out_q15[i] +
+                    ((int64_t)hybrid_audio_mix[i] * master_q12 >> 12);
+        if (v > 32767) v = 32767;
+        if (v < -32768) v = -32768;
+        out_q15[i] = (int32_t)v;
+    }
+}
+
+void hybrid_audio_note_on(uint8_t note, uint8_t velocity)
+{
+    if (hybrid_audio_ready)
+        hybrid_note_on(&hybrid_audio_core, note, velocity, 0);
+}
+
+void hybrid_audio_note_off(uint8_t note)
+{
+    if (hybrid_audio_ready)
+        hybrid_note_off(&hybrid_audio_core, note, 0);
+}
