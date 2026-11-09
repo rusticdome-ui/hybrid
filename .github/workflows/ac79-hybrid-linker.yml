@@ -9,6 +9,9 @@ on:
       - "src/**"
       - "include/**"
       - "ac79/**"
+      - "tools/ac79_profile_report.py"
+      - "docs/**"
+      - "tests/**"
       - ".github/workflows/ac79-hybrid-linker.yml"
   pull_request:
     paths:
