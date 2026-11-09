@@ -27,3 +27,16 @@ Remaining work includes engine adapters, persistent scene storage/versioning/CRC
 
 ## Licensing
 SPDX-License-Identifier: GPL-3.0-only. When importing upstream engine code, retain all copyright, license and third-party notices and verify compatibility for every imported file.
+
+
+## GitHub Actions: SMK-37 build pipeline
+
+The workflow `.github/workflows/smk37-hybrid.yml` runs on pushes, pull requests and manual dispatch.
+
+- Compiles and runs the isolated HYBRID core host tests.
+- Downloads the Linux x86-64 JieLi pi32v2 toolchain.
+- Checks out JieLi AC79 SDK `AC79NN_SDK_V1.2.1_2023-12-13`.
+- Checks out the upstream `Felucca` `ghoulbox-smk37` branch and builds its SMK-37 Pro reference package with `tools/build.py --board smk37 --model pro`.
+- Uploads `ghoulbox-smk37.fwsc` as a 14-day Actions artifact, alongside the upstream source commit identifier.
+
+**Important:** this is currently a GHOULBOX reference package build, not an integrated SMK-37 HYBRID firmware. The hybrid core tests do not imply that AMB-1, DUB-1, ZEN-1 and GHOULBOX have been integrated into the device firmware. Do not flash the reference artifact as the HYBRID build.
