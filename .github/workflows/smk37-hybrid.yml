@@ -5,10 +5,12 @@ on:
     branches:
       - main
       - hybrid-core-integration
+      - hybrid-three-engine-adapters
   pull_request:
     branches:
       - main
       - hybrid-core-integration
+      - hybrid-three-engine-adapters
   workflow_dispatch:
 
 permissions:
@@ -35,9 +37,9 @@ jobs:
 
       - name: Compile and run native adapter contract tests
         run: |
-          cc -std=c99 -Wall -Wextra -Werror -Iinclude \\
-            src/hybrid_core.c src/hybrid_native_adapters.c \\
-            tests/native_port_stubs.c tests/test_native_adapters.c \\
+          cc -std=c99 -Wall -Wextra -Werror -Iinclude \
+            src/hybrid_core.c src/hybrid_native_adapters.c \
+            tests/native_port_stubs.c tests/test_native_adapters.c \
             -o /tmp/test_native_adapters
           /tmp/test_native_adapters
 
