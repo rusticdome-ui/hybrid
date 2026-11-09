@@ -3,7 +3,7 @@ name: AC79 isolated DSP linker check
 on:
   workflow_dispatch:
   push:
-    branches: [ac79-hybrid-linker, hybrid-audio-mixer-integration]
+    branches: [ac79-hybrid-linker, hybrid-audio-mixer-integration, hybrid-ac79-profiler]
     paths:
       - "tools/ac79_link_engines.py"
       - "src/**"
@@ -16,6 +16,9 @@ on:
       - "src/**"
       - "include/**"
       - "ac79/**"
+      - "tools/ac79_profile_report.py"
+      - "docs/**"
+      - "tests/**"
 
 permissions:
   contents: read
@@ -75,12 +78,19 @@ jobs:
           MODEL: pro
           JIELI_TOOLCHAIN: ${{ env.JIELI_TOOLCHAIN }}
         run: python3 tools/build.py --board smk37 --model pro --sdk "$AC79_SDK"
-      - name: Upload linked AC79 package for inspection only
+      - name: Generate AC79 static memory and profiler report
+        working-directory: ${{ runner.temp }}/Felucca
+        run: |
+          set -euo pipefail
+          "$JIELI_TOOLCHAIN/common/bin/objdump" -t build/felucca.elf > "$RUNNER_TEMP/felucca-symbols.txt"
+          python3 "$GITHUB_WORKSPACE/tools/ac79_profile_report.py" --symbols "$RUNNER_TEMP/felucca-symbols.txt" --output build/hybrid/AC79-PROFILE-REPORT.md
+      - name: Upload linked AC79 package and profiling report
         uses: actions/upload-artifact@v4
         with:
           name: smk37-ac79-dsp-linked-${{ github.sha }}
           path: |
             ${{ runner.temp }}/Felucca/build/ghoulbox-smk37.fwsc
             ${{ runner.temp }}/Felucca/build/hybrid/NAMESPACE-MANIFEST.txt
+            ${{ runner.temp }}/Felucca/build/hybrid/AC79-PROFILE-REPORT.md
           if-no-files-found: error
           retention-days: 7
