@@ -98,6 +98,15 @@ static void zen_render(void *state, int32_t *out, uint16_t frames)
 }
 static void zen_panic(void *state) { (void)state; zen_fm_panic(); }
 
+int hybrid_register_native_engines(hybrid_core_t *core)
+{
+    if (!core) return -1;
+    if (hybrid_register_engine(core, HYBRID_AMB, &hybrid_amb_ops, 0) != 0) return -1;
+    if (hybrid_register_engine(core, HYBRID_DUB, &hybrid_dub_ops, 0) != 0) return -1;
+    if (hybrid_register_engine(core, HYBRID_ZEN, &hybrid_zen_ops, 0) != 0) return -1;
+    return 0;
+}
+
 const hybrid_engine_ops_t hybrid_amb_ops = {
     "AMB-1", amb_init, amb_reset, amb_note_on, amb_note_off,
     amb_control, amb_render, amb_panic, 0, 0
