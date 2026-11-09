@@ -12,15 +12,15 @@ The per-object values below were read from the JieLi pi32v2 `objdump -h` output 
 
 ## HYBRID object sizes
 
-| Object | .text | .data | .bss | .pool |
+| Object | .text | .rodata | .data | .bss | .pool |
 |---|---:|---:|---:|---:|
 | AMB-1 (`amb.o`) | 28,364 | 80 | 26,594 | 262,824 |
 | DUB-1 (`dub.o`) | 57,254 | 162 | 46,565 | 262,824 |
 | ZEN-1 (`fumi.o`) | 37,550 | 40 | 10,488 | 135,300 |
-| HYBRID core | 1,746 | 0 | 0 | 0 |
-| Native adapters/mixer | 870 | 0 | 11,652 | 0 |
-| Runtime profiler | 502 | 0 | 44 | 0 |
-| **Total** | **126,286** | **282** | **95,343** | **660,948** |
+| HYBRID core | 1,746 | 0 | 0 | 0 | 0 |
+| Native adapters/mixer | 870 | 138 | 0 | 11,652 | 0 |
+| Runtime profiler | 502 | 0 | 0 | 44 | 0 |
+| **Total** | **126,286** | **298,717** | **282** | **95,343** | **660,948** |
 
 All values are bytes. The .bss column includes each object's individual .bss.* sections.
 
@@ -37,7 +37,7 @@ Felucca linker script `firmware/app.ld` reserves:
 
 - RAM: 96 KiB = 98,304 B
 - POOL: 0x54000 = 344,064 B
-- XIP: 0x8DFBC = 909,244 B
+- XIP: 0x8DFBC = 581,564 B
 - RAMTEXT: 24 KiB
 - NOINIT: 0x3D50 bytes
 
@@ -49,9 +49,9 @@ The measured POOL arithmetic is exact:
 
 This equals the linker-reported POOL overflow in Actions run #57. It confirms that the three DSP object pools account for the full reported POOL excess in that build.
 
-The DSPs also add 95,625 B of .data + .bss at object level, before any additional linker-generated/common-symbol effects. The linker reported 88,180 B RAM overflow. Do not treat the pre-link object total as final RAM placement.
+The DSPs also add 95,625 B of .data + .bss at object level, before any additional linker-generated/common-symbol effects. Their pre-GC read-only data adds another 298,717 B to XIP; combined .text + .rodata across these objects is 425,003 B. The linker reported 88,180 B RAM overflow. Do not treat the pre-link object total as final RAM placement.
 
-The linker reported XIP overflow of 372,292 B. The DSP objects contain 126,286 B of .text pre-GC; the remaining final XIP footprint needs a successful linked map to attribute reliably.
+The linker reported XIP overflow of 372,292 B. The DSP objects contain 126,286 B of .text and 298,717 B of .rodata pre-GC (425,003 B combined). Garbage collection and linker-generated content mean the final per-object contribution still needs a successful linked map.
 
 ## External RAM feasibility
 
