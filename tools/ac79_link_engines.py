@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
 """Compile isolated AMB-1, DUB-1 and ZEN-1 AC79 objects and attach them to Felucca."""
-import argparse, os, re, subprocess
+import argparse, os, re, shutil, subprocess
 from pathlib import Path
 
 CFLAGS = ["-target", "pi32v2", "-Os", "-ffunction-sections", "-fdata-sections",
@@ -48,9 +48,20 @@ def main():
     p.add_argument("--hybrid",type=Path,default=Path(__file__).resolve().parents[1])
     a=p.parse_args()
     tc=a.toolchain.resolve()
-    clang,nm,objcopy=tc/"pi32v2/bin/clang",tc/"common/bin/nm",tc/"common/bin/objcopy"
-    for tool in (clang,nm,objcopy):
-        if not tool.is_file(): raise SystemExit(f"missing JieLi tool: {tool}")
+    clang=tc/"pi32v2/bin/clang"
+    def find_tool(candidates, fallback):
+        for candidate in candidates:
+            if candidate.is_file() and os.access(candidate, os.X_OK):
+                return candidate
+        found=shutil.which(fallback)
+        if found:
+            return Path(found)
+        raise SystemExit(f"missing {fallback}; checked: "+", ".join(map(str,candidates)))
+    # JieLi releases may omit common/bin/nm and common/bin/objcopy. LLVM host
+    # tools can inspect and rewrite the symbol table in pi32v2 ELF objects.
+    nm=find_tool([tc/"common/bin/nm",tc/"pi32v2/bin/llvm-nm"],"llvm-nm")
+    objcopy=find_tool([tc/"common/bin/objcopy",tc/"pi32v2/bin/llvm-objcopy"],"llvm-objcopy")
+    if not clang.is_file(): raise SystemExit(f"missing JieLi compiler: {clang}")
     out=a.felucca/"build/hybrid"; out.mkdir(parents=True,exist_ok=True)
     fwsrc,hal=a.felucca/"firmware/src",a.felucca/"firmware/hal"
     amb_obj,dub_obj=out/"amb.o",out/"dub.o"
