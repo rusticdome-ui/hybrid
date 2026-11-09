@@ -59,8 +59,10 @@ def main():
         raise SystemExit(f"missing {fallback}; checked: "+", ".join(map(str,candidates)))
     # JieLi releases may omit common/bin/nm and common/bin/objcopy. LLVM host
     # tools can inspect and rewrite the symbol table in pi32v2 ELF objects.
-    nm=find_tool([tc/"common/bin/nm",tc/"pi32v2/bin/llvm-nm"],"llvm-nm")
-    objcopy=find_tool([tc/"common/bin/objcopy",tc/"pi32v2/bin/llvm-objcopy"],"llvm-objcopy")
+    nm_candidates=[tc/"common/bin/nm",tc/"pi32v2/bin/llvm-nm",*tc.rglob("nm"),*tc.rglob("llvm-nm")]
+    objcopy_candidates=[tc/"common/bin/objcopy",tc/"pi32v2/bin/llvm-objcopy",*tc.rglob("objcopy"),*tc.rglob("llvm-objcopy")]
+    nm=find_tool(nm_candidates,"llvm-nm")
+    objcopy=find_tool(objcopy_candidates,"llvm-objcopy")
     if not clang.is_file(): raise SystemExit(f"missing JieLi compiler: {clang}")
     out=a.felucca/"build/hybrid"; out.mkdir(parents=True,exist_ok=True)
     fwsrc,hal=a.felucca/"firmware/src",a.felucca/"firmware/hal"
