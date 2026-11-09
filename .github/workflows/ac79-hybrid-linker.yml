@@ -165,12 +165,14 @@ jobs:
                   category = ".data"
               elif name.startswith(".text"):
                   category = ".text"
+              elif name.startswith(".rodata"):
+                  category = ".rodata"
               elif name == ".ram_text":
                   category = ".ram_text"
               else:
                   continue
               totals[current][category] += size
-          categories = (".text", ".data", ".bss", ".pool", ".ram_text")
+          categories = (".text", ".rodata", ".data", ".bss", ".pool", ".ram_text")
           with open(target, "w", encoding="utf-8") as out:
               out.write("Relocatable object section sizes (pre-GC; not final linked occupancy)\n")
               for obj, values in sorted(totals.items()):
