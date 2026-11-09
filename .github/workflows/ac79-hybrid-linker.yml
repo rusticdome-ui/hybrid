@@ -39,6 +39,8 @@ jobs:
           curl -fL --retry 3 https://pkgman.jieliapp.com/s/linux-toolchain | tar -xJ -C "$HOME/.jieli"
           tc_dir="$(find "$HOME/.jieli" -maxdepth 1 -type d -name 'jieli-linux-toolchains-*' | sort | tail -n 1)"
           test -x "$tc_dir/pi32v2/bin/clang"
+          echo "Available symbol tools in JieLi package:"
+          find "$tc_dir" -type f -name "*nm*" -o -name "*objcopy*" -print
           ln -sfn "$tc_dir" "$HOME/.jieli/toolchain"
           echo "JIELI_TOOLCHAIN=$HOME/.jieli/toolchain" >> "$GITHUB_ENV"
       - name: Checkout AC79 SDK
