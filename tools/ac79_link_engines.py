@@ -62,7 +62,10 @@ def main():
     nm_candidates=[tc/"common/bin/nm",tc/"pi32v2/bin/llvm-nm",*tc.rglob("nm"),*tc.rglob("llvm-nm")]
     objcopy_candidates=[tc/"common/bin/objcopy",tc/"pi32v2/bin/llvm-objcopy",*tc.rglob("objcopy"),*tc.rglob("llvm-objcopy")]
     nm=find_tool(nm_candidates,"llvm-nm")
-    objcopy=find_tool(objcopy_candidates,"llvm-objcopy")
+    # JieLi common/bin/objcopy rejects --redefine-syms; prefer host LLVM.
+    host_objcopy=shutil.which("llvm-objcopy")
+    objcopy=Path(host_objcopy) if host_objcopy else find_tool(
+        [tc/"pi32v2/bin/llvm-objcopy",*tc.rglob("llvm-objcopy")],"llvm-objcopy")
     if not clang.is_file(): raise SystemExit(f"missing JieLi compiler: {clang}")
     out=a.felucca/"build/hybrid"; out.mkdir(parents=True,exist_ok=True)
     fwsrc,hal=a.felucca/"firmware/src",a.felucca/"firmware/hal"
