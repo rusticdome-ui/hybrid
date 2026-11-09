@@ -72,8 +72,8 @@ jobs:
           import sys
           p = Path(sys.argv[1])
           s = p.read_text()
-          old = '    tc("pi32v2/bin/ld", "-T", ld, OUT / "crt0.o", OUT / "fm1_vec.o", OUT / "fm1_isr.o",\\n       OUT / "felucca.o", "-o", elf)'
-          new = '    tc("pi32v2/bin/ld", "-T", ld, OUT / "crt0.o", OUT / "fm1_vec.o", OUT / "fm1_isr.o",\\n       OUT / "felucca.o", "-Map", OUT / "felucca-baseline.map", "-o", elf)'
+          old = '    tc("pi32v2/bin/ld", "-T", ld, OUT / "crt0.o", OUT / "fm1_vec.o", OUT / "fm1_isr.o",' + chr(10) + '       OUT / "felucca.o", "-o", elf)'
+          new = '    tc("pi32v2/bin/ld", "-T", ld, OUT / "crt0.o", OUT / "fm1_vec.o", OUT / "fm1_isr.o",' + chr(10) + '       OUT / "felucca.o", "-Map", OUT / "felucca-baseline.map", "-o", elf)'
           if s.count(old) != 1:
               raise SystemExit("Could not locate unique baseline linker invocation")
           p.write_text(s.replace(old, new))
