@@ -149,6 +149,7 @@ def main():
     (out/"NAMESPACE-MANIFEST.txt").write_text(
         "Exported DSP globals: "+str(len(exports))+"\nObjects: "+", ".join(x.name for x in [amb_obj,dub_obj,*zen_objs,hybrid_core_obj,hybrid_adapter_obj,hybrid_profile_obj])+"\n")
     print("DSP objects compiled, namespaced and added to Felucca's final AC79 link.")
-    print("HYBRID mixer hooks installed: GHOULBOX native mix plus AMB-1, DUB-1 and ZEN-1 overlays.")\n    print("AC79 runtime profiler linked: per-engine TIMER4 timing, stack samples, buffer registration and DMA underruns.")
+    print("HYBRID mixer hooks installed: GHOULBOX native mix plus AMB-1, DUB-1 and ZEN-1 overlays.")
+    print("AC79 runtime profiler linked: per-engine TIMER4 timing, stack samples, buffer registration and DMA underruns.")
 
 if __name__=="__main__": main()
