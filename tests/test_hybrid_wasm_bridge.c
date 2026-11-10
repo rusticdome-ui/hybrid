@@ -3,8 +3,8 @@
 int hybrid_wasm_init(void);
 int hybrid_wasm_process(uint32_t);
 void hybrid_wasm_note_on(uint32_t,uint32_t,uint32_t);
-uint32_t hybrid_wasm_output_ptr(void);
-uint32_t hybrid_wasm_pcm_ptr(uint32_t);
+uintptr_t hybrid_wasm_output_ptr(void);
+uintptr_t hybrid_wasm_pcm_ptr(uint32_t);
 int hybrid_wasm_submit_pcm(uint32_t,uint32_t);
 int hybrid_wasm_set_mix(uint32_t,uint32_t,int32_t,uint32_t,uint32_t);
 
@@ -17,7 +17,8 @@ static int32_t clamp_q15_ref(int32_t x)
 
 int main(void)
 {
-    uint32_t id, i, out;
+    uint32_t id, i;
+    uintptr_t out;
     int32_t *pcm[3], *mixed;
     const int32_t left[3] = {1234, 2000, -300};
     const int32_t right[3] = {-2345, 1000, -400};
