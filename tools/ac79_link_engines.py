@@ -120,6 +120,9 @@ static void shot_start(int i, int seg, int vel, int pan, float rate)
 { (void)i; (void)seg; (void)vel; (void)pan; (void)rate; }
 static void bed_drop(int vel, int pan, int pad) { (void)vel; (void)pan; (void)pad; }""",
                        "ZEN bed include")
+    src = replace_once(src, "    bed.drip = 0;                                 /* (and a shower's drips: silence is silence) */\n    for (i = 0; i < BED_DROPS; i++)\n        bed.d[i].left = 0;",
+                      "    /* Optional sample-bed state is absent in HYBRID compact profile. */",
+                      "ZEN quiet bed state")
     src = replace_once(src, "            for (i = 0; i < FM_NSHOT; i++)              /* and the frogs' calls */\n                bed.shot[i].data = 0;\n            bed.drip = 0;                          /* and a shower's drips (the scene is left) */",
                       "            /* Optional sample-bed voices are not part of the HYBRID compact profile. */",
                       "ZEN voice-all-off bed state")
