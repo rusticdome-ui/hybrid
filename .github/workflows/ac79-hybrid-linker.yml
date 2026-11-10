@@ -126,6 +126,13 @@ jobs:
           git clone --depth 1 --branch smk37 https://github.com/genkigenki/fm1-dub.git "$RUNNER_TEMP/dub"
           git clone --depth 1 --branch smk37 https://github.com/genkigenki/zen-1.git "$RUNNER_TEMP/zen"
           git clone --depth 1 --branch ghoulbox-smk37 https://github.com/genkigenki/Felucca.git "$RUNNER_TEMP/Felucca"
+      - name: Test original AMB, DUB and ZEN DSP render and note paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd "$RUNNER_TEMP/amb" && cc -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wdouble-promotion -Werror -DEN_HOST -DBOARD_SMK37=1 -Ifirmware/src/dsp -o "$RUNNER_TEMP/amb-dsp-test" tests/host/amb_test.c firmware/src/dsp/amb.c -lm && "$RUNNER_TEMP/amb-dsp-test")
+          (cd "$RUNNER_TEMP/dub" && cc -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wdouble-promotion -Werror -DEN_HOST -DBOARD_SMK37=1 -Ifirmware/src/dsp -o "$RUNNER_TEMP/dub-dsp-test" tests/host/amb_test.c firmware/src/dsp/amb.c -lm && "$RUNNER_TEMP/dub-dsp-test")
+          (cd "$RUNNER_TEMP/zen" && cc -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Werror -Wno-unused-function -DFM_HOST -Ifirmware/src/dsp -o "$RUNNER_TEMP/zen-dsp-test" tests/host/zen_test.c -lm && "$RUNNER_TEMP/zen-dsp-test")
       - name: Compile DSP objects and patch final AC79 link
         run: |
           python3 tools/ac79_link_engines.py \
@@ -145,6 +152,12 @@ jobs:
           FELUCCA_UAC: "0"
           FELUCCA_ICONS: "0"
         run: python3 tools/build.py --board smk37 --model pro --sdk "$AC79_SDK"
+      - name: Run GHOULBOX native audio, note, panic and stability regressions
+        working-directory: ${{ runner.temp }}/Felucca
+        env:
+          HOST_ONLY: "1"
+          AC79_SDK: ${{ env.AC79_SDK }}
+        run: sh tests/run_tests.sh
       - name: Collect linker maps and section diagnostics
         if: always()
         shell: bash
