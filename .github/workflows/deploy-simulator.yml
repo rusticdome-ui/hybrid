@@ -1,0 +1,30 @@
+name: Deploy SMK-37 HYBRID Virtual Lab
+on:
+  workflow_dispatch:
+  push:
+    branches: [hybrid-memory-reduction]
+    paths:
+      - "simulator/**"
+      - ".github/workflows/deploy-simulator.yml"
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: simulator
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
