@@ -54,13 +54,17 @@
   }
   class NativeEngineRack {
     constructor(){this.engines=new Map();this.enabled=false;this.status={};this.held=new Map();this.channel=0;this.master=80;}
-    async loadAll(){
+    async loadAll(preloadedBytes=null){
       const loaded=[];
       for(const spec of SPECS){
         try{
-          const response=await fetch(spec.url);
-          if(!response.ok)throw new Error('HTTP '+response.status+' ao obter '+spec.url);
-          const bytes=await response.arrayBuffer();
+          let bytes;
+          if(preloadedBytes && preloadedBytes[spec.id]) bytes=preloadedBytes[spec.id];
+          else {
+            const response=await fetch(spec.url);
+            if(!response.ok)throw new Error('HTTP '+response.status+' ao obter '+spec.url);
+            bytes=await response.arrayBuffer();
+          }
           const instance=await instantiateNative(bytes);
           const e=instance.exports;
           for(const fn of ['web_boot','web_render','web_out_l','web_out_r','web_keys','web_buttons','web_enc','web_master'])
