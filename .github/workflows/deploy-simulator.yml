@@ -29,6 +29,44 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Checkout original AMB-1 source
+        uses: actions/checkout@v4
+        with:
+          repository: genkigenki/fm1-amb
+          ref: smk37
+          path: engines/amb
+      - name: Checkout original DUB-1 source
+        uses: actions/checkout@v4
+        with:
+          repository: genkigenki/fm1-dub
+          ref: smk37
+          path: engines/dub
+      - name: Checkout original ZEN-1 source
+        uses: actions/checkout@v4
+        with:
+          repository: genkigenki/zen-1
+          ref: smk37
+          path: engines/zen
+      - name: Install Emscripten for original native renderers
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.64
+          actions-cache-folder: emsdk-cache
+      - name: Install upstream font generator dependency
+        run: python3 -m pip install --user Pillow
+      - name: Build original AMB-1, DUB-1 and ZEN-1 browser renderers
+        run: |
+          set -euxo pipefail
+          (cd engines/amb && sh web/emu/build.sh)
+          (cd engines/dub && sh web/emu/build.sh)
+          (cd engines/zen && sh web/emu/build.sh)
+          mkdir -p simulator/native
+          cp engines/amb/build/emu/amb.wasm simulator/native/amb1.wasm
+          cp engines/dub/build/emu/amb.wasm simulator/native/dub1.wasm
+          cp engines/zen/build/emu/zen1.wasm simulator/native/zen1.wasm
+          test -s simulator/native/amb1.wasm
+          test -s simulator/native/dub1.wasm
+          test -s simulator/native/zen1.wasm
       - name: Install WebAssembly linker and verify toolchain
         run: |
           set -eux
@@ -67,7 +105,7 @@ jobs:
           set -eux
           test -s simulator/index.html
           test -s simulator/hybrid_core.wasm
-          (cd simulator && zip -9 ../smk37-hybrid-virtual-lab.zip index.html hybrid_core.wasm README.md)
+          (cd simulator && zip -9 -r ../smk37-hybrid-virtual-lab.zip index.html native-engines.js hybrid_core.wasm README.md native)
           test -s smk37-hybrid-virtual-lab.zip
       - uses: actions/upload-artifact@v4
         with:
