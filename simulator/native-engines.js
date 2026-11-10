@@ -154,5 +154,5 @@
       return transferred;
     }
   }
-  window.HYBRIDNativeEngines={NativeEngineRack,SPECS,KEY_MIN,KEY_COUNT};
+  globalThis.HYBRIDNativeEngines={NativeEngineRack,SPECS,KEY_MIN,KEY_COUNT};
 })();
