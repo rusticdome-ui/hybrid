@@ -6,6 +6,7 @@
 #include "hybrid_core.h"
 
 /* Freestanding compiler-rt helper for the core's 64-bit transition interpolation. */
+#if defined(__wasm__)
 uint64_t __udivdi3(uint64_t numerator, uint64_t denominator) {
     uint64_t quotient=0, remainder=0; int bit;
     if(!denominator)return 0;
@@ -22,6 +23,7 @@ int64_t __divdi3(int64_t numerator, int64_t denominator) {
     uint64_t q=__udivdi3(a,b);
     return negative?-(int64_t)q:(int64_t)q;
 }
+#endif
 
 typedef struct { int32_t phase, step, level; uint32_t on, off; uint8_t note, velocity, active; } wasm_voice_t;
 static hybrid_core_t core;
