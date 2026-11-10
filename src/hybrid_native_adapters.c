@@ -203,3 +203,24 @@ void hybrid_audio_panic(void)
     if (hybrid_audio_ready)
         hybrid_panic(&hybrid_audio_core);
 }
+
+void hybrid_audio_midi_note_on(uint8_t note, uint8_t velocity, uint8_t channel)
+{
+    if (hybrid_audio_ready)
+        hybrid_note_on(&hybrid_audio_core, note, velocity, channel);
+}
+
+void hybrid_audio_midi_note_off(uint8_t note, uint8_t channel)
+{
+    if (hybrid_audio_ready)
+        hybrid_note_off(&hybrid_audio_core, note, channel);
+}
+
+void hybrid_audio_midi_panic(uint8_t channel)
+{
+    uint32_t note;
+    if (!hybrid_audio_ready)
+        return;
+    for (note = 0; note < 128u; ++note)
+        hybrid_note_off(&hybrid_audio_core, (uint8_t)note, channel);
+}
