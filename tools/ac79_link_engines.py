@@ -4,7 +4,7 @@
 import argparse, os, re, shutil, subprocess
 from pathlib import Path
 
-CFLAGS = ["-target", "pi32v2", "-Os", "-ffunction-sections", "-fdata-sections",
+CFLAGS = ["-target", "pi32v2", "-Oz", "-ffunction-sections", "-fdata-sections",
           "-fno-common", "-fno-builtin", "-Wall", "-Wno-unused-function", "-DBOARD_SMK37=1"]
 # fumi.c textually includes tuning.c, smooth.c, bend.c, fm6_core.c, fm6_patch.c, reverb.c and bed.c. Compile it once to avoid duplicate definitions.
 ZEN = ("fumi.c",)
@@ -84,13 +84,15 @@ static inline void reverb(float in, float *ol, float *or_)
     bass.target = (float)n;""",
         """static void bass_to(int pc)
 {
-    static const float BASS_NOTE[12] = {
-        36.0f, 37.0f, 38.0f, 39.0f, 40.0f, 41.0f,
-        42.0f, 43.0f, 44.0f, 45.0f, 46.0f, 47.0f
+    static const float BASS_NOTE[3][12] = {
+        {24.0f, 25.0f, 26.0f, 27.0f, 28.0f, 29.0f, 30.0f, 31.0f, 32.0f, 33.0f, 34.0f, 35.0f},
+        {36.0f, 37.0f, 38.0f, 39.0f, 40.0f, 41.0f, 42.0f, 43.0f, 44.0f, 45.0f, 46.0f, 47.0f},
+        {48.0f, 49.0f, 50.0f, 51.0f, 52.0f, 53.0f, 54.0f, 55.0f, 56.0f, 57.0f, 58.0f, 59.0f}
     };
     int oct = par[P_BASSOCT];
-    int n = 36 + pc % 12 + 12 * oct;               /* C2..B2, an octave down or up */
-    bass.target = BASS_NOTE[(unsigned)pc % 12u] + (oct < 0 ? -12.0f : oct > 0 ? 12.0f : 0.0f);""",
+    if (oct < -1) oct = -1;
+    if (oct > 1) oct = 1;
+    bass.target = BASS_NOTE[oct + 1][(unsigned)pc % 12u];""",
         "AMB bass pitch conversion"
     )
     (amb / "amb.c").write_text(amb_src)
@@ -214,6 +216,15 @@ def main():
     if not clang.is_file(): raise SystemExit(f"missing JieLi compiler: {clang}")
     out=a.felucca/"build/hybrid"; out.mkdir(parents=True,exist_ok=True)
     apply_memory_profile(a.amb, a.dub, a.zen, a.felucca)
+    # Compact the native GHOULBOX translation unit as well as the added DSPs.
+    build_py=a.felucca/"tools/build.py"
+    build_src=build_py.read_text()
+    build_src=replace_once(build_src,
+        'CFLAGS = ["-Os", "-ffunction-sections", "-fno-builtin", "-Wall", "-Wno-unused-function"]',
+        'CFLAGS = ["-Oz", "-ffunction-sections", "-fdata-sections", "-fno-builtin", "-Wall", "-Wno-unused-function"]',
+        "Felucca size-optimized section flags")
+    build_py.write_text(build_src)
+
     fwsrc,hal=a.felucca/"firmware/src",a.felucca/"firmware/hal"
     amb_obj,dub_obj=out/"amb.o",out/"dub.o"
     compile_one(clang,a.amb/"amb.c",amb_obj,[a.amb,fwsrc,hal])
