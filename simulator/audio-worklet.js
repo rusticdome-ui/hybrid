@@ -30,7 +30,28 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     this.rack=new globalThis.HYBRIDNativeEngines.NativeEngineRack();
     const loaded=await this.rack.loadAll(wasmBytes.engines);
     if(loaded.length!==3)throw Error('Expected original AMB/DUB/ZEN DSPs');
-    this.rack.setMaster(100);this.ready=true;
+    this.rack.setMaster(100);
+    // Warm the exact three-DSP + GHOULBOX + Q15 mixer path before exposing the node.
+    // This keeps first-call WASM/JIT work out of the live render deadline.
+    for(let warm=0;warm<8;warm++){
+      this.rack.renderToCore(this.core,128,false);
+      this.ghoulbox.web_render(128);
+      const gm=this.ghoulbox.memory.buffer,cm=this.core.memory.buffer;
+      const glp=this.ghoulbox.web_out_l()>>>0,grp=this.ghoulbox.web_out_r()>>>0,gp=this.core.hybrid_wasm_pcm_ptr(3)>>>0;
+      let gv=this.ghoulViews.get(128);
+      if(!gv||gv.ghoulMemory!==gm||gv.coreMemory!==cm||gv.glp!==glp||gv.grp!==grp||gv.gp!==gp){
+        gv={ghoulMemory:gm,coreMemory:cm,glp,grp,gp,left:new Float32Array(gm,glp,128),right:new Float32Array(gm,grp,128),pcm:new Int32Array(cm,gp,256)};
+        this.ghoulViews.set(128,gv);
+      }
+      for(let i=0;i<128;i++){
+        gv.pcm[2*i]=Math.max(-32768,Math.min(32767,Math.round(gv.left[i]*32767)));
+        gv.pcm[2*i+1]=Math.max(-32768,Math.min(32767,Math.round(gv.right[i]*32767)));
+      }
+      if(this.core.hybrid_wasm_submit_pcm(3,128)!==0)throw Error('GHOULBOX warm-up PCM submit failed');
+      if(this.core.hybrid_wasm_process(128)!==0)throw Error('HYBRID warm-up mixer failed');
+    }
+    this.rack.allNotesOff();this.core.hybrid_wasm_panic();
+    this.ready=true;
     for(const message of this.pendingMessages.splice(0))this.message(message);
     this.port.postMessage({type:'ready',engines:[...loaded,'GHOULBOX original firmware']});
   }
