@@ -4,7 +4,7 @@
 import argparse, os, re, shutil, subprocess
 from pathlib import Path
 
-CFLAGS = ["-target", "pi32v2", "-Oz", "-ffunction-sections", "-fdata-sections",
+CFLAGS = ["-target", "pi32v2", "-Oz", "-fno-unroll-loops", "-ffunction-sections", "-fdata-sections",
           "-fno-common", "-fno-builtin", "-Wall", "-Wno-unused-function", "-DBOARD_SMK37=1"]
 # fumi.c textually includes tuning.c, smooth.c, bend.c, fm6_core.c, fm6_patch.c, reverb.c and bed.c. Compile it once to avoid duplicate definitions.
 ZEN = ("fumi.c",)
@@ -60,9 +60,8 @@ def apply_memory_profile(amb, dub, zen, felucca):
     new_floor = """static inline float fm_floorf(float x)
 {
     fm_bits_t b;
-    uint32_t exponent, significand, magnitude, fraction = 0;
-    int32_t shift, integer;
-    float result;
+    uint32_t exponent, bits, mask;
+    int32_t shift;
     b.f = x;
     exponent = (b.u >> 23) & 0xFFu;
     if (exponent == 0xFFu)
@@ -70,24 +69,16 @@ def apply_memory_profile(amb, dub, zen, felucca):
     shift = (int32_t)exponent - 127;
     if (shift < 0)
         return (b.u >> 31) ? ((b.u & 0x7FFFFFFFu) == 0u ? x : -1.0f) : 0.0f;
-    if (shift >= 31)
+    if (shift >= 23)
         return x;
-    significand = (b.u & 0x7FFFFFu) | 0x800000u;
-    if (shift < 23) {
-        uint32_t bits = (uint32_t)(23 - shift);
-        magnitude = significand >> bits;
-        fraction = significand & ((1u << bits) - 1u);
-    } else {
-        magnitude = significand << (uint32_t)(shift - 23);
-    }
-    integer = (int32_t)magnitude;
-    if (b.u >> 31) {
-        integer = -integer;
-        if (fraction)
-            --integer;
-    }
-    result = (float)integer;
-    return result;
+    bits = (uint32_t)(23 - shift);
+    mask = (1u << bits) - 1u;
+    if ((b.u & mask) == 0u)
+        return x;
+    b.u &= ~mask;
+    if (b.u >> 31)
+        b.f -= 1.0f;
+    return b.f;
 }"""
     for root, label in ((amb, "AMB-1"), (dub, "DUB-1")):
         path = root / "fastmath.h"
@@ -270,7 +261,7 @@ def main():
     build_src=build_py.read_text()
     build_src=replace_once(build_src,
         'CFLAGS = ["-Os", "-ffunction-sections", "-fno-builtin", "-Wall", "-Wno-unused-function"]',
-        'CFLAGS = ["-Oz", "-ffunction-sections", "-fdata-sections", "-fno-builtin", "-Wall", "-Wno-unused-function"]',
+        'CFLAGS = ["-Oz", "-fno-unroll-loops", "-ffunction-sections", "-fdata-sections", "-fno-builtin", "-Wall", "-Wno-unused-function"]',
         "Felucca size-optimized section flags")
     build_py.write_text(build_src)
 
