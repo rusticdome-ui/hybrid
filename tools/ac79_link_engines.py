@@ -136,24 +136,24 @@ static void bed_drop(int vel, int pan, int pad) { (void)vel; (void)pan; (void)pa
     src = replace_once(src, "#define DLY_LEN 65536u", "#define DLY_LEN 32768u", "GHOULBOX delay capacity")
     replacements = {
         "static const uint16_t HL_D[H_N] = {2792, 189, 142, 504, 368, 917, 5922, 2394, 4948, 1231, 5609, 3532, 4207};":
-        "static const uint16_t HL_D[H_N] = {1396, 95, 71, 252, 184, 459, 2961, 1197, 2474, 616, 2805, 1766, 2103};",
-        "#define HL_B_I1 2793u": "#define HL_B_I1 1397u",
-        "#define HL_B_I2 2983u": "#define HL_B_I2 1492u",
-        "#define HL_B_I3 3126u": "#define HL_B_I3 1563u",
-        "#define HL_B_I4 3631u": "#define HL_B_I4 1816u",
-        "#define HL_B_AL 4000u": "#define HL_B_AL 2000u",
-        "#define HL_B_D1L 4918u": "#define HL_B_D1L 2459u",
-        "#define HL_B_APL 10841u": "#define HL_B_APL 5421u",
-        "#define HL_B_D2L 13236u": "#define HL_B_D2L 6618u",
-        "#define HL_B_AR 18185u": "#define HL_B_AR 9093u",
-        "#define HL_B_D1R 19417u": "#define HL_B_D1R 9709u",
-        "#define HL_B_APR 25027u": "#define HL_B_APR 12514u",
-        "#define HL_B_D2R 28560u": "#define HL_B_D2R 14280u",
-        "#define HL_AL 894u": "#define HL_AL 447u",
-        "#define HL_AR 1208u": "#define HL_AR 604u",
+        "static const uint16_t HL_D[H_N] = {1368, 93, 70, 247, 180, 449, 2902, 1173, 2425, 603, 2748, 1731, 2061};",
+        "#define HL_B_I1 2793u": "#define HL_B_I1 1369u",
+        "#define HL_B_I2 2983u": "#define HL_B_I2 1463u",
+        "#define HL_B_I3 3126u": "#define HL_B_I3 1534u",
+        "#define HL_B_I4 3631u": "#define HL_B_I4 1782u",
+        "#define HL_B_AL 4000u": "#define HL_B_AL 1963u",
+        "#define HL_B_D1L 4918u": "#define HL_B_D1L 2413u",
+        "#define HL_B_APL 10841u": "#define HL_B_APL 5316u",
+        "#define HL_B_D2L 13236u": "#define HL_B_D2L 6490u",
+        "#define HL_B_AR 18185u": "#define HL_B_AR 8916u",
+        "#define HL_B_D1R 19417u": "#define HL_B_D1R 9520u",
+        "#define HL_B_APR 25027u": "#define HL_B_APR 12269u",
+        "#define HL_B_D2R 28560u": "#define HL_B_D2R 14001u",
+        "#define HL_AL 894u": "#define HL_AL 438u",
+        "#define HL_AR 1208u": "#define HL_AR 592u",
         "#define HL_EXC 21": "#define HL_EXC 10",
         "_Static_assert(HL_B_D2R + 4207u + 1u == DLY_LEN / 2u, \"HALL's lines fill the back half of dly_buf\");":
-        "_Static_assert(HL_B_D2R + 2103u + 1u == DLY_LEN / 2u, \"HALL's compact lines fill the back half of dly_buf\");"
+        "_Static_assert(HL_B_D2R + 2061u + 1u <= DLY_LEN / 2u, \"HALL's compact lines fit the back half of dly_buf\");"
     }
     for old, new in replacements.items():
         src = replace_once(src, old, new, "GHOULBOX HALL compact geometry")
