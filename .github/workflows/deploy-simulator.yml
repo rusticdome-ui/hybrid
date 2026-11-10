@@ -8,6 +8,7 @@ on:
       - "src/hybrid_core.c"
       - "include/hybrid_core.h"
       - "tests/test_hybrid_wasm_bridge.c"
+      - "tests/test_native_wasm_pcm.js"
       - ".github/workflows/deploy-simulator.yml"
   pull_request:
     paths:
@@ -163,6 +164,10 @@ jobs:
             -Wl,--initial-memory=2097152 -Wl,--max-memory=16777216 -Wl,-z,stack-size=65536 \
             -o simulator/hybrid_core.wasm
           node -e "const fs=require('fs');(async()=>{const r=await WebAssembly.instantiate(fs.readFileSync('simulator/hybrid_core.wasm'),{});const e=r.instance.exports;if(e.hybrid_wasm_init()!==0)throw Error('core init');e.hybrid_wasm_note_on(60,100,0);if(e.hybrid_wasm_process(64)!==0)throw Error('render');const p=e.hybrid_wasm_output_ptr()>>>2;const a=new Int32Array(e.memory.buffer,p,128);if(!a.some(x=>x!==0))throw Error('silent mixer output');console.log('WASM core smoke PASS; exports:',Object.keys(e).length)})().catch(e=>{console.error(e);process.exit(1)})"
+      - name: Verify original DSP PCM identity through HYBRID mixer
+        run: |
+          set -euxo pipefail
+          node tests/test_native_wasm_pcm.js
       - name: Package standalone virtual lab
         run: |
           set -eux
