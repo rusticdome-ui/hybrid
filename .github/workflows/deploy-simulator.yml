@@ -114,7 +114,8 @@ jobs:
               ['DUB-1','simulator/native/dub1.wasm',53],
               ['ZEN-1','simulator/native/zen1.wasm',53],
             ]) {
-              const {instance} = await WebAssembly.instantiate(fs.readFileSync(path), {});
+              const wasi = new WASI({version:'preview1', args:[], env:{}, preopens:{}});
+              const {instance} = await WebAssembly.instantiate(fs.readFileSync(path), {wasi_snapshot_preview1:wasi.wasiImport});
               const e = instance.exports;
               if (e._initialize) e._initialize();
               e.web_boot();
