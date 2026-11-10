@@ -53,10 +53,13 @@ int main(void)
     uint32_t i;
     assert(hybrid_audio_init() == 0);
     invalid_buffer_tests();
-    hybrid_audio_note_on(60, 112);
+    hybrid_audio_note_on(60, 112);                 /* physical keyboard path */
+    hybrid_audio_midi_note_on(64, 100, 0);         /* channel-aware USB/TRS MIDI path */
     for (i = 0; i < 12000u; ++i) render_checked(blocks[i & 3u]);
     hybrid_audio_note_off(60);
-    hybrid_audio_panic();
+    hybrid_audio_midi_note_off(64, 0);
+    hybrid_audio_midi_panic(0);                    /* CC120-style channel panic */
+    hybrid_audio_panic();                          /* preset / overflow panic */
     for (i = 0; i < 1024u; ++i) render_checked(blocks[i & 3u]);
     hybrid_profile_snapshot(&stats);
     assert(stats.engine[HYBRID_PROF_AMB].calls > 0u);
@@ -66,6 +69,6 @@ int main(void)
     assert(stats.engine[HYBRID_PROF_DUB].frames > 100000u);
     assert(stats.engine[HYBRID_PROF_ZEN].frames > 100000u);
     assert(nonzero_samples > 1000u);
-    puts("native DSP adapters: PASS (real AMB/DUB/ZEN symbols; render, note, panic, buffer guards, 13k blocks)");
+    puts("native DSP adapters: PASS (real AMB/DUB/ZEN symbols; render, keyboard+MIDI notes, channel/global panic, buffer guards, 13k blocks)");
     return 0;
 }
