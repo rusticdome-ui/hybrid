@@ -29,11 +29,11 @@ static void render_checked(uint16_t frames)
     int32_t guarded[HYBRID_MAX_FRAMES * 2u + 2u];
     uint32_t i;
     guarded[0] = GUARD_L;
-    guarded[HYBRID_MAX_FRAMES * 2u + 1u] = GUARD_R;
+    guarded[(uint32_t)frames * 2u + 1u] = GUARD_R;
     for (i = 0; i < (uint32_t)frames * 2u; ++i) guarded[i + 1u] = 0;
     hybrid_audio_process(&guarded[1], frames, 4096);
     assert(guarded[0] == GUARD_L);
-    assert(guarded[HYBRID_MAX_FRAMES * 2u + 1u] == GUARD_R);
+    assert(guarded[(uint32_t)frames * 2u + 1u] == GUARD_R);
     for (i = 0; i < (uint32_t)frames * 2u; ++i) {
         assert(guarded[i + 1u] >= -32768 && guarded[i + 1u] <= 32767);
         nonzero_samples += guarded[i + 1u] != 0;
