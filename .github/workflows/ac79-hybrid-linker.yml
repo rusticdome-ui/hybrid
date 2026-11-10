@@ -258,13 +258,20 @@ jobs:
           set -euo pipefail
           "$JIELI_TOOLCHAIN/common/bin/objdump" -t build/felucca.elf > "$RUNNER_TEMP/felucca-symbols.txt"
           python3 "$GITHUB_WORKSPACE/tools/ac79_profile_report.py" --symbols "$RUNNER_TEMP/felucca-symbols.txt" --output build/hybrid/AC79-PROFILE-REPORT.md
-      - name: Upload linked AC79 package and profiling report
+      - name: Mark AC79 output as validation-only (GHOULBOX package identity)
+        working-directory: ${{ runner.temp }}/Felucca
+        run: |
+          printf '%s\n' 'VALIDATION ONLY: the build still uses the upstream SMK-37 Pro_900 GHOULBOX package identity. Do not flash this image as a HYBRID release.' > build/hybrid/FLASHING-WARNING.txt
+      - name: Upload integrated AC79 build, map and profiler report (validation only)
         uses: actions/upload-artifact@v4
         with:
-          name: smk37-ac79-dsp-linked-${{ github.sha }}
+          name: smk37-hybrid-ac79-validation-${{ github.sha }}
           path: |
-            ${{ runner.temp }}/Felucca/build/ghoulbox-smk37.fwsc
+            ${{ runner.temp }}/Felucca/build/felucca.elf
+            ${{ runner.temp }}/Felucca/build/felucca.bin
+            ${{ runner.temp }}/Felucca/build/felucca.map
             ${{ runner.temp }}/Felucca/build/hybrid/NAMESPACE-MANIFEST.txt
             ${{ runner.temp }}/Felucca/build/hybrid/AC79-PROFILE-REPORT.md
+            ${{ runner.temp }}/Felucca/build/hybrid/FLASHING-WARNING.txt
           if-no-files-found: error
           retention-days: 7
