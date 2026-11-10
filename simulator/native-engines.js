@@ -147,7 +147,7 @@
           dst[i*2]=Math.round(a*32767);
           dst[i*2+1]=Math.round(b*32767);
         }
-        transferred.push({id,name:e.name,samples:dst.slice()});
+        const sourcePcm=new Float32Array(frames*2);for(let i=0;i<frames;i++){sourcePcm[i*2]=l[i];sourcePcm[i*2+1]=r[i];}transferred.push({id,name:e.name,sourcePcm,samples:dst.slice()});
         const rc=coreExports.hybrid_wasm_submit_pcm(id,frames);
         if(rc!==0)throw new Error(e.name+' PCM submit falhou: '+rc);
       }
