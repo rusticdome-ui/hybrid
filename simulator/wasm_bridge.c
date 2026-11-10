@@ -25,7 +25,7 @@ int64_t __divdi3(int64_t numerator, int64_t denominator) {
 }
 #endif
 
-typedef struct { int32_t phase, step, level; uint32_t on, off; uint8_t note, velocity, active; } wasm_voice_t;
+typedef struct { uint32_t phase, step; int32_t level; uint32_t on, off; uint8_t note, velocity, active; } wasm_voice_t;
 static hybrid_core_t core;
 static wasm_voice_t voices[HYBRID_CHANNELS];
 static int32_t output[HYBRID_MAX_FRAMES * 2u];
@@ -35,7 +35,7 @@ static int test_init(void *p) { wasm_voice_t *v=(wasm_voice_t*)p; v->phase=0; re
 static void test_reset(void *p) { wasm_voice_t *v=(wasm_voice_t*)p; v->active=0; v->level=0; }
 static void test_on(void *p,uint8_t n,uint8_t vel) {
     wasm_voice_t *v=(wasm_voice_t*)p; v->note=n; v->velocity=vel;
-    v->step=16000+(int32_t)n*271; v->level=(int32_t)vel*220;
+    v->step=16000u+(uint32_t)n*271u; v->level=(int32_t)vel*220;
     v->active=1; v->on++;
 }
 static void test_off(void *p,uint8_t n) {
@@ -67,7 +67,7 @@ __attribute__((visibility("default"))) int hybrid_wasm_init(void) {
     uint32_t i;
     hybrid_init_defaults(&core);
     for(i=0;i<HYBRID_CHANNELS;i++) {
-        voices[i].phase=0; voices[i].step=18000+(int32_t)i*3000;
+        voices[i].phase=0; voices[i].step=18000u+i*3000u;
         if(hybrid_register_engine(&core,(hybrid_channel_id_t)i,&ops[i],&voices[i])) return -1;
     }
     ready=(uint8_t)(hybrid_start(&core)==0); return ready?0:-1;
