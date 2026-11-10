@@ -1,0 +1,99 @@
+name: Build native AMB-1, DUB-1 and ZEN-1 WebAssembly engines
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [hybrid-memory-reduction]
+    paths:
+      - ".github/workflows/native-engines-wasm.yml"
+      - "simulator/native/**"
+  pull_request:
+    paths:
+      - ".github/workflows/native-engines-wasm.yml"
+      - "simulator/native/**"
+
+permissions:
+  contents: read
+
+jobs:
+  build-native-engines:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout HYBRID
+        uses: actions/checkout@v4
+
+      - name: Checkout original AMB-1 source
+        uses: actions/checkout@v4
+        with:
+          repository: genkigenki/fm1-amb
+          ref: smk37
+          path: engines/amb
+
+      - name: Checkout original DUB-1 source
+        uses: actions/checkout@v4
+        with:
+          repository: genkigenki/fm1-dub
+          ref: smk37
+          path: engines/dub
+
+      - name: Checkout original ZEN-1 source
+        uses: actions/checkout@v4
+        with:
+          repository: genkigenki/zen-1
+          ref: smk37
+          path: engines/zen
+
+      - name: Install Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.64
+          actions-cache-folder: emsdk-cache
+
+      - name: Build the three upstream WebAssembly engines independently
+        shell: bash
+        run: |
+          set -euxo pipefail
+          emcc --version
+          (cd engines/amb && sh web/emu/build.sh)
+          (cd engines/dub && sh web/emu/build.sh)
+          (cd engines/zen && sh web/emu/build.sh)
+          mkdir -p simulator/native
+          cp engines/amb/build/emu/amb.wasm simulator/native/amb1.wasm
+          cp engines/dub/build/emu/amb.wasm simulator/native/dub1.wasm
+          cp engines/zen/build/emu/zen1.wasm simulator/native/zen1.wasm
+          test -s simulator/native/amb1.wasm
+          test -s simulator/native/dub1.wasm
+          test -s simulator/native/zen1.wasm
+
+      - name: Validate WASM binaries and native renderer exports
+        shell: bash
+        run: |
+          set -euxo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const specs = [
+            ['AMB-1', 'simulator/native/amb1.wasm'],
+            ['DUB-1', 'simulator/native/dub1.wasm'],
+            ['ZEN-1', 'simulator/native/zen1.wasm'],
+          ];
+          for (const [name, path] of specs) {
+            const bytes = fs.readFileSync(path);
+            const mod = new WebAssembly.Module(bytes);
+            const names = new Set(WebAssembly.Module.exports(mod).map(x => x.name));
+            for (const required of ['web_boot', 'web_render', 'web_out_l', 'web_out_r']) {
+              if (!names.has(required)) throw new Error(name + ': missing original renderer export ' + required);
+            }
+            for (const control of ['web_keys', 'web_buttons', 'web_enc', 'web_master']) {
+              if (!names.has(control)) throw new Error(name + ': missing native control export ' + control);
+            }
+            console.log(name + ': valid WASM; original host renderer and control exports present; ' + bytes.length + ' bytes');
+          }
+          NODE
+
+      - name: Upload independent native engine modules
+        uses: actions/upload-artifact@v4
+        with:
+          name: smk37-hybrid-native-engines-wasm
+          path: simulator/native/*.wasm
+          if-no-files-found: error
+          retention-days: 30
