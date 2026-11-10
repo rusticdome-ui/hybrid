@@ -57,7 +57,13 @@ const server = http.createServer((req, res) => {
       for (const v of data) sum += v * v;
       return Math.sqrt(sum / data.length) > 0.00001;
     }, null, { timeout:12000 });
-    await page.waitForFunction(() => document.querySelector('#audioMetrics').textContent.includes('AudioWorklet 256'), null, { timeout:15000 });
+    await page.waitForFunction(() => window.__hybridAudioMetrics && window.__hybridAudioMetrics.callbacks >= 256, null, { timeout:15000 });
+    const audioMetrics = await page.evaluate(() => window.__hybridAudioMetrics);
+    if (!audioMetrics || audioMetrics.callbacks < 256) throw new Error('AudioWorklet callback counter did not advance');
+    if (audioMetrics.underruns !== 0) throw new Error('AudioWorklet reported ' + audioMetrics.underruns + ' underruns');
+    if (![audioMetrics.jitterP95, audioMetrics.jitterMax, audioMetrics.renderMax].every(Number.isFinite))
+      throw new Error('AudioWorklet jitter/render metrics are not finite');
+    if (!audioMetrics.timingSource) throw new Error('AudioWorklet timing source was not reported');
     // Exercise all four patch controls in real Chromium, observing the messages
     // actually sent to the AudioWorklet rather than merely checking button presence.
     await page.waitForFunction(() => (document.querySelector('#log')?.textContent || '').includes('DSP originais WASM activos'), null, { timeout:30000 });
@@ -89,6 +95,7 @@ const server = http.createServer((req, res) => {
     await page.waitForFunction(() => (document.querySelector('#log')?.textContent || '').includes('Patch ZEN aplicado no adaptador nativo'), null, { timeout:5000 });
     console.log('CHROMIUM PATCH SELECTORS PASS: AMB-1, DUB-1, ZEN-1 PRESET; GHOULBOX Program Change; ZEN 128-byte import.');
     const metrics = await page.locator('#audioMetrics').textContent();
+    console.log('AudioWorklet raw metrics: ' + JSON.stringify(audioMetrics));
     const log = await page.locator('#log').textContent();
     if (!log.includes('GHOULBOX original firmware')) throw new Error('GHOULBOX original firmware was not reported ready: ' + log);
     if (log.includes('AudioWorklet:')) throw new Error('AudioWorklet reported an error: ' + log);
