@@ -49,7 +49,7 @@ typedef struct {
  int32_t scratch[HYBRID_MAX_FRAMES*2u];
  /* One-shot PCM ingress for engines hosted in independent WASM memories.
   * Samples are interleaved stereo Q15 and consumed by the next matching process block. */
- int32_t pcm_input[HYBRID_MAX_FRAMES*2u];
+ const int32_t *pcm_input;
  uint16_t pcm_frames;
  uint8_t pcm_valid, pcm_reserved;
 } hybrid_engine_slot_t;
