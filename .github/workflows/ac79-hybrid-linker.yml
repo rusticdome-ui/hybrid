@@ -306,8 +306,8 @@ jobs:
         working-directory: ${{ runner.temp }}/Felucca
         run: |
           set -euo pipefail
-          "$JIELI_TOOLCHAIN/common/bin/objdump" -t build/felucca.elf > "$RUNNER_TEMP/felucca-symbols.txt"
-          python3 "$GITHUB_WORKSPACE/tools/ac79_profile_report.py" --symbols "$RUNNER_TEMP/felucca-symbols.txt" --output build/hybrid/AC79-PROFILE-REPORT.md
+          "$JIELI_TOOLCHAIN/common/bin/objdump" -h build/felucca.elf > "$RUNNER_TEMP/felucca-sections.txt"
+          python3 "$GITHUB_WORKSPACE/tools/ac79_profile_report.py" --sections "$RUNNER_TEMP/felucca-sections.txt" --output build/hybrid/AC79-PROFILE-REPORT.md
       - name: Mark AC79 output as validation-only (GHOULBOX package identity)
         working-directory: ${{ runner.temp }}/Felucca
         run: |
