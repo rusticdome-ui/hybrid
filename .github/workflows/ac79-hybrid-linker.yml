@@ -129,9 +129,9 @@ jobs:
           mkdir -p "$out" build/fx_demo
           cc -O2 -w -Ibuild/gen -Ifirmware/src -o "$out/hostsim" tests/hostsim.c -lm
           "$out/hostsim" 0 0 1 "$out/render.wav"
-          cc -O1 -w -Ibuild/gen -Ifirmware/src -o "$out/midi_control_test" tests/midi_control_test.c -lm
+          cc -DFM_HOST -O1 -w -Ibuild/gen -Ifirmware/src -o "$out/midi_control_test" tests/midi_control_test.c -lm
           "$out/midi_control_test"
-          cc -w -Ibuild/gen -Ifirmware/src -o "$out/audio_test" tests/audio_test.c -lm
+          cc -DFM_HOST -w -Ibuild/gen -Ifirmware/src -o "$out/audio_test" tests/audio_test.c -lm
           "$out/audio_test"
           cc -O2 -w -Ibuild/gen -Ifirmware/src -o "$out/regress" tests/regress.c -lm
           "$out/regress" tests/golden.txt tests/cpu_baseline.txt
