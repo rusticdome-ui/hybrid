@@ -47,6 +47,11 @@ typedef struct {
  void *state;
  hybrid_channel_config_t config;
  int32_t scratch[HYBRID_MAX_FRAMES*2u];
+ /* One-shot PCM ingress for engines hosted in independent WASM memories.
+  * Samples are interleaved stereo Q15 and consumed by the next matching process block. */
+ int32_t pcm_input[HYBRID_MAX_FRAMES*2u];
+ uint16_t pcm_frames;
+ uint8_t pcm_valid, pcm_reserved;
 } hybrid_engine_slot_t;
 typedef struct {
  hybrid_engine_slot_t engine[HYBRID_CHANNELS];
@@ -68,6 +73,10 @@ void hybrid_set_solo(hybrid_core_t *core,hybrid_channel_id_t id,uint8_t solo);
 void hybrid_note_on(hybrid_core_t *core,uint8_t note,uint8_t velocity,uint8_t midi_channel);
 void hybrid_note_off(hybrid_core_t *core,uint8_t note,uint8_t midi_channel);
 void hybrid_control(hybrid_core_t *core,uint16_t parameter,int32_t value,int8_t engine_id);
+/* Submit one stereo Q15 block for an engine. frames must match the next hybrid_process call.
+ * A pending PCM block takes precedence over that engine's render callback exactly once. */
+int hybrid_submit_pcm(hybrid_core_t *core,hybrid_channel_id_t id,const int32_t *stereo_q15,uint16_t frames);
+void hybrid_discard_pcm(hybrid_core_t *core,hybrid_channel_id_t id);
 int hybrid_process(hybrid_core_t *core,int32_t *out_stereo_q15,uint16_t frames);
 int hybrid_scene_capture(hybrid_core_t *core,uint8_t scene);
 int hybrid_scene_recall(hybrid_core_t *core,uint8_t scene,uint16_t fade_ms);
