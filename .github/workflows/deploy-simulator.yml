@@ -90,6 +90,11 @@ jobs:
           test -s build/emu/ghoulbox.wasm
           mkdir -p "$GITHUB_WORKSPACE/simulator/native"
           cp build/emu/ghoulbox.wasm "$GITHUB_WORKSPACE/simulator/native/ghoulbox.wasm"
+          mkdir -p "$GITHUB_WORKSPACE/simulator/licenses/ghoulbox"
+          cp LICENSE LICENSING.md "$GITHUB_WORKSPACE/simulator/licenses/ghoulbox/"
+          cp -R LICENSES "$GITHUB_WORKSPACE/simulator/licenses/ghoulbox/"
+          cp assets/samples-cc0/ATTRIBUTION.txt assets/samples-cc0/CREDITS.txt "$GITHUB_WORKSPACE/simulator/licenses/ghoulbox/"
+          git rev-parse HEAD > "$GITHUB_WORKSPACE/simulator/licenses/ghoulbox/SOURCE_COMMIT.txt"
       - name: Verify original GHOULBOX firmware MIDI and PCM
         run: node tests/test_ghoulbox_wasm.js
       - name: Build original AMB-1, DUB-1 and ZEN-1 browser renderers
@@ -193,7 +198,8 @@ jobs:
           test -s simulator/index.html
           test -s simulator/hybrid_core.wasm
           test -s simulator/native/ghoulbox.wasm
-          (cd simulator && zip -9 -r ../smk37-hybrid-virtual-lab.zip index.html native-engines.js audio-worklet.js hybrid_core.wasm README.md native)
+          test -s simulator/licenses/ghoulbox/LICENSE
+          (cd simulator && zip -9 -r ../smk37-hybrid-virtual-lab.zip index.html native-engines.js audio-worklet.js hybrid_core.wasm README.md native licenses)
           test -s smk37-hybrid-virtual-lab.zip
       - uses: actions/upload-artifact@v4
         with:
