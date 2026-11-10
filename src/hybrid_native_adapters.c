@@ -16,6 +16,21 @@
 
 static int32_t native_lr[HYBRID_RENDER_MAX * 2u];
 
+/* The native engines emit ordinary MIDI bytes. Forward them into Felucca's
+ * existing USB-MIDI event ring; no dummy/native_port_stubs callback is used. */
+extern void hybrid_midi_out_event(uint32_t usb_midi_packet);
+static void native_midi_out(uint32_t status, uint32_t data1, uint32_t data2)
+{
+    uint32_t s = status & 0xFFu;
+    uint32_t packet = ((s >> 4) & 0x0Fu) | (s << 8) |
+                     ((data1 & 0x7Fu) << 16) | ((data2 & 0x7Fu) << 24);
+    hybrid_midi_out_event(packet);
+}
+void en_midi_out(uint32_t status, uint32_t data1, uint32_t data2)
+{ native_midi_out(status, data1, data2); }
+void fm_midi_out(uint32_t status, uint32_t data1, uint32_t data2)
+{ native_midi_out(status, data1, data2); }
+
 static void clear_native(void)
 {
     uint32_t i;
