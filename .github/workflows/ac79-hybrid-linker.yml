@@ -129,7 +129,7 @@ jobs:
           mkdir -p "$out" build/fx_demo
           cc -O2 -w -Ibuild/gen -Ifirmware/src -o "$out/hostsim" tests/hostsim.c -lm
           "$out/hostsim" 0 0 1 "$out/render.wav"
-          cc -DFM_HOST -DBOARD_SMK37=1 -O1 -w -Ibuild/gen -Ifirmware/src -o "$out/midi_control_test" tests/midi_control_test.c -lm
+          cc -DFM_HOST -O1 -w -Ibuild/gen -Ifirmware/src -o "$out/midi_control_test" tests/midi_control_test.c -lm
           "$out/midi_control_test"
           cc -DFM_HOST -DBOARD_SMK37=1 -w -Ibuild/gen -Ifirmware/src -o "$out/audio_test" tests/audio_test.c -lm
           "$out/audio_test"
