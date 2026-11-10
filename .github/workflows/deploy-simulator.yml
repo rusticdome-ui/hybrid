@@ -109,30 +109,23 @@ jobs:
           node --check /tmp/hybrid-simulator-inline.js
           node <<'NODE'
           const fs = require('fs');
-          const { WASI } = require('node:wasi');
-          (async () => {
-            for (const [name, path, note] of [
-              ['AMB-1','simulator/native/amb1.wasm',53],
-              ['DUB-1','simulator/native/dub1.wasm',53],
-              ['ZEN-1','simulator/native/zen1.wasm',53],
-            ]) {
-              const wasi = new WASI({version:'preview1', args:[], env:{}, preopens:{}});
-              const {instance} = await WebAssembly.instantiate(fs.readFileSync(path), {wasi_snapshot_preview1:wasi.wasiImport});
-              const e = instance.exports;
-              if (e._initialize) e._initialize();
-              e.web_boot();
-              if (typeof e.web_keys !== 'function' || typeof e.web_render !== 'function' ||
-                  typeof e.web_out_l !== 'function' || typeof e.web_out_r !== 'function')
-                throw new Error(name + ': required host renderer exports missing');
-              e.web_keys(1);
-              e.web_render(128);
-              const l = new Float32Array(e.memory.buffer, e.web_out_l(), 128);
-              const r = new Float32Array(e.memory.buffer, e.web_out_r(), 128);
-              if (![...l, ...r].every(Number.isFinite) || ![...l, ...r].some(x => x !== 0))
-                throw new Error(name + ': silent or invalid original DSP PCM');
-              console.log(name + ': original WASM renderer PCM PASS');
+          global.window = global;
+          global.fetch = async url => ({ok:true,arrayBuffer:async()=>fs.readFileSync('simulator/'+url.replace(/^\.\//,''))});
+          require('./simulator/native-engines.js');
+          (async()=>{
+            const rack=new HYBRIDNativeEngines.NativeEngineRack();
+            const loaded=await rack.loadAll();
+            for(const e of rack.engines.values()){
+              e.exports.web_keys(1);
+              e.exports.web_render(128);
+              const l=new Float32Array(e.exports.memory.buffer,e.exports.web_out_l()>>>0,128);
+              const r=new Float32Array(e.exports.memory.buffer,e.exports.web_out_r()>>>0,128);
+              if(![...l,...r].every(Number.isFinite)||![...l,...r].some(x=>x!==0))
+                throw new Error(e.name+': silent or invalid original DSP PCM');
+              console.log(e.name+': original DSP PCM PASS');
             }
-          })().catch(err => { console.error(err); process.exit(1); });
+            console.log('Browser WASI adapter PASS:',loaded.join(', '));
+          })().catch(err=>{console.error(err);process.exit(1);});
           NODE
           node <<'NODE'
           const fs = require('fs');
