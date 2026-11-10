@@ -4,7 +4,7 @@
 import argparse, os, re, shutil, subprocess
 from pathlib import Path
 
-CFLAGS = ["-target", "pi32v2", "-Oz", "-fno-unroll-loops", "-ffunction-sections", "-fdata-sections",
+CFLAGS = ["-target", "pi32v2", "-mcpu=r3", "-mfprev1", "-ffp-contract=off", "-Oz", "-fno-unroll-loops", "-ffunction-sections", "-fdata-sections",
           "-fno-common", "-fno-builtin", "-Wall", "-Wno-unused-function", "-DBOARD_SMK37=1"]
 # fumi.c textually includes tuning.c, smooth.c, bend.c, fm6_core.c, fm6_patch.c, reverb.c and bed.c. Compile it once to avoid duplicate definitions.
 ZEN = ("fumi.c",)
@@ -49,42 +49,6 @@ def replace_once(text, old, new, label):
 
 def apply_memory_profile(amb, dub, zen, felucca):
     """Compact profile: preserve all four engines, trim duplicate ambience DSP memory."""
-    # pi32v2 has no linked __fixsfsi helper. Replace float-to-int conversion
-    # in the upstream floor routine with IEEE-754 bit extraction.
-    old_floor = """static inline float fm_floorf(float x)
-{
-    int32_t i = (int32_t)x;
-    float f = (float)i;
-    return f > x ? f - 1.0f : f;
-}"""
-    new_floor = """static inline float fm_floorf(float x)
-{
-    fm_bits_t b;
-    uint32_t exponent, bits, mask;
-    int32_t shift;
-    b.f = x;
-    exponent = (b.u >> 23) & 0xFFu;
-    if (exponent == 0xFFu)
-        return x;
-    shift = (int32_t)exponent - 127;
-    if (shift < 0)
-        return (b.u >> 31) ? ((b.u & 0x7FFFFFFFu) == 0u ? x : -1.0f) : 0.0f;
-    if (shift >= 23)
-        return x;
-    bits = (uint32_t)(23 - shift);
-    mask = (1u << bits) - 1u;
-    if ((b.u & mask) == 0u)
-        return x;
-    b.u &= ~mask;
-    if (b.u >> 31)
-        b.f -= 1.0f;
-    return b.f;
-}"""
-    for root, label in ((amb, "AMB-1"), (dub, "DUB-1")):
-        path = root / "fastmath.h"
-        src = path.read_text()
-        src = replace_once(src, old_floor, new_floor, f"{label} pi32v2 float floor")
-        path.write_text(src)
     for root, label in ((amb, "AMB-1"), (dub, "DUB-1")):
         path = root / "amb.c"
         src = path.read_text()
@@ -109,33 +73,6 @@ static inline void reverb(float in, float *ol, float *or_)
         if label == "DUB-1":
             src = replace_once(src, "#define CL_LEN 8192", "#define CL_LEN 4096", "DUB cloud capacity")
         path.write_text(src)
-
-    # AMB's bass target is a pitch-class lookup, avoiding the unavailable __floatsisf runtime helper.
-    amb_src = (amb / "amb.c").read_text()
-    amb_src = replace_once(
-        amb_src,
-        """static void bass_to(int pc)
-{
-    int n = 36 + pc % 12 + 12 * par[P_BASSOCT];     /* C2..B2, an octave down or up */
-    bass.target = (float)n;""",
-        """static void bass_to(int pc)
-{
-    static const float BASS_NOTE[3][12] = {
-        {24.0f, 25.0f, 26.0f, 27.0f, 28.0f, 29.0f, 30.0f, 31.0f, 32.0f, 33.0f, 34.0f, 35.0f},
-        {36.0f, 37.0f, 38.0f, 39.0f, 40.0f, 41.0f, 42.0f, 43.0f, 44.0f, 45.0f, 46.0f, 47.0f},
-        {48.0f, 49.0f, 50.0f, 51.0f, 52.0f, 53.0f, 54.0f, 55.0f, 56.0f, 57.0f, 58.0f, 59.0f}
-    };
-    int oct = par[P_BASSOCT];
-    if (oct < -1) oct = -1;
-    if (oct > 1) oct = 1;
-    /* Keep the MIDI note integer for the note-off/note-on side effects below;
-       use the float lookup only for the DSP pitch target (pi32v2 has no
-       guaranteed __floatsisf helper in this freestanding link). */
-    int n = 36 + (int)((unsigned)pc % 12u) + 12 * oct;
-    bass.target = BASS_NOTE[oct + 1][(unsigned)pc % 12u];""",
-        "AMB bass pitch conversion"
-    )
-    (amb / "amb.c").write_text(amb_src)
 
     # ZEN keeps its FM instrument, patches, keyboard voices and its tape/depth tone shaping.
     # Its optional nature-recording bed/sample bank and private plate are removed in compact mode.
@@ -261,7 +198,7 @@ def main():
     build_src=build_py.read_text()
     build_src=replace_once(build_src,
         'CFLAGS = ["-Os", "-ffunction-sections", "-fno-builtin", "-Wall", "-Wno-unused-function"]',
-        'CFLAGS = ["-Oz", "-fno-unroll-loops", "-ffunction-sections", "-fdata-sections", "-fno-builtin", "-Wall", "-Wno-unused-function"]',
+        'CFLAGS = ["-mcpu=r3", "-mfprev1", "-ffp-contract=off", "-Oz", "-fno-unroll-loops", "-ffunction-sections", "-fdata-sections", "-fno-builtin", "-Wall", "-Wno-unused-function"]',
         "Felucca size-optimized section flags")
     build_py.write_text(build_src)
 
