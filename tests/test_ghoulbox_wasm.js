@@ -15,7 +15,7 @@ const fs = require('node:fs');
   for (let i = 0; i < 180; i++) ex.web_render(128); // firmware boot clock (~522 ms)
   const notes = [[0x90,60],[0x91,64],[0x92,67],[0x93,36]];
   for (const [status,note] of notes) {
-    if (ex.web_midi(status,note,112) === 0) throw new Error('GHOULBOX MIDI queue rejected channel ' + (status & 15 + 1));
+    if (ex.web_midi(status,note,112) === 0) throw new Error('GHOULBOX MIDI queue rejected channel ' + ((status & 15) + 1));
   }
   let peak = 0, energy = 0, samples = 0;
   for (let block = 0; block < 220; block++) {
