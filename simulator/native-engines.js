@@ -135,23 +135,34 @@
       new Uint8Array(z.exports.memory.buffer,ptr,128).set(bytes.subarray(0,128));
       z.exports.web_patch_set();return true;
     }
-    renderToCore(coreExports,frames=128){
-      const transferred=[];
+    renderToCore(coreExports,frames=128,capturePcm=true){
+      const transferred=capturePcm?[]:null;
       for(const e of this.engines.values()){
         const x=e.exports;
         x.web_render(frames);
-        const lp=x.web_out_l()>>>0,rp=x.web_out_r()>>>0;
-        const l=new Float32Array(x.memory.buffer,lp,frames);
-        const r=new Float32Array(x.memory.buffer,rp,frames);
-        const id=e.id,ptr=coreExports.hybrid_wasm_pcm_ptr(id)>>>0;
-        const dst=new Int32Array(coreExports.memory.buffer,ptr,frames*2);
+        const engineMemory=x.memory.buffer,coreMemory=coreExports.memory.buffer;
+        const id=e.id,lp=x.web_out_l()>>>0,rp=x.web_out_r()>>>0,ptr=coreExports.hybrid_wasm_pcm_ptr(id)>>>0;
+        if(!e.audioViews)e.audioViews=new Map();
+        let v=e.audioViews.get(frames);
+        if(!v||v.engineMemory!==engineMemory||v.coreMemory!==coreMemory||v.lp!==lp||v.rp!==rp||v.ptr!==ptr){
+          v={engineMemory,coreMemory,lp,rp,ptr,
+            left:new Float32Array(engineMemory,lp,frames),
+            right:new Float32Array(engineMemory,rp,frames),
+            dst:new Int32Array(coreMemory,ptr,frames*2)};
+          e.audioViews.set(frames,v);
+        }
+        const l=v.left,r=v.right,dst=v.dst;
         for(let i=0;i<frames;i++){
           const a=clamp(Number.isFinite(l[i])?l[i]:0,-1,1);
           const b=clamp(Number.isFinite(r[i])?r[i]:0,-1,1);
           dst[i*2]=Math.round(a*32767);
           dst[i*2+1]=Math.round(b*32767);
         }
-        const sourcePcm=new Float32Array(frames*2);for(let i=0;i<frames;i++){sourcePcm[i*2]=l[i];sourcePcm[i*2+1]=r[i];}transferred.push({id,name:e.name,sourcePcm,samples:dst.slice()});
+        if(capturePcm){
+          const sourcePcm=new Float32Array(frames*2);
+          for(let i=0;i<frames;i++){sourcePcm[i*2]=l[i];sourcePcm[i*2+1]=r[i];}
+          transferred.push({id,name:e.name,sourcePcm,samples:dst.slice()});
+        }
         const rc=coreExports.hybrid_wasm_submit_pcm(id,frames);
         if(rc!==0)throw new Error(e.name+' PCM submit falhou: '+rc);
       }
