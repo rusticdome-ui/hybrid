@@ -35,3 +35,6 @@ void zen_fm_panic(void);
 void zen_fm_render(int32_t *out_lr, uint32_t frames, uint32_t gain_q12);
 
 #endif
+
+/* Audio bridge controls exported by hybrid_native_adapters.c. */
+void hybrid_audio_panic(void);
