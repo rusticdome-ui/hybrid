@@ -8,7 +8,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     super();
     this.ready=false;this.failed=false;this.rack=null;this.core=null;this.ghoulbox=null;this.pendingMessages=[];
     this.count=0;this.underruns=0;this.lastTime=0;this.maxJitter=0;this.jitter=[];
-    this.maxRender=0;this.period=128/sampleRate*1000;this.ghoulViews=new Map();this.outputViews=new Map();
+    this.maxRender=0;this.rackMax=0;this.ghoulMax=0;this.mixerMax=0;this.rackTotal=0;this.ghoulTotal=0;this.mixerTotal=0;this.period=128/sampleRate*1000;this.ghoulViews=new Map();this.outputViews=new Map();
     this.port.onmessage=e=>this.message(e.data);
     this.initialize(options.processorOptions?.wasmBytes).catch(err=>{
       this.failed=true;this.port.postMessage({type:'error',message:err.message});
@@ -69,8 +69,13 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     const start=nowMs(),frames=left.length;this.period=frames/sampleRate*1000;
     try{
       if(frames>128)throw Error('AudioWorklet quantum exceeds 128 frames');
+      let segmentStart=nowMs();
       this.rack.renderToCore(this.core,frames,false);
+      const rackMs=nowMs()-segmentStart;this.rackMax=Math.max(this.rackMax,rackMs);this.rackTotal+=rackMs;
+      segmentStart=nowMs();
       this.ghoulbox.web_render(frames);
+      const ghoulMs=nowMs()-segmentStart;this.ghoulMax=Math.max(this.ghoulMax,ghoulMs);this.ghoulTotal+=ghoulMs;
+      segmentStart=nowMs();
       const ghoulMemory=this.ghoulbox.memory.buffer,coreMemory=this.core.memory.buffer;
       const glp=this.ghoulbox.web_out_l()>>>0,grp=this.ghoulbox.web_out_r()>>>0,gp=this.core.hybrid_wasm_pcm_ptr(3)>>>0;
       let gv=this.ghoulViews.get(frames);
@@ -90,6 +95,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
       if(!ov||ov.memory!==outputMemory||ov.ptr!==ptr){ov={memory:outputMemory,ptr,pcm:new Int32Array(outputMemory,ptr,frames*2)};this.outputViews.set(frames,ov);}
       const pcm=ov.pcm;
       for(let i=0;i<frames;i++){left[i]=pcm[i*2]/32768;right[i]=pcm[i*2+1]/32768;}
+      const mixerMs=nowMs()-segmentStart;this.mixerMax=Math.max(this.mixerMax,mixerMs);this.mixerTotal+=mixerMs;
     }catch(err){left.fill(0);if(right!==left)right.fill(0);missed=true;this.port.postMessage({type:'error',message:err.message});}
     const renderMs=nowMs()-start;this.maxRender=Math.max(this.maxRender,renderMs);
     if(renderMs>this.period+timingResolutionMs)missed=true;
@@ -97,7 +103,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     this.count++;
     if((this.count&255)===0){
       const s=this.jitter.slice().sort((a,b)=>a-b),p95=s.length?s[Math.min(s.length-1,Math.ceil(s.length*.95)-1)]:0;
-      this.port.postMessage({type:'metrics',callbacks:this.count,underruns:this.underruns,jitterP95:p95,jitterMax:this.maxJitter,renderMax:this.maxRender,timingSource,timingResolutionMs});
+      this.port.postMessage({type:'metrics',callbacks:this.count,underruns:this.underruns,jitterP95:p95,jitterMax:this.maxJitter,renderMax:this.maxRender,rackMax:this.rackMax,ghoulboxMax:this.ghoulMax,mixerMax:this.mixerMax,rackAvg:this.rackTotal/this.count,ghoulboxAvg:this.ghoulTotal/this.count,mixerAvg:this.mixerTotal/this.count,timingSource,timingResolutionMs});
     }
     return true;
   }
