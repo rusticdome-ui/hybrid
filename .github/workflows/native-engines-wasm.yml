@@ -11,6 +11,7 @@ on:
       - "simulator/index.html"
       - "simulator/README.md"
       - "tests/test_hybrid_wasm_bridge.c"
+      - "tests/test_native_wasm_pcm.js"
       - "tests/test_native_midi_latency.js"
   pull_request:
     paths:
@@ -18,6 +19,9 @@ on:
       - "simulator/native/**"
       - "simulator/native-engines.js"
       - "simulator/index.html"
+      - "tests/test_native_midi_latency.js"
+      - "tests/test_native_wasm_pcm.js"
+      - "tests/test_hybrid_wasm_bridge.c"
 
 permissions:
   contents: read
