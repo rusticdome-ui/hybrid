@@ -149,7 +149,7 @@ jobs:
           set -eux
           test -s simulator/index.html
           test -s simulator/hybrid_core.wasm
-          (cd simulator && zip -9 -r ../smk37-hybrid-virtual-lab.zip index.html native-engines.js hybrid_core.wasm README.md native)
+          (cd simulator && zip -9 -r ../smk37-hybrid-virtual-lab.zip index.html native-engines.js audio-worklet.js hybrid_core.wasm README.md native)
           test -s smk37-hybrid-virtual-lab.zip
       - uses: actions/upload-artifact@v4
         with:
