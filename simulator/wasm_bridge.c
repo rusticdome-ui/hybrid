@@ -5,6 +5,24 @@
 #include <stdint.h>
 #include "hybrid_core.h"
 
+/* Freestanding compiler-rt helper for the core's 64-bit transition interpolation. */
+uint64_t __udivdi3(uint64_t numerator, uint64_t denominator) {
+    uint64_t quotient=0, remainder=0; int bit;
+    if(!denominator)return 0;
+    for(bit=63;bit>=0;--bit) {
+        remainder=(remainder<<1)|((numerator>>(uint32_t)bit)&1u);
+        if(remainder>=denominator) { remainder-=denominator; quotient|=((uint64_t)1u<<(uint32_t)bit); }
+    }
+    return quotient;
+}
+int64_t __divdi3(int64_t numerator, int64_t denominator) {
+    uint8_t negative=(uint8_t)((numerator<0)^(denominator<0));
+    uint64_t a=numerator<0?(uint64_t)(-(numerator+1))+1u:(uint64_t)numerator;
+    uint64_t b=denominator<0?(uint64_t)(-(denominator+1))+1u:(uint64_t)denominator;
+    uint64_t q=__udivdi3(a,b);
+    return negative?-(int64_t)q:(int64_t)q;
+}
+
 typedef struct { int32_t phase, step, level; uint32_t on, off; uint8_t note, velocity, active; } wasm_voice_t;
 static hybrid_core_t core;
 static wasm_voice_t voices[HYBRID_CHANNELS];
