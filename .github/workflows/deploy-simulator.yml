@@ -108,6 +108,7 @@ jobs:
           node --check /tmp/hybrid-simulator-inline.js
           node <<'NODE'
           const fs = require('fs');
+          const { WASI } = require('node:wasi');
           (async () => {
             for (const [name, path, note] of [
               ['AMB-1','simulator/native/amb1.wasm',53],
