@@ -10,7 +10,7 @@ const mime = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; chars
 const server = http.createServer((req, res) => {
   const pathname = decodeURIComponent(new URL(req.url, 'http://127.0.0.1').pathname);
   const file = path.resolve(root, '.' + pathname);
-  if (!file.startsWith(root + path.sep) && file !== path.join(root, 'index.html')) {
+  if (pathname !== '/' && !file.startsWith(root + path.sep)) {
     res.writeHead(403); res.end('forbidden'); return;
   }
   const target = pathname === '/' ? path.join(root, 'index.html') : file;
