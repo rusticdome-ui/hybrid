@@ -59,8 +59,9 @@ const server = http.createServer((req, res) => {
     }, null, { timeout:12000 });
     await page.waitForFunction(() => window.__hybridAudioMetrics && window.__hybridAudioMetrics.callbacks >= 256, null, { timeout:15000 });
     const audioMetrics = await page.evaluate(() => window.__hybridAudioMetrics);
+    console.log('AudioWorklet raw metrics: ' + JSON.stringify(audioMetrics));
     if (!audioMetrics || audioMetrics.callbacks < 256) throw new Error('AudioWorklet callback counter did not advance');
-    if (audioMetrics.underruns !== 0) throw new Error('AudioWorklet reported ' + audioMetrics.underruns + ' underruns');
+    if (audioMetrics.underruns !== 0) throw new Error('AudioWorklet reported ' + audioMetrics.underruns + ' underruns: ' + JSON.stringify(audioMetrics));
     if (![audioMetrics.jitterP95, audioMetrics.jitterMax, audioMetrics.renderMax].every(Number.isFinite))
       throw new Error('AudioWorklet jitter/render metrics are not finite');
     if (!audioMetrics.timingSource) throw new Error('AudioWorklet timing source was not reported');
@@ -95,7 +96,6 @@ const server = http.createServer((req, res) => {
     await page.waitForFunction(() => (document.querySelector('#log')?.textContent || '').includes('Patch ZEN aplicado no adaptador nativo'), null, { timeout:5000 });
     console.log('CHROMIUM PATCH SELECTORS PASS: AMB-1, DUB-1, ZEN-1 PRESET; GHOULBOX Program Change; ZEN 128-byte import.');
     const metrics = await page.locator('#audioMetrics').textContent();
-    console.log('AudioWorklet raw metrics: ' + JSON.stringify(audioMetrics));
     const log = await page.locator('#log').textContent();
     if (!log.includes('GHOULBOX original firmware')) throw new Error('GHOULBOX original firmware was not reported ready: ' + log);
     if (log.includes('AudioWorklet:')) throw new Error('AudioWorklet reported an error: ' + log);
