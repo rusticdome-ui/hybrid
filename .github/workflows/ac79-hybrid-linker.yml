@@ -120,15 +120,28 @@ jobs:
           python3 tools/build.py --board smk37 --model pro --sdk "$AC79_SDK"
           "$JIELI_TOOLCHAIN/common/bin/objdump" -h build/felucca.elf > "$RUNNER_TEMP/ghoulbox-baseline-sections.txt"
           "$JIELI_TOOLCHAIN/common/bin/objdump" -t build/felucca.elf > "$RUNNER_TEMP/ghoulbox-baseline-symbols.txt"
-      - name: Run GHOULBOX reference render, note, panic and stability regressions
+      - name: Run GHOULBOX reference audio, MIDI panic, stability and buffer regressions
         working-directory: ${{ runner.temp }}/Felucca-baseline
-        env:
-          HOST_ONLY: "1"
-          AC79_SDK: ${{ env.AC79_SDK }}
+        timeout-minutes: 15
         run: |
-          mkdir -p build/host
-          head -c 200000 build/felucca.bin > build/host/old_app.bin
-          sh tests/run_tests.sh
+          set -euo pipefail
+          out=build/hybrid-audio-tests
+          mkdir -p "$out" build/fx_demo
+          cc -O2 -w -Ibuild/gen -Ifirmware/src -o "$out/hostsim" tests/hostsim.c -lm
+          "$out/hostsim" 0 0 1 "$out/render.wav"
+          cc -O1 -w -Ibuild/gen -Ifirmware/src -o "$out/midi_control_test" tests/midi_control_test.c -lm
+          "$out/midi_control_test"
+          cc -w -Ibuild/gen -Ifirmware/src -o "$out/audio_test" tests/audio_test.c -lm
+          "$out/audio_test"
+          cc -O2 -w -Ibuild/gen -Ifirmware/src -o "$out/regress" tests/regress.c -lm
+          "$out/regress" tests/golden.txt tests/cpu_baseline.txt
+          cc -w -Ibuild/gen -Ifirmware/src -o "$out/robust_test" tests/robust_test.c -lm
+          "$out/robust_test"
+          cc -O2 -w -Ibuild/gen -Ifirmware/src -o "$out/reverb_test" tests/reverb_test.c -lm
+          "$out/reverb_test" build/fx_demo
+          cc -O2 -w -Ibuild/gen -Ifirmware/src -o "$out/tape_test" tests/tape_test.c -lm
+          "$out/tape_test"
+          python3 tests/target_budget.py build/felucca.dis tests/target_budget.txt
       - name: Checkout upstream sources
         run: |
           git clone --depth 1 --branch smk37 https://github.com/genkigenki/fm1-amb.git "$RUNNER_TEMP/amb"
