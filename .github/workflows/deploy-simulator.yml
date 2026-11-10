@@ -208,6 +208,12 @@ jobs:
           if-no-files-found: error
           retention-days: 30
       - uses: actions/upload-artifact@v4
+        with:
+          name: smk37-hybrid-virtual-lab-zip
+          path: smk37-hybrid-virtual-lab.zip
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
         if: github.event_name == 'pull_request'
         with:
           name: hybrid-wasm-pr-validation
