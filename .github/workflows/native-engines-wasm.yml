@@ -142,6 +142,22 @@ jobs:
           /tmp/test_hybrid_wasm_bridge
           echo "HYBRID PCM transport and independent Q15 sum oracle: PASS"
 
+      - name: Validate browser native adapter and simulator JavaScript syntax
+        shell: bash
+        run: |
+          set -euxo pipefail
+          node --check simulator/native-engines.js
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          html = Path("simulator/index.html").read_text()
+          scripts = re.findall(r"<script(?:\\s[^>]*)?>([\\s\\S]*?)</script>", html)
+          if not scripts:
+              raise SystemExit("No inline simulator script found")
+          Path("/tmp/hybrid-simulator-inline.js").write_text(scripts[-1])
+          PY
+          node --check /tmp/hybrid-simulator-inline.js
+
       - name: Upload independent native engine modules
         uses: actions/upload-artifact@v4
         with:
