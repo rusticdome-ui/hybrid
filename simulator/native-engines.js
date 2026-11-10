@@ -89,7 +89,8 @@
       const n=clamp(note|0,0,127);
       for(const e of this.engines.values()){
         e.notes.add(n);
-        e.exports.web_keys(this._mask(e));
+        if(e.id===2 && typeof e.exports.web_key==='function')e.exports.web_key(n-KEY_MIN,1);
+        else e.exports.web_keys(this._mask(e));
       }
     }
     noteOff(note,channel=0){
@@ -97,11 +98,12 @@
       const n=note|0;
       for(const e of this.engines.values()){
         e.notes.delete(n);
-        e.exports.web_keys(this._mask(e));
+        if(e.id===2 && typeof e.exports.web_key==='function')e.exports.web_key(n-KEY_MIN,0);
+        else e.exports.web_keys(this._mask(e));
       }
     }
     allNotesOff(){
-      for(const e of this.engines.values()){e.notes.clear();e.exports.web_keys(0);}
+      for(const e of this.engines.values()){e.notes.clear();if(e.id===2&&typeof e.exports.web_panic==='function')e.exports.web_panic();else e.exports.web_keys(0);}
       this.held.clear();
       const z=this.engines.get(2);if(z&&typeof z.exports.web_panic==='function')z.exports.web_panic();
     }
