@@ -80,6 +80,7 @@ jobs:
           set -euxo pipefail
           node <<'NODE'
           const fs = require('fs');
+          const { WASI } = require('node:wasi');
           const specs = [
             ['AMB-1', 'simulator/native/amb1.wasm'],
             ['DUB-1', 'simulator/native/dub1.wasm'],
