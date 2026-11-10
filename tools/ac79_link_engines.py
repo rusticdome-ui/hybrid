@@ -57,6 +57,7 @@ def apply_memory_profile(amb, dub, zen, felucca):
         if start < 0 or end < 0:
             raise SystemExit(f"{label}: Dattorro plate section anchors changed")
         stubs = """/* HYBRID compact profile: plate reverb is omitted; GHOULBOX remains the native reverb engine. */
+static float pl_decay = 0.5f, pl_decay_t = 0.5f, pl_dd2 = 0.5f;
 static void plate_init(void) {}
 static inline void reverb(float in, float *ol, float *or_)
 {
