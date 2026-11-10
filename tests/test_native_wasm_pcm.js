@@ -73,5 +73,23 @@ const clamp = x => Math.max(-32768, Math.min(32767, x));
     if(actual[i]!==sum)throw new Error('Q15 mix mismatch at sample '+i+': got '+actual[i]+', expected '+sum);
   }
   console.log('HYBRID mixer: exact saturated Q15 sum PASS (256 interleaved samples)');
+  // Long-run block stability: exercise each supported block size, repeated
+  // original DSP render -> PCM submit -> Q15 mixer -> output path.
+  const blockSizes=[1,16,32,64,128];
+  let stableBlocks=0,nonzeroBlocks=0;
+  rack.noteOn(53,127,0);
+  for(let cycle=0;cycle<200;cycle++){
+    const frames=blockSizes[cycle%blockSizes.length];
+    rack.renderToCore(core,frames);
+    if(core.hybrid_wasm_process(frames)!==0)throw new Error('Mixer failed at stability cycle '+cycle+' / '+frames+' frames');
+    const p=core.hybrid_wasm_output_ptr()>>>0;
+    const out=new Int32Array(core.memory.buffer,p,frames*2);
+    for(let i=0;i<out.length;i++)if(!Number.isInteger(out[i])||out[i]<-32768||out[i]>32767)
+      throw new Error('Invalid Q15 output at cycle '+cycle+', sample '+i);
+    if(out.some(v=>v!==0))nonzeroBlocks++;
+    stableBlocks++;
+  }
+  if(stableBlocks!==200||nonzeroBlocks===0)throw new Error('PCM block stability check failed');
+  console.log('PCM block stability PASS: '+stableBlocks+' blocks, sizes 1/16/32/64/128; nonzero='+nonzeroBlocks);
   console.log('END-TO-END ORIGINAL DSP WASM PCM TEST: PASS');
 })().catch(err=>{console.error(err);process.exit(1);});
