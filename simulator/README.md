@@ -1,26 +1,12 @@
-# SMK-37 HYBRID Virtual Lab
+# SMK-37 HYBRID Virtual Lab — C core bridge
 
-Standalone browser simulator for the four-engine HYBRID control surface.
+The browser simulator loads `hybrid_core.c` compiled to WebAssembly. The C implementation performs MIDI filtering, GLOBAL/ZONE/OFF routing, transpose, velocity windows, Q15 summing and saturation, per-slot volume/pan/mute/solo, and 16 in-memory scenes.
 
-## Run locally
+## Build and run
+Open the published GitHub Pages URL over HTTPS. GitHub Actions compiles `src/hybrid_core.c` with `simulator/wasm_bridge.c` into `simulator/hybrid_core.wasm`, runs host tests and deploys the directory.
 
-Open `index.html` in a current desktop or mobile browser. Press **Ligar áudio** and allow audio playback. No package install, server, or physical keyboard is required.
+## Four engine test adapters
+The WASM build registers four deterministic C signal generators in the AMB-1, DUB-1, ZEN-1 and GHOULBOX slots. These adapters are explicitly test sources, not the proprietary AC79 DSP engines. They allow the real shared C mixer to be exercised across all four slots in a browser. The AC79-specific native adapters remain firmware-target code.
 
-## Included
-
-- Four engine strips: AMB-1, DUB-1, ZEN-1 and GHOULBOX.
-- Per-engine gain, pan, routing (GLOBAL / ZONE / OFF), mode, mute and solo.
-- Master level, MIDI channel selector, upper/lower zone gate, transpose, velocity and crossfade.
-- Virtual note keyboard and computer-keyboard note triggers.
-- 16 session-only scene slots, chord trigger and 32-note stress trigger.
-- Synthetic Web Audio voices and activity meters.
-
-## Important limits
-
-This is a **host-side interaction/audio mock**, not an emulator of the JieLi AC79 target. It does not load the compiled DSP engines, reproduce their exact synthesis/effects, measure target CPU/RAM/POOL/XIP, validate DMA/underruns, or replace firmware/hardware tests. The displayed voice/meter activity is illustrative.
-
-Scenes are kept in page memory only and are lost when the page is reloaded. The MIDI channel selector is a UI control; browser MIDI device I/O is not connected.
-
-## GitHub Pages
-
-The workflow `.github/workflows/deploy-simulator.yml` publishes the `simulator/` directory when the branch is pushed. In repository Settings → Pages, set the build/deployment source to **GitHub Actions**. Once the workflow succeeds, the live URL is shown in the workflow deployment environment.
+## Validation limits
+Host tests and WASM smoke tests validate the common C core and bridge, not AC79 timing, real engine DSP output, DMA/underruns, target RAM/POOL/XIP, or physical hardware behaviour. Scenes in this build are session-memory only.
