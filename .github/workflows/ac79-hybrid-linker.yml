@@ -147,6 +147,8 @@ jobs:
             --zen "$RUNNER_TEMP/zen/firmware/src/dsp" \
             --felucca "$RUNNER_TEMP/Felucca" \
             --toolchain "$JIELI_TOOLCHAIN"
+      - name: Exercise real DSP symbols through HYBRID adapters (no stubs)
+        run: python3 tools/test_native_adapters_host.py "$RUNNER_TEMP/amb" "$RUNNER_TEMP/dub" "$RUNNER_TEMP/zen"
       - name: Build SMK-37 package with DSP objects
         working-directory: ${{ runner.temp }}/Felucca
         env:
