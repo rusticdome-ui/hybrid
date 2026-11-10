@@ -127,7 +127,7 @@ jobs:
           set -euo pipefail
           out=build/hybrid-audio-tests
           mkdir -p "$out" build/fx_demo
-          cc -DFM_HOST -DBOARD_SMK37=1 -O2 -w -Ibuild/gen -Ifirmware/src -o "$out/hostsim" tests/hostsim.c -lm
+          cc -O2 -w -Ibuild/gen -Ifirmware/src -o "$out/hostsim" tests/hostsim.c -lm
           "$out/hostsim" 0 0 1 "$out/render.wav"
           cc -DFM_HOST -DBOARD_SMK37=1 -O1 -w -Ibuild/gen -Ifirmware/src -o "$out/midi_control_test" tests/midi_control_test.c -lm
           "$out/midi_control_test"
