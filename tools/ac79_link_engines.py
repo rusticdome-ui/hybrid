@@ -5,7 +5,7 @@ import argparse, os, re, shutil, subprocess
 from pathlib import Path
 
 CFLAGS = ["-target", "pi32v2", "-Os", "-ffunction-sections", "-fdata-sections",
-          "-fno-builtin", "-Wall", "-Wno-unused-function", "-DBOARD_SMK37=1"]
+          "-fno-common", "-fno-builtin", "-Wall", "-Wno-unused-function", "-DBOARD_SMK37=1"]
 # fumi.c textually includes tuning.c, smooth.c, bend.c, fm6_core.c, fm6_patch.c, reverb.c and bed.c. Compile it once to avoid duplicate definitions.
 ZEN = ("fumi.c",)
 
@@ -38,6 +38,147 @@ def namespace(prefix, objects, nm, objcopy, out):
         tmp.replace(obj)
     return set(mapping.values())
 
+
+
+def replace_once(text, old, new, label):
+    count = text.count(old)
+    if count != 1:
+        raise SystemExit(f"{label}: expected one anchor, found {count}")
+    return text.replace(old, new)
+
+
+def apply_memory_profile(amb, dub, zen, felucca):
+    """Compact profile: preserve all four engines, trim duplicate ambience DSP memory."""
+    for root, label in ((amb, "AMB-1"), (dub, "DUB-1")):
+        path = root / "amb.c"
+        src = path.read_text()
+        start = src.find("#define DS(n) (((n) * 14818 + 5000) / 10000)")
+        end = src.find("/* ------------------------------------------------- echo: tape", start)
+        if start < 0 or end < 0:
+            raise SystemExit(f"{label}: Dattorro plate section anchors changed")
+        stubs = """/* HYBRID compact profile: plate reverb is omitted; GHOULBOX remains the native reverb engine. */
+static void plate_init(void) {}
+static inline void reverb(float in, float *ol, float *or_)
+{
+    (void)in;
+    *ol = 0.0f;
+    *or_ = 0.0f;
+}
+
+"""
+        src = src[:start] + stubs + src[end:]
+        src = replace_once(src, "#define TAPE_N 62000", "#define TAPE_N 3875", f"{label} tape capacity")
+        src = replace_once(src, "#define PLEX_N 7100", "#define PLEX_N 4096", f"{label} Echoplex capacity")
+        if label == "DUB-1":
+            src = replace_once(src, "#define CL_LEN 8192", "#define CL_LEN 4096", "DUB cloud capacity")
+        path.write_text(src)
+
+    # AMB's bass target is a pitch-class lookup, avoiding the unavailable __floatsisf runtime helper.
+    amb_src = (amb / "amb.c").read_text()
+    amb_src = replace_once(
+        amb_src,
+        """static void bass_to(int pc)
+{
+    int n = 36 + pc % 12 + 12 * par[P_BASSOCT];     /* C2..B2, an octave down or up */
+    bass.target = (float)n;""",
+        """static void bass_to(int pc)
+{
+    static const float BASS_NOTE[12] = {
+        36.0f, 37.0f, 38.0f, 39.0f, 40.0f, 41.0f,
+        42.0f, 43.0f, 44.0f, 45.0f, 46.0f, 47.0f
+    };
+    int oct = par[P_BASSOCT];
+    int n = 36 + pc % 12 + 12 * oct;               /* C2..B2, an octave down or up */
+    bass.target = BASS_NOTE[(unsigned)pc % 12u] + (oct < 0 ? -12.0f : oct > 0 ? 12.0f : 0.0f);""",
+        "AMB bass pitch conversion"
+    )
+    (amb / "amb.c").write_text(amb_src)
+
+    # ZEN keeps its FM instrument, patches, keyboard voices and its tape/depth tone shaping.
+    # Its optional nature-recording bed/sample bank and private plate are removed in compact mode.
+    fumi = zen / "firmware/src/dsp/fumi.c"
+    src = fumi.read_text()
+    src = replace_once(src, '#include "reverb.c"\n', "", "ZEN reverb include")
+    src = replace_once(src, '#include "bed.c"                                   /* (needs BLK) */',
+                       """/* HYBRID compact profile: omit the optional sample/ambience bed. */
+static void plate_init(void) {}
+static void plate_size(float v01) { (void)v01; }
+static inline void reverb(float in, float *ol, float *or_)
+{
+    (void)in;
+    *ol = 0.0f;
+    *or_ = 0.0f;
+}
+static void bed_init(void) {}
+static void bed_control(void) {}
+static void bed_render(float *ml, float *mr) { (void)ml; (void)mr; }
+static void bed_set(int which, int pct) { (void)which; (void)pct; }
+static void bed_mod(int which, int pct) { (void)which; (void)pct; }
+static void bed_style(int which, int style) { (void)which; (void)style; }
+static void shot_start(int i, int seg, int vel, int pan, float rate)
+{ (void)i; (void)seg; (void)vel; (void)pan; (void)rate; }
+static void bed_drop(int vel, int pan, int pad) { (void)vel; (void)pan; (void)pad; }""",
+                       "ZEN bed include")
+    src = replace_once(src, "            for (i = 0; i < FM_NSHOT; i++)              /* and the frogs' calls */\n                bed.shot[i].data = 0;\n            bed.drip = 0;                          /* and a shower's drips (the scene is left) */",
+                      "            /* Optional sample-bed voices are not part of the HYBRID compact profile. */",
+                      "ZEN voice-all-off bed state")
+    src = replace_once(src, "    bed_control();\n    bed_render(mix[0], mix[1]);",
+                      "    /* Optional sample-bed render omitted in HYBRID compact profile. */",
+                      "ZEN bed render")
+    src = replace_once(src, "        case C_BED: bed_set(c.a, c.b); break;\n        case C_BED_MOD: bed_mod(c.a, c.b); break;\n        case C_BED_STYLE: bed_style(c.a, c.b); break;\n        case C_FROG: shot_start(c.a, c.b, c.vel, c.pan, c.f); break;\n        case C_DROP: bed_drop(c.vel, c.pan, c.what); break;",
+                      "        case C_BED: case C_BED_MOD: case C_BED_STYLE: case C_FROG: case C_DROP: break;",
+                      "ZEN bed command dispatch")
+    fumi.write_text(src)
+
+    # Reduce GHOULBOX's shared delay/HALL ring to half size, scaling every HALL tap and base.
+    fx = felucca / "firmware/src/fx.c"
+    src = fx.read_text()
+    src = replace_once(src, "#define DLY_LEN 65536u", "#define DLY_LEN 32768u", "GHOULBOX delay capacity")
+    replacements = {
+        "static const uint16_t HL_D[H_N] = {2792, 189, 142, 504, 368, 917, 5922, 2394, 4948, 1231, 5609, 3532, 4207};":
+        "static const uint16_t HL_D[H_N] = {1396, 95, 71, 252, 184, 459, 2961, 1197, 2474, 616, 2805, 1766, 2103};",
+        "#define HL_B_I1 2793u": "#define HL_B_I1 1397u",
+        "#define HL_B_I2 2983u": "#define HL_B_I2 1492u",
+        "#define HL_B_I3 3126u": "#define HL_B_I3 1563u",
+        "#define HL_B_I4 3631u": "#define HL_B_I4 1816u",
+        "#define HL_B_AL 4000u": "#define HL_B_AL 2000u",
+        "#define HL_B_D1L 4918u": "#define HL_B_D1L 2459u",
+        "#define HL_B_APL 10841u": "#define HL_B_APL 5421u",
+        "#define HL_B_D2L 13236u": "#define HL_B_D2L 6618u",
+        "#define HL_B_AR 18185u": "#define HL_B_AR 9093u",
+        "#define HL_B_D1R 19417u": "#define HL_B_D1R 9709u",
+        "#define HL_B_APR 25027u": "#define HL_B_APR 12514u",
+        "#define HL_B_D2R 28560u": "#define HL_B_D2R 14280u",
+        "#define HL_AL 894u": "#define HL_AL 447u",
+        "#define HL_AR 1208u": "#define HL_AR 604u",
+        "#define HL_EXC 21": "#define HL_EXC 10",
+        "_Static_assert(HL_B_D2R + 4207u + 1u == DLY_LEN / 2u, \"HALL's lines fill the back half of dly_buf\");":
+        "_Static_assert(HL_B_D2R + 2103u + 1u == DLY_LEN / 2u, \"HALL's compact lines fill the back half of dly_buf\");"
+    }
+    for old, new in replacements.items():
+        src = replace_once(src, old, new, "GHOULBOX HALL compact geometry")
+    fx.write_text(src)
+
+    # Place HYBRID object .bss in POOL, leaving the scarce 96 KiB RAM for Felucca itself.
+    ld = felucca / "firmware/app.ld"
+    src = ld.read_text()
+    old = """    .bss (NOLOAD) : { _bss_start = .; *(.bss*) *(.sbss*) *(COMMON) . = ALIGN(4); _bss_end = .; } > RAM
+    .pool (NOLOAD) : { _pool_start = .; *(.pool*) . = ALIGN(4); _pool_end = .; } > POOL"""
+    new = """    .pool (NOLOAD) : {
+        _pool_start = .;
+        *(.pool*)
+        build/hybrid/amb.o(.bss* COMMON)
+        build/hybrid/dub.o(.bss* COMMON)
+        build/hybrid/fumi.o(.bss* COMMON)
+        build/hybrid/hybrid_core.o(.bss* COMMON)
+        build/hybrid/hybrid_native_adapters.o(.bss* COMMON)
+        build/hybrid/hybrid_profile.o(.bss* COMMON)
+        . = ALIGN(4); _pool_end = .;
+    } > POOL
+    .bss (NOLOAD) : { _bss_start = .; *(.bss*) *(.sbss*) *(COMMON) . = ALIGN(4); _bss_end = .; } > RAM"""
+    src = replace_once(src, old, new, "Felucca linker HYBRID BSS placement")
+    ld.write_text(src)
+
 def main():
     p=argparse.ArgumentParser()
     p.add_argument("--amb",type=Path,required=True)
@@ -68,6 +209,7 @@ def main():
         [tc/"pi32v2/bin/llvm-objcopy",*tc.rglob("llvm-objcopy")],"llvm-objcopy")
     if not clang.is_file(): raise SystemExit(f"missing JieLi compiler: {clang}")
     out=a.felucca/"build/hybrid"; out.mkdir(parents=True,exist_ok=True)
+    apply_memory_profile(a.amb, a.dub, a.zen, a.felucca)
     fwsrc,hal=a.felucca/"firmware/src",a.felucca/"firmware/hal"
     amb_obj,dub_obj=out/"amb.o",out/"dub.o"
     compile_one(clang,a.amb/"amb.c",amb_obj,[a.amb,fwsrc,hal])
