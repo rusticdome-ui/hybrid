@@ -58,10 +58,45 @@ jobs:
           find "$tc_dir" -type f -name "*nm*" -o -name "*objcopy*" -print
           ln -sfn "$tc_dir" "$HOME/.jieli/toolchain"
           echo "JIELI_TOOLCHAIN=$HOME/.jieli/toolchain" >> "$GITHUB_ENV"
-      - name: Checkout AC79 SDK
+      - name: Checkout AC79 SDK (sparse, pinned)
+        timeout-minutes: 20
+        shell: bash
         run: |
-          git clone --depth 1 --branch AC79NN_SDK_V1.2.1_2023-12-13 https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git "$RUNNER_TEMP/sdk"
-          echo "AC79_SDK=$RUNNER_TEMP/sdk" >> "$GITHUB_ENV"
+          set -euo pipefail
+          sdk="$RUNNER_TEMP/sdk"
+          mkdir -p "$sdk"
+          git -C "$sdk" init
+          git -C "$sdk" remote add origin https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git
+          # The package builder consumes only these three vendor binaries. Avoid
+          # cloning hundreds of MB of unrelated SDK sources and prebuilt libraries.
+          git -C "$sdk" config core.sparseCheckout true
+          git -C "$sdk" config core.sparseCheckoutCone false
+          cat > "$sdk/.git/info/sparse-checkout" <<'EOF'
+          /cpu/wl82/tools/uboot.boot
+          /cpu/wl82/tools/cfg_tool.bin
+          /cpu/wl82/tools/cfg/eq_cfg_hw.bin
+          EOF
+          branch="AC79NN_SDK_V1.2.1_2023-12-13"
+          for attempt in 1 2 3; do
+            echo "Fetching AC79 SDK $branch (attempt $attempt/3)"
+            if git -C "$sdk" -c http.version=HTTP/1.1 -c http.lowSpeedLimit=1024 -c http.lowSpeedTime=90 \
+                fetch --depth=1 --filter=blob:none origin "refs/heads/$branch"; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::Unable to fetch pinned AC79 SDK branch after 3 attempts"
+              exit 1
+            fi
+            sleep $((attempt * 10))
+          done
+          git -C "$sdk" checkout --detach FETCH_HEAD
+          for rel in uboot.boot cfg_tool.bin cfg/eq_cfg_hw.bin; do
+            test -s "$sdk/cpu/wl82/tools/$rel" || { echo "::error::Missing SDK file: $rel"; exit 1; }
+          done
+          echo "AC79 sparse checkout:"
+          du -sh "$sdk"
+          sha256sum "$sdk/cpu/wl82/tools/uboot.boot" "$sdk/cpu/wl82/tools/cfg_tool.bin" "$sdk/cpu/wl82/tools/cfg/eq_cfg_hw.bin"
+          echo "AC79_SDK=$sdk" >> "$GITHUB_ENV"
       - name: Build GHOULBOX-only AC79 baseline
         shell: bash
         run: |
