@@ -3,7 +3,7 @@ const nowMs=()=>globalThis.performance?.now?.()??currentTime*1000;
 class SMK37HybridProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
-    this.ready=false;this.failed=false;this.rack=null;this.core=null;this.ghoulbox=null;
+    this.ready=false;this.failed=false;this.rack=null;this.core=null;this.ghoulbox=null;this.pendingMessages=[];
     this.count=0;this.underruns=0;this.lastTime=0;this.maxJitter=0;this.jitter=[];
     this.maxRender=0;this.period=128/sampleRate*1000;
     this.port.onmessage=e=>this.message(e.data);
@@ -28,10 +28,12 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     const loaded=await this.rack.loadAll(wasmBytes.engines);
     if(loaded.length!==3)throw Error('Expected original AMB/DUB/ZEN DSPs');
     this.rack.setMaster(100);this.ready=true;
+    for(const message of this.pendingMessages.splice(0))this.message(message);
     this.port.postMessage({type:'ready',engines:[...loaded,'GHOULBOX original firmware']});
   }
   message(m) {
-    if(!m||!this.ready)return;
+    if(!m)return;
+    if(!this.ready){if(m.type==='presetStep'||m.type==='programChange')this.pendingMessages.push(m);return;}
     if(m.type==='noteOn'){
       this.rack.noteOn(m.note,m.velocity,m.channel);
       const ch=Number.isInteger(m.channel)&&m.channel>=1&&m.channel<=4?m.channel:1;
