@@ -7,25 +7,25 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     this.count=0;this.underruns=0;this.lastTime=0;this.maxJitter=0;this.jitter=[];
     this.maxRender=0;this.period=128/sampleRate*1000;
     this.port.onmessage=e=>this.message(e.data);
-    this.initialize(options.processorOptions?.baseUrl||'./').catch(err=>{
+    this.initialize(options.processorOptions?.wasmBytes).catch(err=>{
       this.failed=true;this.port.postMessage({type:'error',message:err.message});
     });
   }
-  async initialize(baseUrl) {
-    const coreBytes=await (await fetch(new URL('hybrid_core.wasm',baseUrl))).arrayBuffer();
-    const instance=await WebAssembly.instantiate(coreBytes,{});
+  async initialize(wasmBytes) {
+    if(!wasmBytes?.core||!wasmBytes?.ghoulbox||!Array.isArray(wasmBytes?.engines)||wasmBytes.engines.length!==3)
+      throw Error('Missing preloaded WASM buffers from main thread');
+    const instance=await WebAssembly.instantiate(wasmBytes.core,{});
     this.core=instance.instance?.exports||instance.exports;
     if(this.core.hybrid_wasm_init()!==0)throw Error('HYBRID core init failed in AudioWorklet');
     this.core.hybrid_wasm_set_mix(3,0,0,0,0);
-    const ghoulBytes=await (await fetch(new URL('native/ghoulbox.wasm',baseUrl))).arrayBuffer();
-    const ghoulInstance=await WebAssembly.instantiate(ghoulBytes,{});
+    const ghoulInstance=await WebAssembly.instantiate(wasmBytes.ghoulbox,{});
     this.ghoulbox=ghoulInstance.instance?.exports||ghoulInstance.exports;
     for(const name of ['_initialize','web_nor_erase','web_boot','web_midi','web_render','web_out_l','web_out_r'])
       if(typeof this.ghoulbox[name]!=='function')throw Error('Missing original GHOULBOX WASM export: '+name);
     this.ghoulbox._initialize();this.ghoulbox.web_nor_erase();this.ghoulbox.web_boot();
     for(let i=0;i<180;i++)this.ghoulbox.web_render(128); // run original firmware boot clock before audio starts
     this.rack=new globalThis.HYBRIDNativeEngines.NativeEngineRack();
-    const loaded=await this.rack.loadAll();
+    const loaded=await this.rack.loadAll(wasmBytes.engines);
     if(loaded.length!==3)throw Error('Expected original AMB/DUB/ZEN DSPs');
     this.rack.setMaster(100);this.ready=true;
     this.port.postMessage({type:'ready',engines:[...loaded,'GHOULBOX original firmware']});
