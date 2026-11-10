@@ -89,6 +89,8 @@ jobs:
           test -s build/emu/ghoulbox.wasm
           mkdir -p "$GITHUB_WORKSPACE/simulator/native"
           cp build/emu/ghoulbox.wasm "$GITHUB_WORKSPACE/simulator/native/ghoulbox.wasm"
+      - name: Verify original GHOULBOX firmware MIDI and PCM
+        run: node tests/test_ghoulbox_wasm.js
       - name: Build original AMB-1, DUB-1 and ZEN-1 browser renderers
         run: |
           set -euxo pipefail
