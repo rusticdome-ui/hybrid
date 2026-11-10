@@ -90,6 +90,49 @@ jobs:
           }
           NODE
 
+      - name: Render original DSP and reject silent or invalid PCM
+        shell: bash
+        run: |
+          set -euxo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const specs = [
+            ['AMB-1', 'simulator/native/amb1.wasm', 'keys'],
+            ['DUB-1', 'simulator/native/dub1.wasm', 'keys'],
+            ['ZEN-1', 'simulator/native/zen1.wasm', 'note'],
+          ];
+          (async () => {
+            for (const [name, path, trigger] of specs) {
+              const bytes = fs.readFileSync(path);
+              const { instance } = await WebAssembly.instantiate(bytes, {});
+              const e = instance.exports;
+              if (e._initialize) e._initialize();
+              e.web_boot();
+              if (trigger === 'note') {
+                if (typeof e.web_note !== 'function') throw new Error(name + ': missing native note API');
+                e.web_note(0, 1, 0);
+              } else {
+                // The upstream AMB/DUB host emulators receive their keyboard state
+                // through the same input path as the physical instrument.
+                e.web_keys(1);
+              }
+              e.web_render(128);
+              const lp = e.web_out_l();
+              const rp = e.web_out_r();
+              const l = new Float32Array(e.memory.buffer, lp, 128);
+              const r = new Float32Array(e.memory.buffer, rp, 128);
+              let nonzero = 0;
+              for (let i = 0; i < 128; i++) {
+                if (!Number.isFinite(l[i]) || !Number.isFinite(r[i]))
+                  throw new Error(name + ': non-finite PCM at frame ' + i);
+                if (l[i] !== 0 || r[i] !== 0) nonzero++;
+              }
+              if (!nonzero) throw new Error(name + ': original DSP produced silent 128-frame block');
+              console.log(name + ': original renderer PCM PASS; nonzero frames=' + nonzero + '/128');
+            }
+          })().catch(e => { console.error(e); process.exit(1); });
+          NODE
+
       - name: Upload independent native engine modules
         uses: actions/upload-artifact@v4
         with:
