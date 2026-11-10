@@ -40,5 +40,8 @@ void hybrid_audio_process(int32_t *out_q15, uint32_t frames, int32_t master_q12)
 void hybrid_audio_note_on(uint8_t note, uint8_t velocity);
 void hybrid_audio_note_off(uint8_t note);
 void hybrid_audio_panic(void);
+void hybrid_audio_midi_note_on(uint8_t note, uint8_t velocity, uint8_t channel);
+void hybrid_audio_midi_note_off(uint8_t note, uint8_t channel);
+void hybrid_audio_midi_panic(uint8_t channel);
 
 #endif
