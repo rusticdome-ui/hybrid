@@ -7,11 +7,16 @@ on:
     paths:
       - ".github/workflows/native-engines-wasm.yml"
       - "simulator/native/**"
+      - "simulator/native-engines.js"
+      - "simulator/index.html"
+      - "simulator/README.md"
       - "tests/test_hybrid_wasm_bridge.c"
   pull_request:
     paths:
       - ".github/workflows/native-engines-wasm.yml"
       - "simulator/native/**"
+      - "simulator/native-engines.js"
+      - "simulator/index.html"
 
 permissions:
   contents: read
