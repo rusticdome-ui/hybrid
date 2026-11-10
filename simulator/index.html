@@ -22,7 +22,8 @@
 <script>(()=> {
 const defs=[['A','AMB-1','DSP original WASM · mixer C','#62d9df'],['B','DUB-1','DSP original WASM · mixer C','#ffc477'],['C','ZEN-1','DSP original WASM · mixer C','#b89aff'],['D','GHOULBOX','TEST ONLY · renderer WASM pendente','#80e0b0']];
 const S=defs.map(()=>({gain:.72,pan:0,mute:false,solo:false,route:'GLOBAL',mode:'NORMAL',voices:0,peak:0}));
-let ctx=null,master=null,processor=null,wasm=null,wasmReady=false,nativeRack=null,nativeReady=false,midiAccess=null,midiCC=new Map(),scene=0,scenes=Array(16).fill(false),seq=null,held=new Set();\nlet audioLastCallback=0,audioCallbackCount=0,audioUnderruns=0,audioMaxJitterMs=0,audioMaxRenderMs=0,audioJitterWindow=[];
+let ctx=null,master=null,processor=null,wasm=null,wasmReady=false,nativeRack=null,nativeReady=false,midiAccess=null,midiCC=new Map(),scene=0,scenes=Array(16).fill(false),seq=null,held=new Set();
+let audioLastCallback=0,audioCallbackCount=0,audioUnderruns=0,audioMaxJitterMs=0,audioMaxRenderMs=0,audioJitterWindow=[];
 const $=id=>document.getElementById(id),log=x=>{let e=$('log');e.textContent+='\n'+new Date().toLocaleTimeString()+' '+x;e.scrollTop=e.scrollHeight},clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const ex=()=>wasm&&wasm.instance.exports;
 function syncEngine(i){if(!wasmReady)return;const e=ex(),s=S[i],pair=$('fadePair').value,f=+$('fade').value/100,xf=pair==='AB'?(i===0?1-f:i===1?f:1):pair==='CD'?(i===2?1-f:i===3?f:1):(i<2?1-f:f),gain=Math.round(s.gain*xf*32767),pan=Math.round(s.pan*100),zone=$('zone').value,mode=s.route==='OFF'?0:(s.route==='ZONE'||zone!=='all')?2:1,lo=zone==='upper'?60:0,hi=zone==='lower'?59:127;
