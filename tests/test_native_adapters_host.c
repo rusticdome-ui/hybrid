@@ -54,10 +54,13 @@ int main(void)
     hybrid_profile_snapshot_t stats;
     uint32_t i;
     assert(hybrid_audio_init() == 0);
-    en_midi_out(0x90u, 60u, 100u);
-    assert(midi_packets == 1u && last_midi_packet == (0x09u | (0x90u << 8) | (60u << 16) | (100u << 24)));
-    fm_midi_out(0x80u, 60u, 0u);
-    assert(midi_packets == 2u && last_midi_packet == (0x08u | (0x80u << 8) | (60u << 16)));
+    { uint32_t before = midi_packets;
+      en_midi_out(0x90u, 60u, 100u);
+      assert(midi_packets == before + 1u && last_midi_packet == (0x09u | (0x90u << 8) | (60u << 16) | (100u << 24)));
+      before = midi_packets;
+      fm_midi_out(0x80u, 60u, 0u);
+      assert(midi_packets == before + 1u && last_midi_packet == (0x08u | (0x80u << 8) | (60u << 16)));
+    }
     invalid_buffer_tests();
     hybrid_audio_note_on(60, 112);                 /* physical keyboard path */
     hybrid_audio_midi_note_on(64, 100, 0);         /* channel-aware USB/TRS MIDI path */
