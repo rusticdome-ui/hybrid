@@ -62,6 +62,7 @@ const server = http.createServer((req, res) => {
     console.log('AudioWorklet raw metrics: ' + JSON.stringify(audioMetrics));
     if (!audioMetrics || audioMetrics.callbacks < 256) throw new Error('AudioWorklet callback counter did not advance');
     if (audioMetrics.underruns !== 0) throw new Error('AudioWorklet reported ' + audioMetrics.underruns + ' underruns: ' + JSON.stringify(audioMetrics));
+    if (!Number.isInteger(audioMetrics.lateCallbacks) || audioMetrics.lateCallbacks < 0) throw new Error('AudioWorklet late-callback counter is invalid');
     if (![audioMetrics.jitterP95, audioMetrics.jitterMax, audioMetrics.renderMax].every(Number.isFinite))
       throw new Error('AudioWorklet jitter/render metrics are not finite');
     if (!audioMetrics.timingSource) throw new Error('AudioWorklet timing source was not reported');
