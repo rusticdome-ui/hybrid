@@ -21,7 +21,8 @@ permissions:
   pages: write
   id-token: write
 concurrency:
-  group: pages
+  # A PR validation must not cancel the branch push that publishes Pages.
+  group: pages-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   build-test:
