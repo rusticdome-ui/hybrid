@@ -270,6 +270,11 @@ def main():
                  "    gb_scene_load(ui_scene);\n    (void)hybrid_audio_init();",
                  "main.c engine init")
 
+    usb_c=a.felucca/"firmware/src/usb.c"
+    patch_source(usb_c, "    mo_w++;\n    }\n}\n\n/* ------------------------------------------------------- descriptors --- */",
+                 "    mo_w++;\n    }\n}\n\nvoid hybrid_midi_out_event(uint32_t pkt) { midi_out_event(pkt); }\n\n/* ------------------------------------------------------- descriptors --- */",
+                 "USB MIDI output bridge")
+
     seq_c=a.felucca/"firmware/src/seq.c"
     patch_source(seq_c, "static void keyboard_block(void)",
                  "extern void hybrid_audio_note_on(uint8_t, uint8_t);\nextern void hybrid_audio_note_off(uint8_t);\n\nstatic void keyboard_block(void)",
