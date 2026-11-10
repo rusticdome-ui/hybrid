@@ -143,6 +143,7 @@ jobs:
           # Keep the four DSP engines; drop optional USB CDC/UAC peripherals to recover XIP.
           FELUCCA_CDC: "0"
           FELUCCA_UAC: "0"
+          FELUCCA_ICONS: "0"
         run: python3 tools/build.py --board smk37 --model pro --sdk "$AC79_SDK"
       - name: Collect linker maps and section diagnostics
         if: always()
