@@ -28,40 +28,26 @@ const clamp = x => Math.max(-32768, Math.min(32767, x));
   const loaded = await rack.loadAll();
   if (loaded.length !== 3) throw new Error('Expected three independent original DSP modules');
   rack.noteOn(53,127,0);
-  const expected = new Map();
-  for (const e of rack.engines.values()) {
-    const original = e.exports.web_render;
-    e.exports.web_render = function(frames) {
-      original(frames);
-      const l = new Float32Array(e.exports.memory.buffer,e.exports.web_out_l()>>>0,frames);
-      const r = new Float32Array(e.exports.memory.buffer,e.exports.web_out_r()>>>0,frames);
-      const q = new Int32Array(frames*2);
-      let nonzero=0;
-      for(let i=0;i<frames;i++) {
-        if(!Number.isFinite(l[i])||!Number.isFinite(r[i])) throw new Error(e.name+': non-finite source PCM');
-        const a=clamp(Math.round(Math.max(-1,Math.min(1,l[i]))*32767));
-        const b=clamp(Math.round(Math.max(-1,Math.min(1,r[i]))*32767));
-        q[i*2]=a;q[i*2+1]=b;
-        if(a!==0||b!==0)nonzero++;
-      }
-      if(!nonzero)throw new Error(e.name+': original DSP rendered zero PCM');
-      expected.set(e.id,{name:e.name,q,nonzero});
-    };
-  }
-
   const transferred = rack.renderToCore(core,128);
   if(transferred.length!==3)throw new Error('Expected exactly three PCM transfers');
+  const expected=new Map();
   for(const t of transferred) {
-    const source=expected.get(t.id);
-    if(!source)throw new Error('Unknown PCM source '+t.id);
-    for(let i=0;i<source.q.length;i++) {
-      if(t.samples[i]!==source.q[i])throw new Error(source.name+': transfer snapshot differs at sample '+i);
+    if(!t.sourcePcm||t.sourcePcm.length!==256)throw new Error(t.name+': missing original float PCM snapshot');
+    const q=new Int32Array(256);let nonzero=0;
+    for(let i=0;i<256;i++) {
+      const sample=t.sourcePcm[i];
+      if(!Number.isFinite(sample))throw new Error(t.name+': non-finite original PCM');
+      q[i]=clamp(Math.round(Math.max(-1,Math.min(1,sample))*32767));
+      if(q[i]!==0)nonzero++;
+      if(t.samples[i]!==q[i])throw new Error(t.name+': produced PCM differs from Q15 transfer at sample '+i);
     }
+    if(!nonzero)throw new Error(t.name+': original DSP rendered zero PCM');
+    expected.set(t.id,{name:t.name,q,nonzero});
     const ptr=core.hybrid_wasm_pcm_ptr(t.id)>>>0;
     const received=new Int32Array(core.memory.buffer,ptr,256);
-    for(let i=0;i<256;i++)if(received[i]!==source.q[i])
-      throw new Error(source.name+': HYBRID input buffer differs at sample '+i);
-    console.log(source.name+': nonzero PCM='+source.nonzero+'/128; source == transfer == HYBRID input');
+    for(let i=0;i<256;i++)if(received[i]!==q[i])
+      throw new Error(t.name+': HYBRID input buffer differs at sample '+i);
+    console.log(t.name+': nonzero PCM='+nonzero+'/256; original float PCM == Q15 transfer == HYBRID input');
   }
 
   if(core.hybrid_wasm_process(128)!==0)throw new Error('HYBRID mixer process failed');
