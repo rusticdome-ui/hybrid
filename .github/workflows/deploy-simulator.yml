@@ -9,6 +9,7 @@ on:
       - "include/hybrid_core.h"
       - "tests/test_hybrid_wasm_bridge.c"
       - "tests/test_native_wasm_pcm.js"
+      - "tests/test_native_midi_latency.js"
       - ".github/workflows/deploy-simulator.yml"
   pull_request:
     paths:
@@ -149,6 +150,10 @@ jobs:
             console.log('Browser WASI adapter PASS:', names.join(', '));
           })().catch(err => { console.error(err); process.exit(1); });
           NODE
+      - name: Validate MIDI note dispatch and measure original DSP WASM latency
+        run: |
+          set -euxo pipefail
+          node tests/test_native_midi_latency.js
       - name: Compile and execute browser WebAssembly core
         run: |
           set -eux
