@@ -118,7 +118,7 @@ jobs:
             const rack=new HYBRIDNativeEngines.NativeEngineRack();
             const loaded=await rack.loadAll();
             for(const e of rack.engines.values()){
-              e.exports.web_keys(1);
+              if(e.id===2)e.exports.web_key(0,1);else e.exports.web_keys(1);
               e.exports.web_render(128);
               const l=new Float32Array(e.exports.memory.buffer,e.exports.web_out_l()>>>0,128);
               const r=new Float32Array(e.exports.memory.buffer,e.exports.web_out_r()>>>0,128);
