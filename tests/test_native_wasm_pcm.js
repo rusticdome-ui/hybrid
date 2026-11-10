@@ -76,10 +76,10 @@ const clamp = x => Math.max(-32768, Math.min(32767, x));
   // Long-run block stability: exercise each supported block size, repeated
   // original DSP render -> PCM submit -> Q15 mixer -> output path.
   const blockSizes=[1,16,32,64,128];
-  let stableBlocks=0,nonzeroBlocks=0;
+  let stableBlocks=0,nonzeroBlocks=0,stableFrames=0;
   rack.noteOn(53,127,0);
-  for(let cycle=0;cycle<200;cycle++){
-    const frames=blockSizes[cycle%blockSizes.length];
+  for(let cycle=0;cycle<30000;cycle++){
+    const frames=128;
     rack.renderToCore(core,frames);
     if(core.hybrid_wasm_process(frames)!==0)throw new Error('Mixer failed at stability cycle '+cycle+' / '+frames+' frames');
     const p=core.hybrid_wasm_output_ptr()>>>0;
@@ -87,9 +87,15 @@ const clamp = x => Math.max(-32768, Math.min(32767, x));
     for(let i=0;i<out.length;i++)if(!Number.isInteger(out[i])||out[i]<-32768||out[i]>32767)
       throw new Error('Invalid Q15 output at cycle '+cycle+', sample '+i);
     if(out.some(v=>v!==0))nonzeroBlocks++;
-    stableBlocks++;
+    stableBlocks++;stableFrames+=frames;
   }
-  if(stableBlocks!==200||nonzeroBlocks===0)throw new Error('PCM block stability check failed');
-  console.log('PCM block stability PASS: '+stableBlocks+' blocks, sizes 1/16/32/64/128; nonzero='+nonzeroBlocks);
+  for(let cycle=0;cycle<200;cycle++){
+    const frames=blockSizes[cycle%blockSizes.length];
+    rack.renderToCore(core,frames);
+    if(core.hybrid_wasm_process(frames)!==0)throw new Error('Variable PCM block failed at cycle '+cycle+' / '+frames+' frames');
+    stableBlocks++;stableFrames+=frames;
+  }
+  if(stableBlocks!==30200||nonzeroBlocks===0)throw new Error('PCM block stability check failed');
+  console.log('PCM long-run stability PASS: '+stableBlocks+' blocks / '+stableFrames+' frames (~'+(stableFrames/44100).toFixed(1)+' s at 44.1 kHz); fixed 128-frame blocks plus 200 variable blocks (1/16/32/64/128); nonzero='+nonzeroBlocks);
   console.log('END-TO-END ORIGINAL DSP WASM PCM TEST: PASS');
 })().catch(err=>{console.error(err);process.exit(1);});
