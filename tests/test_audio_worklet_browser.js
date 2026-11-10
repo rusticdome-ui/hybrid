@@ -55,7 +55,8 @@ const server = http.createServer((req, res) => {
     await page.waitForFunction(() => document.querySelector('#audioMetrics').textContent.includes('AudioWorklet 256'), null, { timeout:15000 });
     const metrics = await page.locator('#audioMetrics').textContent();
     const log = await page.locator('#log').textContent();
-    if (!log.includes('GHOULBOX original firmware')) throw new Error('GHOULBOX original firmware was not reported ready: ' + log);\n    if (log.includes('AudioWorklet:')) throw new Error('AudioWorklet reported an error: ' + log);
+    if (!log.includes('GHOULBOX original firmware')) throw new Error('GHOULBOX original firmware was not reported ready: ' + log);
+    if (log.includes('AudioWorklet:')) throw new Error('AudioWorklet reported an error: ' + log);
     if (pageErrors.length) throw new Error('Browser errors: ' + pageErrors.join(' | '));
     console.log('CHROMIUM AUDIOWORKLET PASS');
     console.log('Non-zero audio signal observed at Web Audio analyser.');
