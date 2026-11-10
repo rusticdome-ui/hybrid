@@ -17,10 +17,9 @@ extern void hybrid_audio_panic(void);
 
 uint32_t test_fm1_ticks;
 char _ustack_lo[4], _ustack_top[4], _sstack_lo[4], _sstack_top[4];
-void en_midi_out(uint32_t status, uint32_t d1, uint32_t d2)
-{ (void)status; (void)d1; (void)d2; }
-void fm_midi_out(uint32_t status, uint32_t d1, uint32_t d2)
-{ (void)status; (void)d1; (void)d2; }
+static uint32_t midi_packets;
+void hybrid_midi_out_event(uint32_t packet)
+{ (void)packet; ++midi_packets; }
 
 #define GUARD_L 0x13579BDF
 #define GUARD_R 0x2468ACE0
