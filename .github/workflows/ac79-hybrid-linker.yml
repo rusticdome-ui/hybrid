@@ -140,6 +140,9 @@ jobs:
           BOARD: smk37
           MODEL: pro
           JIELI_TOOLCHAIN: ${{ env.JIELI_TOOLCHAIN }}
+          # Keep the four DSP engines; drop optional USB CDC/UAC peripherals to recover XIP.
+          FELUCCA_CDC: "0"
+          FELUCCA_UAC: "0"
         run: python3 tools/build.py --board smk37 --model pro --sdk "$AC79_SDK"
       - name: Collect linker maps and section diagnostics
         if: always()
@@ -150,6 +153,10 @@ jobs:
           cp "$RUNNER_TEMP/"*baseline* "$RUNNER_TEMP/ac79-diagnostics/" 2>/dev/null
           cp "$RUNNER_TEMP/hybrid-"* "$RUNNER_TEMP/ac79-diagnostics/" 2>/dev/null
           cp "$RUNNER_TEMP/Felucca/build/felucca.map" "$RUNNER_TEMP/ac79-diagnostics/" 2>/dev/null
+          if [ -f "$RUNNER_TEMP/Felucca/build/felucca.elf" ]; then
+            "$JIELI_TOOLCHAIN/common/bin/objdump" -h "$RUNNER_TEMP/Felucca/build/felucca.elf" > "$RUNNER_TEMP/ac79-diagnostics/hybrid-final-sections.txt"
+            "$JIELI_TOOLCHAIN/common/bin/objdump" -t "$RUNNER_TEMP/Felucca/build/felucca.elf" > "$RUNNER_TEMP/ac79-diagnostics/hybrid-final-symbols.txt"
+          fi
           cp "$RUNNER_TEMP/Felucca/build/hybrid/"*.map "$RUNNER_TEMP/ac79-diagnostics/" 2>/dev/null
           cd "$RUNNER_TEMP/Felucca"
           if [ -f build/felucca.o ] && [ -f build/hybrid/amb.o ]; then
