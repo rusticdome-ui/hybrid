@@ -46,6 +46,8 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
       this.rack.allNotesOff();
       for(let ch=0;ch<4;ch++)for(let note=0;note<128;note++)this.ghoulbox.web_midi(0x80|ch,note,0);
     }
+    else if(m.type==='presetStep'){if(this.rack&&Number.isInteger(m.id)&&m.id>=0&&m.id<3)this.rack.encoder(m.id,2,m.delta|0);}
+    else if(m.type==='programChange'){const ch=Number.isInteger(m.channel)&&m.channel>=1&&m.channel<=16?m.channel:1;const program=Math.max(0,Math.min(127,m.program|0));this.ghoulbox.web_midi(0xC0|(ch-1),program,0);}
     else if(m.type==='channel')this.rack.channel=m.value==='Omni'?0:+m.value;
     else if(m.type==='mix'){
       this.core.hybrid_wasm_set_mix(m.id,m.volume,m.pan,+m.mute,+m.solo);
