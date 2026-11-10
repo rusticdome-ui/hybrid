@@ -15,6 +15,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     const instance=await WebAssembly.instantiate(coreBytes,{});
     this.core=instance.instance?.exports||instance.exports;
     if(this.core.hybrid_wasm_init()!==0)throw Error('HYBRID core init failed in AudioWorklet');
+    this.core.hybrid_wasm_set_mix(3,0,0,1,0); // GHOULBOX original DSP is not ported; keep TEST ONLY slot silent.
     this.rack=new globalThis.HYBRIDNativeEngines.NativeEngineRack();
     const loaded=await this.rack.loadAll();
     if(loaded.length!==3)throw Error('Expected original AMB/DUB/ZEN DSPs');
@@ -26,6 +27,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     if(m.type==='noteOn')this.rack.noteOn(m.note,m.velocity,m.channel);
     else if(m.type==='noteOff')this.rack.noteOff(m.note,m.channel);
     else if(m.type==='panic')this.rack.allNotesOff();
+    else if(m.type==='channel')this.rack.channel=m.value==='Omni'?0:+m.value;
     else if(m.type==='mix'){
       this.core.hybrid_wasm_set_mix(m.id,m.volume,m.pan,+m.mute,+m.solo);
       this.core.hybrid_wasm_set_route(m.id,m.mode,m.low,m.high);
