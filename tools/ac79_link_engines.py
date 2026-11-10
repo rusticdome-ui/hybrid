@@ -277,8 +277,28 @@ def main():
 
     seq_c=a.felucca/"firmware/src/seq.c"
     patch_source(seq_c, "static void keyboard_block(void)",
-                 "extern void hybrid_audio_note_on(uint8_t, uint8_t);\nextern void hybrid_audio_note_off(uint8_t);\n\nstatic void keyboard_block(void)",
+                 "extern void hybrid_audio_note_on(uint8_t, uint8_t);\nextern void hybrid_audio_note_off(uint8_t);\nextern void hybrid_audio_panic(void);\n\nstatic void keyboard_block(void)",
                  "seq.c declarations")
+    patch_source(seq_c, "    for (i = 0; i < NTRK; i++) {\n        track_t *t = &trk[i];\n        if (((pr >> i) & 1u)",
+                 "    if (pr) hybrid_audio_panic();\n    for (i = 0; i < NTRK; i++) {\n        track_t *t = &trk[i];\n        if (((pr >> i) & 1u)",
+                 "seq.c panic propagation")
+
+    midi_control_c=a.felucca/"firmware/src/midi_control.c"
+    patch_source(midi_control_c, "typedef struct {",
+                 "extern void hybrid_audio_midi_note_on(uint8_t, uint8_t, uint8_t);\nextern void hybrid_audio_midi_note_off(uint8_t, uint8_t);\nextern void hybrid_audio_midi_panic(uint8_t);\n\ntypedef struct {",
+                 "midi_control.c native MIDI declarations")
+    patch_source(midi_control_c,
+                 "        if (!midi_local_held(&trk[id - 1u], nn[i]))\n                input_off(&trk[id - 1u], nn[i]);",
+                 "        if (!midi_local_held(&trk[id - 1u], nn[i])) {\n                input_off(&trk[id - 1u], nn[i]);\n                hybrid_audio_midi_note_off(nn[i], (uint8_t)ch);\n            }",
+                 "MIDI note-off propagation")
+    patch_source(midi_control_c,
+                 "        if (!midi_note_held(t, nn[i]) && !midi_local_held(t, nn[i]))\n            input_on(t, nn[i], vel);",
+                 "        if (!midi_note_held(t, nn[i]) && !midi_local_held(t, nn[i])) {\n            input_on(t, nn[i], vel);\n            hybrid_audio_midi_note_on(nn[i], (uint8_t)vel, (uint8_t)ch);\n        }",
+                 "MIDI note-on propagation")
+    patch_source(midi_control_c,
+                 "        for (i = 0; i < NTRK; i++)\n            if (mask & (1u << i))\n                midi_silence_track(i);\n        break;",
+                 "        for (i = 0; i < NTRK; i++)\n            if (mask & (1u << i))\n                midi_silence_track(i);\n        hybrid_audio_midi_panic((uint8_t)ch);\n        break;",
+                 "MIDI CC120 propagation")
     patch_source(seq_c, "            key_on(k, &trk[kb_trk[k]]);",
                  "            key_on(k, &trk[kb_trk[k]]);\n            hybrid_audio_note_on(kb_note[k], (uint8_t)key_on_v);",
                  "seq.c note-on")
