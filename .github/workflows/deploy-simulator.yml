@@ -27,9 +27,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify preinstalled host C and WebAssembly tools
+      - name: Install WebAssembly linker and verify toolchain
         run: |
           set -eux
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends lld
           command -v cc
           command -v clang
           command -v wasm-ld
