@@ -1,4 +1,5 @@
-/* AudioWorklet: original AMB/DUB/ZEN WASM DSPs + HYBRID C mixer run in this thread. */
+/* AudioWorklet: original AMB/DUB/ZEN/GHOULBOX WASM renderers + HYBRID C mixer. */
+const nowMs=()=>globalThis.performance?.now?.()??currentTime*1000;
 class SMK37HybridProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
@@ -55,10 +56,10 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
   process(_inputs,outputs) {
     const out=outputs[0],left=out[0],right=out[1]||out[0];
     if(!this.ready||this.failed){left.fill(0);if(right!==left)right.fill(0);return true;}
-    const now=performance.now();
+    const now=nowMs();
     if(this.lastTime){const interval=now-this.lastTime,j=Math.abs(interval-this.period);this.jitter.push(j);if(this.jitter.length>512)this.jitter.shift();this.maxJitter=Math.max(this.maxJitter,j);if(interval>this.period*1.5)this.underruns++;}
     this.lastTime=now;
-    const start=performance.now(),frames=left.length;this.period=frames/sampleRate*1000;
+    const start=nowMs(),frames=left.length;this.period=frames/sampleRate*1000;
     try{
       if(frames>128)throw Error('AudioWorklet quantum exceeds 128 frames');
       this.rack.renderToCore(this.core,frames);
@@ -77,7 +78,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
       const pcm=new Int32Array(this.core.memory.buffer,ptr,frames*2);
       for(let i=0;i<frames;i++){left[i]=pcm[i*2]/32768;right[i]=pcm[i*2+1]/32768;}
     }catch(err){left.fill(0);if(right!==left)right.fill(0);this.underruns++;this.port.postMessage({type:'error',message:err.message});}
-    const renderMs=performance.now()-start;this.maxRender=Math.max(this.maxRender,renderMs);
+    const renderMs=nowMs()-start;this.maxRender=Math.max(this.maxRender,renderMs);
     if(renderMs>this.period)this.underruns++;
     this.count++;
     if((this.count&255)===0){
