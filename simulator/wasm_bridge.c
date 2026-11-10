@@ -82,6 +82,11 @@ __attribute__((visibility("default"))) int hybrid_wasm_process(uint32_t frames) 
     return 0;
 }
 __attribute__((visibility("default"))) uint32_t hybrid_wasm_output_ptr(void) { return (uint32_t)(uintptr_t)output; }
+__attribute__((visibility("default"))) uint32_t hybrid_wasm_get_volume(uint32_t id) { return id<4?core.engine[id].config.volume:0; }
+__attribute__((visibility("default"))) int32_t hybrid_wasm_get_pan(uint32_t id) { return id<4?core.engine[id].config.pan:0; }
+__attribute__((visibility("default"))) uint32_t hybrid_wasm_get_mute(uint32_t id) { return id<4?core.engine[id].config.mute:0; }
+__attribute__((visibility("default"))) uint32_t hybrid_wasm_get_solo(uint32_t id) { return id<4?core.engine[id].config.solo:0; }
+__attribute__((visibility("default"))) uint32_t hybrid_wasm_get_route(uint32_t id) { return id<4?core.engine[id].config.route_mode:0; }
 __attribute__((visibility("default"))) uint32_t hybrid_wasm_voice_on(uint32_t id) { return id<4?voices[id].on:0; }
 __attribute__((visibility("default"))) uint32_t hybrid_wasm_voice_off(uint32_t id) { return id<4?voices[id].off:0; }
 __attribute__((visibility("default"))) int hybrid_wasm_scene_capture(uint32_t n) { return ready?hybrid_scene_capture(&core,(uint8_t)n):-1; }
