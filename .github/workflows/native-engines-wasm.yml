@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/native-engines-wasm.yml"
       - "simulator/native/**"
+      - "tests/test_hybrid_wasm_bridge.c"
   pull_request:
     paths:
       - ".github/workflows/native-engines-wasm.yml"
@@ -132,6 +133,14 @@ jobs:
             }
           })().catch(e => { console.error(e); process.exit(1); });
           NODE
+
+      - name: Verify exact three-input PCM transport and Q15 mix
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cc -std=c99 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c simulator/wasm_bridge.c tests/test_hybrid_wasm_bridge.c -o /tmp/test_hybrid_wasm_bridge
+          /tmp/test_hybrid_wasm_bridge
+          echo "HYBRID PCM transport and independent Q15 sum oracle: PASS"
 
       - name: Upload independent native engine modules
         uses: actions/upload-artifact@v4
