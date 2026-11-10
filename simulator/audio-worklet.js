@@ -7,7 +7,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
     this.ready=false;this.failed=false;this.rack=null;this.core=null;this.ghoulbox=null;this.pendingMessages=[];
-    this.count=0;this.underruns=0;this.lastTime=0;this.maxJitter=0;this.jitter=[];
+    this.count=0;this.underruns=0;this.lateCallbacks=0;this.lastTime=0;this.maxJitter=0;this.jitter=[];
     this.maxRender=0;this.rackMax=0;this.ghoulMax=0;this.mixerMax=0;this.rackTotal=0;this.ghoulTotal=0;this.mixerTotal=0;this.period=128/sampleRate*1000;this.ghoulViews=new Map();this.outputViews=new Map();
     this.port.onmessage=e=>this.message(e.data);
     this.initialize(options.processorOptions?.wasmBytes).catch(err=>{
@@ -64,7 +64,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     const out=outputs[0],left=out[0],right=out[1]||out[0];
     if(!this.ready||this.failed){left.fill(0);if(right!==left)right.fill(0);return true;}
     const now=nowMs();let missed=false;
-    if(this.lastTime){const interval=now-this.lastTime,j=Math.abs(interval-this.period);this.jitter.push(j);if(this.jitter.length>512)this.jitter.shift();this.maxJitter=Math.max(this.maxJitter,j);if(interval>this.period*1.5+timingResolutionMs)missed=true;}
+    if(this.lastTime){const interval=now-this.lastTime,j=Math.abs(interval-this.period);this.jitter.push(j);if(this.jitter.length>512)this.jitter.shift();this.maxJitter=Math.max(this.maxJitter,j);if(interval>this.period*1.5+timingResolutionMs)this.lateCallbacks++;}
     this.lastTime=now;
     const start=nowMs(),frames=left.length;this.period=frames/sampleRate*1000;
     try{
@@ -103,7 +103,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     this.count++;
     if((this.count&255)===0){
       const s=this.jitter.slice().sort((a,b)=>a-b),p95=s.length?s[Math.min(s.length-1,Math.ceil(s.length*.95)-1)]:0;
-      this.port.postMessage({type:'metrics',callbacks:this.count,underruns:this.underruns,jitterP95:p95,jitterMax:this.maxJitter,renderMax:this.maxRender,rackMax:this.rackMax,ghoulboxMax:this.ghoulMax,mixerMax:this.mixerMax,rackAvg:this.rackTotal/this.count,ghoulboxAvg:this.ghoulTotal/this.count,mixerAvg:this.mixerTotal/this.count,timingSource,timingResolutionMs});
+      this.port.postMessage({type:'metrics',callbacks:this.count,underruns:this.underruns,lateCallbacks:this.lateCallbacks,jitterP95:p95,jitterMax:this.maxJitter,renderMax:this.maxRender,rackMax:this.rackMax,ghoulboxMax:this.ghoulMax,mixerMax:this.mixerMax,rackAvg:this.rackTotal/this.count,ghoulboxAvg:this.ghoulTotal/this.count,mixerAvg:this.mixerTotal/this.count,timingSource,timingResolutionMs});
     }
     return true;
   }
