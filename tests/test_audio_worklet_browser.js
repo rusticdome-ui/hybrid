@@ -35,6 +35,13 @@ const server = http.createServer((req, res) => {
     if (!response || !response.ok()) throw new Error('Simulator HTTP load failed');
     await page.locator('#audio').click();
     await page.waitForFunction(() => document.querySelector('#log').textContent.includes('AudioWorklet activo:'), null, { timeout:30000 });
+    // Isolate slot D so the analyser proves the original GHOULBOX WASM renderer is audible.
+    for (let i = 0; i < 4; i++) {
+      await page.locator('#engines input[data-i="' + i + '"][data-k="gain"]').evaluate((el, value) => {
+        el.value = String(value);
+        el.dispatchEvent(new Event('input', { bubbles:true }));
+      }, i === 3 ? 100 : 0);
+    }
     await page.locator('#chord').click();
     await page.waitForFunction(() => {
       const a = window.__hybridAudioProbe;
@@ -48,7 +55,7 @@ const server = http.createServer((req, res) => {
     await page.waitForFunction(() => document.querySelector('#audioMetrics').textContent.includes('AudioWorklet 256'), null, { timeout:15000 });
     const metrics = await page.locator('#audioMetrics').textContent();
     const log = await page.locator('#log').textContent();
-    if (log.includes('AudioWorklet:')) throw new Error('AudioWorklet reported an error: ' + log);
+    if (!log.includes('GHOULBOX original firmware')) throw new Error('GHOULBOX original firmware was not reported ready: ' + log);\n    if (log.includes('AudioWorklet:')) throw new Error('AudioWorklet reported an error: ' + log);
     if (pageErrors.length) throw new Error('Browser errors: ' + pageErrors.join(' | '));
     console.log('CHROMIUM AUDIOWORKLET PASS');
     console.log('Non-zero audio signal observed at Web Audio analyser.');
