@@ -9,6 +9,12 @@ on:
       - "include/hybrid_core.h"
       - "tests/test_hybrid_wasm_bridge.c"
       - ".github/workflows/deploy-simulator.yml"
+  pull_request:
+    paths:
+      - "simulator/**"
+      - "src/hybrid_core.c"
+      - "include/hybrid_core.h"
+      - "tests/test_hybrid_wasm_bridge.c"
 permissions:
   contents: read
   pages: write
@@ -17,10 +23,7 @@ concurrency:
   group: pages
   cancel-in-progress: true
 jobs:
-  build-test-deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,18 +40,32 @@ jobs:
           /tmp/test_hybrid_profile
           cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c simulator/wasm_bridge.c tests/test_hybrid_wasm_bridge.c -o /tmp/test_hybrid_wasm_bridge
           /tmp/test_hybrid_wasm_bridge
-      - name: Compile and validate browser WebAssembly
+      - name: Compile and execute browser WebAssembly core
         run: |
           set -eux
           clang --target=wasm32 -O2 -std=c99 -nostdlib -fno-builtin -Iinclude src/hybrid_core.c simulator/wasm_bridge.c \
-            -Wl,--no-entry -Wl,--export-all -Wl,--export-memory -Wl,--allow-undefined \
+            -Wl,--no-entry -Wl,--export-all -Wl,--export-memory \
             -Wl,--initial-memory=2097152 -Wl,--max-memory=16777216 -Wl,-z,stack-size=65536 \
             -o simulator/hybrid_core.wasm
-          node -e "const fs=require('fs');const m=new WebAssembly.Module(fs.readFileSync('simulator/hybrid_core.wasm')); console.log('WASM valid; exports:',WebAssembly.Module.exports(m).length)"
-      - uses: actions/configure-pages@v5
+          node -e "const fs=require('fs');(async()=>{const r=await WebAssembly.instantiate(fs.readFileSync('simulator/hybrid_core.wasm'),{});const e=r.instance.exports;if(e.hybrid_wasm_init()!==0)throw Error('core init');e.hybrid_wasm_note_on(60,100,0);if(e.hybrid_wasm_process(64)!==0)throw Error('render');const p=e.hybrid_wasm_output_ptr()>>>2;const a=new Int32Array(e.memory.buffer,p,128);if(!a.some(x=>x!==0))throw Error('silent mixer output');console.log('WASM core smoke PASS; exports:',Object.keys(e).length)})().catch(e=>{console.error(e);process.exit(1)})"
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'pull_request'
+        with:
+          name: hybrid-wasm-pr-validation
+          path: simulator/hybrid_core.wasm
       - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request'
         with:
           path: simulator
+  deploy:
+    needs: build-test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
