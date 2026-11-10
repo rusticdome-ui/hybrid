@@ -9,11 +9,6 @@
 #include "hybrid_profile.h"
 #include "hybrid_native_ports.h"
 
-extern int hybrid_audio_init(void);
-extern void hybrid_audio_process(int32_t *out_q15, uint32_t frames, int32_t master_q12);
-extern void hybrid_audio_note_on(uint8_t note, uint8_t velocity);
-extern void hybrid_audio_note_off(uint8_t note);
-extern void hybrid_audio_panic(void);
 
 uint32_t test_fm1_ticks;
 char _ustack_lo[4], _ustack_top[4], _sstack_lo[4], _sstack_top[4];
