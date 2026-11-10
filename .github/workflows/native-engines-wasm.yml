@@ -106,22 +106,21 @@ jobs:
           set -euxo pipefail
           node <<'NODE'
           const fs = require('fs');
+          const { WASI } = require('node:wasi');
           const specs = [
             ['AMB-1', 'simulator/native/amb1.wasm', 'keys'],
             ['DUB-1', 'simulator/native/dub1.wasm', 'keys'],
-            ['ZEN-1', 'simulator/native/zen1.wasm', 'note'],
+            ['ZEN-1', 'simulator/native/zen1.wasm', 'keys'],
           ];
           (async () => {
             for (const [name, path, trigger] of specs) {
               const bytes = fs.readFileSync(path);
-              const { instance } = await WebAssembly.instantiate(bytes, {});
+              const wasi = new WASI({version:'preview1', args:[], env:{}, preopens:{}});
+              const { instance } = await WebAssembly.instantiate(bytes, {wasi_snapshot_preview1:wasi.wasiImport});
               const e = instance.exports;
               if (e._initialize) e._initialize();
               e.web_boot();
-              if (trigger === 'note') {
-                if (typeof e.web_note !== 'function') throw new Error(name + ': missing native note API');
-                e.web_note(0, 1, 0);
-              } else {
+              if (trigger === 'keys') {
                 // The upstream AMB/DUB host emulators receive their keyboard state
                 // through the same input path as the physical instrument.
                 e.web_keys(1);
