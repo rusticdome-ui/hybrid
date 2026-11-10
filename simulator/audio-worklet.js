@@ -1,6 +1,7 @@
 /* AudioWorklet: original AMB/DUB/ZEN/GHOULBOX WASM renderers + HYBRID C mixer. */
 const hasHighResClock=typeof globalThis.performance?.now==='function';
 const timingSource=hasHighResClock?'performance.now':'Date.now (coarse, 1 ms granularity)';
+const timingResolutionMs=hasHighResClock?0:1;
 const nowMs=()=>hasHighResClock?globalThis.performance.now():Date.now();
 class SMK37HybridProcessor extends AudioWorkletProcessor {
   constructor(options) {
@@ -63,7 +64,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     const out=outputs[0],left=out[0],right=out[1]||out[0];
     if(!this.ready||this.failed){left.fill(0);if(right!==left)right.fill(0);return true;}
     const now=nowMs();let missed=false;
-    if(this.lastTime){const interval=now-this.lastTime,j=Math.abs(interval-this.period);this.jitter.push(j);if(this.jitter.length>512)this.jitter.shift();this.maxJitter=Math.max(this.maxJitter,j);if(interval>this.period*1.5)missed=true;}
+    if(this.lastTime){const interval=now-this.lastTime,j=Math.abs(interval-this.period);this.jitter.push(j);if(this.jitter.length>512)this.jitter.shift();this.maxJitter=Math.max(this.maxJitter,j);if(interval>this.period*1.5+timingResolutionMs)missed=true;}
     this.lastTime=now;
     const start=nowMs(),frames=left.length;this.period=frames/sampleRate*1000;
     try{
@@ -85,12 +86,12 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
       for(let i=0;i<frames;i++){left[i]=pcm[i*2]/32768;right[i]=pcm[i*2+1]/32768;}
     }catch(err){left.fill(0);if(right!==left)right.fill(0);missed=true;this.port.postMessage({type:'error',message:err.message});}
     const renderMs=nowMs()-start;this.maxRender=Math.max(this.maxRender,renderMs);
-    if(renderMs>this.period)missed=true;
+    if(renderMs>this.period+timingResolutionMs)missed=true;
     if(missed)this.underruns++;
     this.count++;
     if((this.count&255)===0){
       const s=this.jitter.slice().sort((a,b)=>a-b),p95=s.length?s[Math.min(s.length-1,Math.ceil(s.length*.95)-1)]:0;
-      this.port.postMessage({type:'metrics',callbacks:this.count,underruns:this.underruns,jitterP95:p95,jitterMax:this.maxJitter,renderMax:this.maxRender,timingSource,timingResolutionMs:hasHighResClock?null:1});
+      this.port.postMessage({type:'metrics',callbacks:this.count,underruns:this.underruns,jitterP95:p95,jitterMax:this.maxJitter,renderMax:this.maxRender,timingSource,timingResolutionMs});
     }
     return true;
   }
