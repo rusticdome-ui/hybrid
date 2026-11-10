@@ -19,7 +19,7 @@ const percentile=(a,p)=>a.slice().sort((x,y)=>x-y)[Math.min(a.length-1,Math.ceil
       const t=process.hrtime.bigint();
       const result=originalKeys(mask);
       dispatch.push(ms(process.hrtime.bigint()-t));
-      masks.push(args[0]>>>0);
+      masks.push(e.id===2?(args[1]?1:0):(args[0]>>>0));
       return result;
     };
     for(let i=0;i<100;i++){
@@ -39,7 +39,7 @@ const percentile=(a,p)=>a.slice().sort((x,y)=>x-y)[Math.min(a.length-1,Math.ceil
       render.push(ms(t2-t1),ms(t4-t3));
       if(t1<t||t3<t2)throw Error(e.name+': invalid timing clock');
     }
-    if(masks.length!==200||masks.some((v,i)=>v!==(i%2===0?(e.id===2?0:1):0)))
+    if(masks.length!==200||masks.some((v,i)=>v!==(i%2===0?1:0)))
       throw Error(e.name+': MIDI note-on/off keyboard bitfield mismatch');
     const avg=dispatch.reduce((a,b)=>a+b,0)/dispatch.length;
     const avgRender=render.reduce((a,b)=>a+b,0)/render.length;
