@@ -96,7 +96,7 @@ static inline void reverb(float in, float *ol, float *or_)
 
     # ZEN keeps its FM instrument, patches, keyboard voices and its tape/depth tone shaping.
     # Its optional nature-recording bed/sample bank and private plate are removed in compact mode.
-    fumi = zen / "firmware/src/dsp/fumi.c"
+    fumi = zen / "fumi.c"
     src = fumi.read_text()
     src = replace_once(src, '#include "reverb.c"\n', "", "ZEN reverb include")
     src = replace_once(src, '#include "bed.c"                                   /* (needs BLK) */',
