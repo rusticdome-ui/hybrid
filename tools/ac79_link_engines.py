@@ -49,6 +49,51 @@ def replace_once(text, old, new, label):
 
 def apply_memory_profile(amb, dub, zen, felucca):
     """Compact profile: preserve all four engines, trim duplicate ambience DSP memory."""
+    # pi32v2 has no linked __fixsfsi helper. Replace float-to-int conversion
+    # in the upstream floor routine with IEEE-754 bit extraction.
+    old_floor = """static inline float fm_floorf(float x)
+{
+    int32_t i = (int32_t)x;
+    float f = (float)i;
+    return f > x ? f - 1.0f : f;
+}"""
+    new_floor = """static inline float fm_floorf(float x)
+{
+    fm_bits_t b;
+    uint32_t exponent, significand, magnitude, fraction = 0;
+    int32_t shift, integer;
+    float result;
+    b.f = x;
+    exponent = (b.u >> 23) & 0xFFu;
+    if (exponent == 0xFFu)
+        return x;
+    shift = (int32_t)exponent - 127;
+    if (shift < 0)
+        return (b.u >> 31) ? (x == 0.0f ? x : -1.0f) : 0.0f;
+    if (shift >= 31)
+        return x;
+    significand = (b.u & 0x7FFFFFu) | 0x800000u;
+    if (shift < 23) {
+        uint32_t bits = (uint32_t)(23 - shift);
+        magnitude = significand >> bits;
+        fraction = significand & ((1u << bits) - 1u);
+    } else {
+        magnitude = significand << (uint32_t)(shift - 23);
+    }
+    integer = (int32_t)magnitude;
+    if (b.u >> 31) {
+        integer = -integer;
+        if (fraction)
+            --integer;
+    }
+    result = (float)integer;
+    return result;
+}"""
+    for root, label in ((amb, "AMB-1"), (dub, "DUB-1")):
+        path = root / "fastmath.h"
+        src = path.read_text()
+        src = replace_once(src, old_floor, new_floor, f"{label} pi32v2 float floor")
+        path.write_text(src)
     for root, label in ((amb, "AMB-1"), (dub, "DUB-1")):
         path = root / "amb.c"
         src = path.read_text()
