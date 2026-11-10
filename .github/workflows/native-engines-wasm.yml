@@ -1,4 +1,4 @@
-name: Build native AMB-1, DUB-1 and ZEN-1 WebAssembly engines
+name: Native DSP WASM build
 
 on:
   workflow_dispatch:
