@@ -40,7 +40,7 @@ const percentile=(a,p)=>a.slice().sort((x,y)=>x-y)[Math.min(a.length-1,Math.ceil
       if(t1<t||t3<t2)throw Error(e.name+': invalid timing clock');
     }
     if(masks.length!==200||masks.some((v,i)=>v!==(i%2===0?1:0)))
-      throw Error(e.name+': MIDI note-on/off keyboard bitfield mismatch');
+      throw Error(e.name+': MIDI note-on/off keyboard bitfield mismatch; calls='+masks.length+' sample='+JSON.stringify(masks.slice(0,16)));
     const avg=dispatch.reduce((a,b)=>a+b,0)/dispatch.length;
     const avgRender=render.reduce((a,b)=>a+b,0)/render.length;
     console.log(e.name+': MIDI note-on/off PASS (100 cycles); key dispatch avg='+avg.toFixed(4)+' ms, p95='+percentile(dispatch,.95).toFixed(4)+' ms; 128-frame render avg='+avgRender.toFixed(4)+' ms, p95='+percentile(render,.95).toFixed(4)+' ms');
