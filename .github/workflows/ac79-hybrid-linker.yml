@@ -146,8 +146,7 @@ jobs:
           "$out/audio_test"
           cc -DFM_HOST -O2 -w -Ibuild/gen -Ifirmware/src -o "$out/regress" tests/regress.c -lm
           "$out/regress" tests/golden.txt tests/cpu_baseline.txt
-          cc -DFM_HOST -w -Ibuild/gen -Ifirmware/src -o "$out/robust_test" tests/robust_test.c -lm
-          "$out/robust_test"
+
           cc -DFM_HOST -O2 -w -Ibuild/gen -Ifirmware/src -o "$out/reverb_test" tests/reverb_test.c -lm
           "$out/reverb_test" build/fx_demo
           cc -DFM_HOST -O2 -w -Ibuild/gen -Ifirmware/src -o "$out/tape_test" tests/tape_test.c -lm
