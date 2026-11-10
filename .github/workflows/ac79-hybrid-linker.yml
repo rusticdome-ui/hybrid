@@ -125,6 +125,17 @@ jobs:
         timeout-minutes: 15
         run: |
           set -euo pipefail
+          # Host-only: AC79 csync/ssync instructions become compiler memory barriers.
+          # The separate target clone is untouched and keeps the real JieLi instructions.
+          python3 - <<'PY'
+          from pathlib import Path
+          for name in ("firmware/hal/fm1_usb.h", "firmware/hal/fm1_uart.h"):
+              p = Path(name)
+              s = p.read_text()
+              s = s.replace('__asm__ volatile("csync" ::: "memory");', '__asm__ volatile("" ::: "memory");')
+              s = s.replace('__asm__ volatile("ssync" ::: "memory");', '__asm__ volatile("" ::: "memory");')
+              p.write_text(s)
+          PY
           out=build/hybrid-audio-tests
           mkdir -p "$out" build/fx_demo
           cc -DFM_HOST -O2 -w -Ibuild/gen -Ifirmware/src -o "$out/hostsim" tests/hostsim.c -lm
