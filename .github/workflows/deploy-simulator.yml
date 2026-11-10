@@ -5,6 +5,9 @@ on:
     branches: [hybrid-memory-reduction]
     paths:
       - "simulator/**"
+      - "src/hybrid_core.c"
+      - "include/hybrid_core.h"
+      - "tests/test_hybrid_wasm_bridge.c"
       - ".github/workflows/deploy-simulator.yml"
 permissions:
   contents: read
@@ -14,13 +17,34 @@ concurrency:
   group: pages
   cancel-in-progress: true
 jobs:
-  deploy:
+  build-test-deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install host C and WebAssembly tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential clang lld nodejs
+      - name: Test real C mixer and bridge on host
+        run: |
+          set -eux
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c tests/test_hybrid_core.c -o /tmp/test_hybrid_core
+          /tmp/test_hybrid_core
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c tests/test_hybrid_stress.c -o /tmp/test_hybrid_stress
+          /tmp/test_hybrid_stress
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Itests/fakes -Iinclude src/hybrid_profile.c tests/test_hybrid_profile.c -o /tmp/test_hybrid_profile
+          /tmp/test_hybrid_profile
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c simulator/wasm_bridge.c tests/test_hybrid_wasm_bridge.c -o /tmp/test_hybrid_wasm_bridge
+          /tmp/test_hybrid_wasm_bridge
+      - name: Compile and validate browser WebAssembly
+        run: |
+          set -eux
+          clang --target=wasm32 -O2 -std=c99 -nostdlib -fno-builtin -Iinclude src/hybrid_core.c simulator/wasm_bridge.c \
+            -Wl,--no-entry -Wl,--export-all -Wl,--export-memory -Wl,--allow-undefined \
+            -Wl,--initial-memory=2097152 -Wl,--max-memory=16777216 -Wl,-z,stack-size=65536 \
+            -o simulator/hybrid_core.wasm
+          node -e "const fs=require('fs');const m=new WebAssembly.Module(fs.readFileSync('simulator/hybrid_core.wasm')); console.log('WASM valid; exports:',WebAssembly.Module.exports(m).length)"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
