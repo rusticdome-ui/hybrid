@@ -176,6 +176,19 @@ jobs:
           FELUCCA_UAC: "0"
           FELUCCA_ICONS: "0"
         run: python3 tools/build.py --board smk37 --model pro --sdk "$AC79_SDK"
+      - name: Verify real AC79 DSP symbols and exclude host stubs
+        working-directory: ${{ runner.temp }}/Felucca
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$JIELI_TOOLCHAIN/common/bin/objdump" -t build/felucca.elf > "$RUNNER_TEMP/hybrid-linked-symbols.txt"
+          for symbol in amb_en_render dub_en_render zen_fm_render hybrid_audio_process hybrid_audio_panic hybrid_midi_out_event en_midi_out fm_midi_out; do
+            grep -Eq "[[:space:]]${symbol}$" "$RUNNER_TEMP/hybrid-linked-symbols.txt" || { echo "::error::Missing linked native symbol: $symbol"; exit 1; }
+          done
+          if grep -q 'native_port_stubs' build/felucca.map; then
+            echo '::error::Host native_port_stubs object leaked into AC79 target link'
+            exit 1
+          fi
       - name: Collect linker maps and section diagnostics
         if: always()
         shell: bash
