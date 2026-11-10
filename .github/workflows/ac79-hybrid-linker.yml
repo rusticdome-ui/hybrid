@@ -152,8 +152,8 @@ jobs:
           FELUCCA_UAC: "0"
           FELUCCA_ICONS: "0"
         run: python3 tools/build.py --board smk37 --model pro --sdk "$AC79_SDK"
-      - name: Run GHOULBOX native audio, note, panic and stability regressions
-        working-directory: ${{ runner.temp }}/Felucca
+      - name: Run GHOULBOX reference render, note, panic and stability regressions
+        working-directory: ${{ runner.temp }}/Felucca-baseline
         env:
           HOST_ONLY: "1"
           AC79_SDK: ${{ env.AC79_SDK }}
