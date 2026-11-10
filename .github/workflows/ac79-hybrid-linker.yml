@@ -80,7 +80,7 @@ jobs:
           for attempt in 1 2 3; do
             echo "Fetching AC79 SDK $branch (attempt $attempt/3)"
             if git -C "$sdk" -c http.version=HTTP/1.1 -c http.lowSpeedLimit=1024 -c http.lowSpeedTime=90 \
-                fetch --depth=1 --filter=blob:none origin "refs/heads/$branch"; then
+                fetch --depth=1 --filter=blob:none origin "$branch"; then
               break
             fi
             if [ "$attempt" -eq 3 ]; then
@@ -95,7 +95,10 @@ jobs:
           done
           echo "AC79 sparse checkout:"
           du -sh "$sdk"
-          sha256sum "$sdk/cpu/wl82/tools/uboot.boot" "$sdk/cpu/wl82/tools/cfg_tool.bin" "$sdk/cpu/wl82/tools/cfg/eq_cfg_hw.bin"
+          printf '%s  %s\n' \
+            4e3b4c220dc96641cb5a723f41e68ce41d5261ae9434bb33fbd7f2c59976ded4 "$sdk/cpu/wl82/tools/uboot.boot" \
+            276579954f076886a6a7694f65dc71c034a63a2c204b76749065c0ac7b010d1b "$sdk/cpu/wl82/tools/cfg_tool.bin" \
+            41167491bffed4651750719c973d2758adeb9021a5670d02d6a53c85ed80ea7d "$sdk/cpu/wl82/tools/cfg/eq_cfg_hw.bin" | sha256sum --check
           echo "AC79_SDK=$sdk" >> "$GITHUB_ENV"
       - name: Build GHOULBOX-only AC79 baseline
         shell: bash
