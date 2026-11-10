@@ -28,11 +28,11 @@ __attribute__((visibility("default"))) int hybrid_wasm_set_route(uint32_t id,uin
 __attribute__((visibility("default"))) int hybrid_wasm_set_midi(uint32_t id,uint32_t channel,uint32_t vlo,uint32_t vhi,int32_t transpose){hybrid_channel_config_t*c;if(!ready||id>=4)return -1;c=&core.engine[id].config;c->midi_channel=(uint8_t)channel;c->velocity_low=(uint8_t)vlo;c->velocity_high=(uint8_t)vhi;c->transpose=(int8_t)transpose;return 0;}
 __attribute__((visibility("default"))) void hybrid_wasm_note_on(uint32_t n,uint32_t v,uint32_t ch){if(ready)hybrid_note_on(&core,(uint8_t)n,(uint8_t)v,(uint8_t)ch);}
 __attribute__((visibility("default"))) void hybrid_wasm_note_off(uint32_t n,uint32_t ch){if(ready)hybrid_note_off(&core,(uint8_t)n,(uint8_t)ch);}
-__attribute__((visibility("default"))) uintptr_t hybrid_wasm_pcm_ptr(uint32_t id){return ready&&id<4?(uint32_t)(uintptr_t)pcm_input[id]:0;}
+__attribute__((visibility("default"))) uintptr_t hybrid_wasm_pcm_ptr(uint32_t id){return ready&&id<4?(uintptr_t)pcm_input[id]:0;}
 __attribute__((visibility("default"))) int hybrid_wasm_submit_pcm(uint32_t id,uint32_t frames){if(!ready||id>=4)return -1;return hybrid_submit_pcm(&core,(hybrid_channel_id_t)id,pcm_input[id],(uint16_t)frames);}
 __attribute__((visibility("default"))) void hybrid_wasm_discard_pcm(uint32_t id){if(ready&&id<4)hybrid_discard_pcm(&core,(hybrid_channel_id_t)id);}
 __attribute__((visibility("default"))) int hybrid_wasm_process(uint32_t frames){if(!ready||!frames||frames>HYBRID_MAX_FRAMES)return -1;return hybrid_process(&core,output,(uint16_t)frames);}
-__attribute__((visibility("default"))) uintptr_t hybrid_wasm_output_ptr(void){return (uint32_t)(uintptr_t)output;}
+__attribute__((visibility("default"))) uintptr_t hybrid_wasm_output_ptr(void){return (uintptr_t)output;}
 __attribute__((visibility("default"))) uint32_t hybrid_wasm_voice_on(uint32_t id){return id<4?voices[id].on:0;}
 __attribute__((visibility("default"))) uint32_t hybrid_wasm_voice_off(uint32_t id){return id<4?voices[id].off:0;}
 __attribute__((visibility("default"))) int hybrid_wasm_scene_capture(uint32_t n){return ready?hybrid_scene_capture(&core,(uint8_t)n):-1;}
