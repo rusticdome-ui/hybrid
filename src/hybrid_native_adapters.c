@@ -182,3 +182,9 @@ void hybrid_audio_note_off(uint8_t note)
     if (hybrid_audio_ready)
         hybrid_note_off(&hybrid_audio_core, note, 0);
 }
+
+void hybrid_audio_panic(void)
+{
+    if (hybrid_audio_ready)
+        hybrid_panic(&hybrid_audio_core);
+}
