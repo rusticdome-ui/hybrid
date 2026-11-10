@@ -67,7 +67,7 @@ static inline void reverb(float in, float *ol, float *or_)
 
 """
         src = src[:start] + stubs + src[end:]
-        src = replace_once(src, "#define TAPE_N 62000", "#define TAPE_N 3875", f"{label} tape capacity")
+        src = replace_once(src, "#define TAPE_N 62000", "#define TAPE_N 6200", f"{label} tape capacity")
         src = replace_once(src, "#define PLEX_N 7100", "#define PLEX_N 4096", f"{label} Echoplex capacity")
         if label == "DUB-1":
             src = replace_once(src, "#define CL_LEN 8192", "#define CL_LEN 4096", "DUB cloud capacity")
