@@ -92,6 +92,10 @@ static inline void reverb(float in, float *ol, float *or_)
     int oct = par[P_BASSOCT];
     if (oct < -1) oct = -1;
     if (oct > 1) oct = 1;
+    /* Keep the MIDI note integer for the note-off/note-on side effects below;
+       use the float lookup only for the DSP pitch target (pi32v2 has no
+       guaranteed __floatsisf helper in this freestanding link). */
+    int n = 36 + (int)((unsigned)pc % 12u) + 12 * oct;
     bass.target = BASS_NOTE[oct + 1][(unsigned)pc % 12u];""",
         "AMB bass pitch conversion"
     )
