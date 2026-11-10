@@ -10,6 +10,7 @@ on:
       - "tests/test_hybrid_wasm_bridge.c"
       - "tests/test_native_wasm_pcm.js"
       - "tests/test_native_midi_latency.js"
+      - "tests/test_audio_worklet_browser.js"
       - ".github/workflows/deploy-simulator.yml"
   pull_request:
     paths:
@@ -144,6 +145,13 @@ jobs:
         run: |
           set -euxo pipefail
           node tests/test_native_wasm_pcm.js
+      - name: Install Playwright Chromium for real AudioWorklet browser test
+        run: |
+          set -eux
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Validate AudioWorklet in headless Chromium
+        run: node tests/test_audio_worklet_browser.js
       - name: Package standalone virtual lab
         run: |
           set -eux
@@ -175,6 +183,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
