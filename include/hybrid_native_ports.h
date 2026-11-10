@@ -34,7 +34,11 @@ void zen_fm_note_vel(int id, int on, float cents, int velocity);
 void zen_fm_panic(void);
 void zen_fm_render(int32_t *out_lr, uint32_t frames, uint32_t gain_q12);
 
-#endif
-
-/* Audio bridge controls exported by hybrid_native_adapters.c. */
+/* Runtime bridge exported by hybrid_native_adapters.c. */
+int hybrid_audio_init(void);
+void hybrid_audio_process(int32_t *out_q15, uint32_t frames, int32_t master_q12);
+void hybrid_audio_note_on(uint8_t note, uint8_t velocity);
+void hybrid_audio_note_off(uint8_t note);
 void hybrid_audio_panic(void);
+
+#endif
