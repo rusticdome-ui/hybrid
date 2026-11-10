@@ -17,7 +17,7 @@ const percentile=(a,p)=>a.slice().sort((x,y)=>x-y)[Math.min(a.length-1,Math.ceil
     const originalKeys=e.exports[keyFn];
     e.exports[keyFn]=function(...args){
       const t=process.hrtime.bigint();
-      const result=originalKeys(mask);
+      const result=originalKeys(...args);
       dispatch.push(ms(process.hrtime.bigint()-t));
       masks.push(e.id===2?(args[1]?1:0):(args[0]>>>0));
       return result;
