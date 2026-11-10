@@ -11,6 +11,7 @@ on:
       - "simulator/index.html"
       - "simulator/README.md"
       - "tests/test_hybrid_wasm_bridge.c"
+      - "tests/test_native_midi_latency.js"
   pull_request:
     paths:
       - ".github/workflows/native-engines-wasm.yml"
@@ -124,6 +125,12 @@ jobs:
             console.log('Browser WASI adapter PASS:',loaded.join(', '));
           })().catch(e=>{console.error(e);process.exit(1);});
           NODE
+
+      - name: Validate MIDI note dispatch and measure original DSP WASM latency
+        shell: bash
+        run: |
+          set -euxo pipefail
+          node tests/test_native_midi_latency.js
 
       - name: Verify exact three-input PCM transport and Q15 mix
         shell: bash
