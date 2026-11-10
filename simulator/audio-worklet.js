@@ -36,11 +36,11 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
   }
   process(_inputs,outputs) {
     const out=outputs[0],left=out[0],right=out[1]||out[0];
-    if(!this.ready||this.failed){left.fill(0);if(right!==left)right.fill(0);this.underruns++;return true;}
+    if(!this.ready||this.failed){left.fill(0);if(right!==left)right.fill(0);return true;}
     const now=performance.now();
     if(this.lastTime){const interval=now-this.lastTime,j=Math.abs(interval-this.period);this.jitter.push(j);if(this.jitter.length>512)this.jitter.shift();this.maxJitter=Math.max(this.maxJitter,j);if(interval>this.period*1.5)this.underruns++;}
     this.lastTime=now;
-    const start=performance.now(),frames=left.length;
+    const start=performance.now(),frames=left.length;this.period=frames/sampleRate*1000;
     try{
       if(frames>128)throw Error('AudioWorklet quantum exceeds 128 frames');
       this.rack.renderToCore(this.core,frames);
