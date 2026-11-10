@@ -15,6 +15,7 @@ on:
       - "src/hybrid_core.c"
       - "include/hybrid_core.h"
       - "tests/test_hybrid_wasm_bridge.c"
+      - ".github/workflows/deploy-simulator.yml"
 permissions:
   contents: read
   pages: write
@@ -31,11 +32,12 @@ jobs:
         run: |
           set -eux
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends lld
+          sudo apt-get install -y --no-install-recommends lld zip
           command -v cc
           command -v clang
           command -v wasm-ld
           command -v node
+          command -v zip
           cc --version
           clang --version
           wasm-ld --version
@@ -59,6 +61,19 @@ jobs:
             -Wl,--initial-memory=2097152 -Wl,--max-memory=16777216 -Wl,-z,stack-size=65536 \
             -o simulator/hybrid_core.wasm
           node -e "const fs=require('fs');(async()=>{const r=await WebAssembly.instantiate(fs.readFileSync('simulator/hybrid_core.wasm'),{});const e=r.instance.exports;if(e.hybrid_wasm_init()!==0)throw Error('core init');e.hybrid_wasm_note_on(60,100,0);if(e.hybrid_wasm_process(64)!==0)throw Error('render');const p=e.hybrid_wasm_output_ptr()>>>2;const a=new Int32Array(e.memory.buffer,p,128);if(!a.some(x=>x!==0))throw Error('silent mixer output');console.log('WASM core smoke PASS; exports:',Object.keys(e).length)})().catch(e=>{console.error(e);process.exit(1)})"
+      - name: Package standalone virtual lab
+        run: |
+          set -eux
+          test -s simulator/index.html
+          test -s simulator/hybrid_core.wasm
+          (cd simulator && zip -9 ../smk37-hybrid-virtual-lab.zip index.html hybrid_core.wasm)
+          test -s smk37-hybrid-virtual-lab.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: smk37-hybrid-virtual-lab
+          path: smk37-hybrid-virtual-lab.zip
+          if-no-files-found: error
+          retention-days: 30
       - uses: actions/upload-artifact@v4
         if: github.event_name == 'pull_request'
         with:
