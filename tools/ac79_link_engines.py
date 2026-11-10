@@ -69,7 +69,7 @@ def apply_memory_profile(amb, dub, zen, felucca):
         return x;
     shift = (int32_t)exponent - 127;
     if (shift < 0)
-        return (b.u >> 31) ? (x == 0.0f ? x : -1.0f) : 0.0f;
+        return (b.u >> 31) ? ((b.u & 0x7FFFFFFFu) == 0u ? x : -1.0f) : 0.0f;
     if (shift >= 31)
         return x;
     significand = (b.u & 0x7FFFFFu) | 0x800000u;
