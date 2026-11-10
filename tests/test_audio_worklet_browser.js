@@ -34,7 +34,12 @@ const server = http.createServer((req, res) => {
     const response = await page.goto('http://127.0.0.1:' + address.port + '/', { waitUntil:'networkidle' });
     if (!response || !response.ok()) throw new Error('Simulator HTTP load failed');
     await page.locator('#audio').click();
-    await page.waitForFunction(() => document.querySelector('#log').textContent.includes('AudioWorklet activo:'), null, { timeout:30000 });
+    await page.waitForFunction(() => {
+      const t = document.querySelector('#log')?.textContent || '';
+      return t.includes('AudioWorklet activo:') || t.includes('ERRO WASM:') || t.includes('AudioWorklet:');
+    }, null, { timeout:30000 });
+    const startupLog = await page.locator('#log').textContent();
+    if (!startupLog.includes('AudioWorklet activo:')) throw new Error('AudioWorklet did not become ready. Browser log: ' + startupLog + ' | page errors: ' + pageErrors.join(' | '));
     // Isolate slot D so the analyser proves the original GHOULBOX WASM renderer is audible.
     for (let i = 0; i < 4; i++) {
       await page.locator('#engines input[data-i="' + i + '"][data-k="gain"]').evaluate((el, value) => {
