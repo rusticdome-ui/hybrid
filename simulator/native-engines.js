@@ -47,7 +47,7 @@
       if(item.kind!=='function')throw new Error('import WASM não suportado: '+item.module+'.'+item.name+' ('+item.kind+')');
       if(!imports[item.module])imports[item.module]=item.module==='wasi_snapshot_preview1'?wasiNamespace(memoryRef):new Proxy({}, {get:()=>()=>0});
     }
-    const {instance}=await WebAssembly.instantiate(module,imports);
+    const instance=await WebAssembly.instantiate(module,imports);
     memoryRef.memory=instance.exports.memory||null;
     if(!memoryRef.memory)throw new Error('módulo standalone sem export de memória');
     return instance;
