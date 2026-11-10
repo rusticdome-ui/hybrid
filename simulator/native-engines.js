@@ -13,6 +13,45 @@
   const KEY_MIN = 53; // FM-1 keybed F3; plat.h documents F3..G5 (27 keys).
   const KEY_COUNT = 27;
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  function wasiNamespace(memoryRef){
+    const mem=()=>memoryRef.memory;
+    const u32=(p,v)=>{if(mem())new DataView(mem().buffer).setUint32(p>>>0,v>>>0,true);};
+    const u64=(p,v)=>{if(mem())new DataView(mem().buffer).setBigUint64(p>>>0,BigInt.asUintN(64,BigInt(v)),true);};
+    const api={
+      fd_write(_fd,_iov,_count,nwritten){u32(nwritten,0);return 0;},
+      fd_read(_fd,_iov,_count,nread){u32(nread,0);return 0;},
+      fd_close(){return 0;},fd_sync(){return 0;},fd_datasync(){return 0;},
+      fd_seek(_fd,_offset,_whence,newOffset){u64(newOffset,0);return 0;},
+      fd_tell(_fd,offset){u64(offset,0);return 0;},
+      args_sizes_get(argc,buf){u32(argc,0);u32(buf,0);return 0;},
+      args_get(){return 0;},
+      environ_sizes_get(count,buf){u32(count,0);u32(buf,0);return 0;},
+      environ_get(){return 0;},
+      clock_time_get(_id,_precision,out){u64(out,BigInt(Date.now())*1000000n);return 0;},
+      random_get(ptr,len){
+        const m=mem();if(!m)return 0;
+        const bytes=new Uint8Array(m.buffer,ptr>>>0,len>>>0);
+        if(globalThis.crypto&&globalThis.crypto.getRandomValues){
+          for(let i=0;i<bytes.length;i+=65536)globalThis.crypto.getRandomValues(bytes.subarray(i,Math.min(i+65536,bytes.length)));
+        }else bytes.fill(0);
+        return 0;
+      },
+      proc_exit(code){throw new Error('WASM chamou proc_exit('+code+')');},
+      sched_yield(){return 0;}
+    };
+    return new Proxy(api,{get:(target,key)=>target[key]||(()=>0)});
+  }
+  async function instantiateNative(bytes){
+    const module=await WebAssembly.compile(bytes),memoryRef={memory:null},imports={};
+    for(const item of WebAssembly.Module.imports(module)){
+      if(item.kind!=='function')throw new Error('import WASM não suportado: '+item.module+'.'+item.name+' ('+item.kind+')');
+      if(!imports[item.module])imports[item.module]=item.module==='wasi_snapshot_preview1'?wasiNamespace(memoryRef):new Proxy({}, {get:()=>()=>0});
+    }
+    const {instance}=await WebAssembly.instantiate(module,imports);
+    memoryRef.memory=instance.exports.memory||null;
+    if(!memoryRef.memory)throw new Error('módulo standalone sem export de memória');
+    return instance;
+  }
   class NativeEngineRack {
     constructor(){this.engines=new Map();this.enabled=false;this.status={};this.held=new Map();this.channel=0;this.master=80;}
     async loadAll(){
@@ -22,7 +61,7 @@
           const response=await fetch(spec.url);
           if(!response.ok)throw new Error('HTTP '+response.status+' ao obter '+spec.url);
           const bytes=await response.arrayBuffer();
-          const {instance}=await WebAssembly.instantiate(bytes,{});
+          const instance=await instantiateNative(bytes);
           const e=instance.exports;
           for(const fn of ['web_boot','web_render','web_out_l','web_out_r','web_keys','web_buttons','web_enc','web_master'])
             if(typeof e[fn]!=='function')throw new Error('export em falta: '+fn);
