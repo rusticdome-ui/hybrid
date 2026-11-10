@@ -3,7 +3,7 @@ name: AC79 isolated DSP linker check
 on:
   workflow_dispatch:
   push:
-    branches: [ac79-hybrid-linker, hybrid-audio-mixer-integration, hybrid-ac79-profiler]
+    branches: [ac79-hybrid-linker, hybrid-audio-mixer-integration, hybrid-ac79-profiler, hybrid-memory-reduction]
     paths:
       - "tools/ac79_link_engines.py"
       - "src/**"
