@@ -58,6 +58,36 @@ const server = http.createServer((req, res) => {
       return Math.sqrt(sum / data.length) > 0.00001;
     }, null, { timeout:12000 });
     await page.waitForFunction(() => document.querySelector('#audioMetrics').textContent.includes('AudioWorklet 256'), null, { timeout:15000 });
+    // Exercise all four patch controls in real Chromium, observing the messages
+    // actually sent to the AudioWorklet rather than merely checking button presence.
+    await page.waitForFunction(() => (document.querySelector('#log')?.textContent || '').includes('DSP originais WASM activos'), null, { timeout:30000 });
+    await page.evaluate(() => {
+      const port = window.__hybridAudioNode.port;
+      const original = port.postMessage.bind(port);
+      window.__hybridPatchMessages = [];
+      port.postMessage = message => {
+        if (message && (message.type === 'presetStep' || message.type === 'programChange')) window.__hybridPatchMessages.push(message);
+        return original(message);
+      };
+    });
+    for (const [select, button, id] of [['#presetAmb','#applyAmb',0],['#presetDub','#applyDub',1],['#presetZen','#applyZen',2]]) {
+      await page.locator(select).selectOption('4');
+      await page.locator(button).click();
+    }
+    await page.locator('#presetGhoul').fill('37');
+    await page.locator('#applyGhoul').click();
+    const patchMessages = await page.evaluate(() => window.__hybridPatchMessages);
+    for (const id of [0,1,2]) {
+      if (!patchMessages.some(m => m.type === 'presetStep' && m.id === id && m.delta === 4))
+        throw new Error('Chromium patch selector did not dispatch PRESET +4 for engine ' + id + ': ' + JSON.stringify(patchMessages));
+    }
+    if (!patchMessages.some(m => m.type === 'programChange' && m.program === 37 && m.channel === 1))
+      throw new Error('Chromium GHOULBOX selector did not dispatch Program Change 37: ' + JSON.stringify(patchMessages));
+    // Validate the ZEN import path and its exact 128-byte contract.
+    await page.locator('#zenPatch').setInputFiles({ name:'chromium-patch.bin', mimeType:'application/octet-stream', buffer:Buffer.alloc(128, 0x5a) });
+    await page.locator('#zenPatchSet').click();
+    await page.waitForFunction(() => (document.querySelector('#log')?.textContent || '').includes('Patch ZEN aplicado no adaptador nativo'), null, { timeout:5000 });
+    console.log('CHROMIUM PATCH SELECTORS PASS: AMB-1, DUB-1, ZEN-1 PRESET; GHOULBOX Program Change; ZEN 128-byte import.');
     const metrics = await page.locator('#audioMetrics').textContent();
     const log = await page.locator('#log').textContent();
     if (!log.includes('GHOULBOX original firmware')) throw new Error('GHOULBOX original firmware was not reported ready: ' + log);
