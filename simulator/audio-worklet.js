@@ -66,7 +66,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
         gv.pcm[2*i+1]=Math.max(-32768,Math.min(32767,Math.round(gv.right[i]*32767)));
       }
       if(this.core.hybrid_wasm_submit_pcm(3,128)!==0)throw Error('GHOULBOX warm-up PCM submit failed');
-      }
+      } else this.submitSilentGhoul(128);
       if(this.core.hybrid_wasm_process(128)!==0)throw Error('HYBRID warm-up mixer failed');
     }
     this.rack.allNotesOff();this.core.hybrid_wasm_panic();
@@ -133,6 +133,16 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     s.clockPhase+=frames;
     while(s.clockPhase>=samplesPerClock){s.clockPhase-=samplesPerClock;this.volcaClockPulse(false);}
   }
+  submitSilentGhoul(frames) {
+    const memory=this.core.memory.buffer,gp=this.core.hybrid_wasm_pcm_ptr(3)>>>0;
+    let view=this.ghoulViews.get(frames);
+    if(!view||view.coreMemory!==memory||view.gp!==gp||!view.silent){
+      view={coreMemory:memory,gp,pcm:new Int32Array(memory,gp,frames*2),silent:true};
+      this.ghoulViews.set(frames,view);
+    }
+    view.pcm.fill(0);
+    if(this.core.hybrid_wasm_submit_pcm(3,frames)!==0)throw Error('Silent optional GHOULBOX PCM submit failed');
+  }
   message(m) {
     if(!m)return;
     if(!this.ready){if(['presetStep','programChange','volcaConfigure','volcaStart','volcaStop','volcaExternalStart','volcaExternalStop','volcaExternalClock'].includes(m.type))this.pendingMessages.push(m);return;}
@@ -198,7 +208,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
           gq[2*i+1]=Math.max(-32768,Math.min(32767,Math.round(gr[i]*32767)));
         }
         if(this.core.hybrid_wasm_submit_pcm(3,frames)!==0)throw Error('GHOULBOX PCM submit failed');
-      }
+      } else this.submitSilentGhoul(frames);
       if(this.core.hybrid_wasm_process(frames)!==0)throw Error('HYBRID mixer process failed');
       const outputMemory=this.core.memory.buffer,ptr=this.core.hybrid_wasm_output_ptr()>>>0;
       let ov=this.outputViews.get(frames);
