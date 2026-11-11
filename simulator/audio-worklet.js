@@ -135,13 +135,13 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
   }
   message(m) {
     if(!m)return;
+    if(!this.ready){if(['presetStep','programChange','volcaConfigure','volcaStart','volcaStop','volcaExternalStart','volcaExternalStop','volcaExternalClock'].includes(m.type))this.pendingMessages.push(m);return;}
     if(m.type==='volcaConfigure'){this.volcaConfigure(m);return;}
     if(m.type==='volcaStart'){this.volcaConfigure(m);this.volcaStart();return;}
     if(m.type==='volcaStop'){this.volcaStop();return;}
     if(m.type==='volcaExternalStart'){this.volca.externalClock=true;this.volcaStart();return;}
     if(m.type==='volcaExternalStop'){this.volcaStop();return;}
     if(m.type==='volcaExternalClock'){this.volcaClockPulse(true);return;}
-    if(!this.ready){if(['presetStep','programChange','volcaConfigure','volcaStart','volcaStop','volcaExternalStart','volcaExternalStop','volcaExternalClock'].includes(m.type))this.pendingMessages.push(m);return;}
     if(m.type==='noteOn'){
       this.rack.noteOn(m.note,m.velocity,m.channel);
       const ch=Number.isInteger(m.channel)&&m.channel>=1&&m.channel<=4?m.channel:1;
