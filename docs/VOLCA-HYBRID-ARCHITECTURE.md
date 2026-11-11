@@ -33,12 +33,12 @@ New files:
 
 Properties:
 - Four fixed lanes corresponding to HYBRID slots AMB-1, DUB-1, ZEN-1 and optional GHOULBOX.
-- One sample-rate-derived transport clock, 40–220 BPM, 24 PPQN MIDI clock and 16th-note steps.
+- One sample-rate-derived internal clock or exact external MIDI-clock pulse input, 40–240 BPM, 24 PPQN and 16th-note steps.
 - Up to 16 pattern-family entries in a chain; the chain advances at each 16-step bar.
 - Variation A/B, a four-step fill overlay, per-lane mute and solo.
 - Immutable factory note/velocity tables; no heap allocation, no dynamic pattern buffers and no new sample/PCM buffers.
-- Start/Stop releases active notes. The AC79 callback emits MIDI Start/Clock/Stop on the existing USB-MIDI output and routes note events to registered native engine callbacks.
-- The AC79 audio hook advances the sequencer once per audio block, before the existing GHOULBOX mix and HYBRID overlay render.
+- Start/Stop releases active notes. Internal mode emits MIDI Start/Clock/Stop on the existing USB-MIDI output. External mode follows the native GHOULBOX MIDI-clock pulse callback without echoing the incoming clock. Note events route to registered native engine callbacks.
+- The AC79 audio hook advances the internal-clock sequencer once per audio block, before the existing GHOULBOX mix and HYBRID overlay render; external mode advances on the exact incoming 24-PPQN pulses.
 
 AMB-1 and DUB-1 are self-running generative engines in the current adapter. Their note callbacks intentionally remain no-ops until a source-accurate performance/clock control mapping is validated. ZEN-1 accepts the sequencer's note events. The sequencer does not fabricate note support for AMB/DUB.
 
