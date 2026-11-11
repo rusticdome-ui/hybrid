@@ -22,7 +22,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     super();
     this.ready=false;this.failed=false;this.rack=null;this.core=null;this.ghoulbox=null;this.pendingMessages=[];
     this.count=0;this.underruns=0;this.lateCallbacks=0;this.renderOverrunCandidates=0;this.lastTime=0;this.maxJitter=0;this.jitter=[];
-    this.maxRender=0;this.rackMax=0;this.ghoulMax=0;this.mixerMax=0;this.rackTotal=0;this.ghoulTotal=0;this.mixerTotal=0;this.seqMax=0;this.seqTotal=0;this.seqSteps=0;this.seqClockTicks=0;this.period=128/sampleRate*1000;this.ghoulViews=new Map();this.outputViews=new Map();this.volca={running:false,bpm:120,clockPhase:0,clockDivider:0,step:0,chain:[0],chainPosition:0,variation:0,fill:false,externalClock:false,muteMask:0,soloMask:0,active:[0,0,0,0]};
+    this.maxRender=0;this.rackMax=0;this.ghoulMax=0;this.mixerMax=0;this.rackTotal=0;this.ghoulTotal=0;this.mixerTotal=0;this.seqMax=0;this.seqTotal=0;this.seqSteps=0;this.seqClockTicks=0;this.seqLaneEvents=[0,0,0,0];this.period=128/sampleRate*1000;this.ghoulViews=new Map();this.outputViews=new Map();this.volca={running:false,bpm:120,clockPhase:0,clockDivider:0,step:0,chain:[0],chainPosition:0,variation:0,fill:false,externalClock:false,muteMask:0,soloMask:0,active:[0,0,0,0]};
     this.port.onmessage=e=>this.message(e.data);
     this.initialize(options.processorOptions?.wasmBytes).catch(err=>{
       this.failed=true;this.port.postMessage({type:'error',message:err.message});
@@ -86,11 +86,11 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
   }
   volcaNote(track,note,velocity,on) {
     if(track<3&&this.rack){
-      if(on)this.rack.noteOnEngine(track,note,velocity);
-      else this.rack.noteOffEngine(track,note);
+      return on?this.rack.noteOnEngine(track,note,velocity):this.rack.noteOffEngine(track,note);
     } else if(track===3&&this.ghoulbox) {
-      this.ghoulbox.web_midi((on?0x90:0x80)|3,note,on?velocity:0);
+      this.ghoulbox.web_midi((on?0x90:0x80)|3,note,on?velocity:0);return true;
     }
+    return false;
   }
   volcaStep() {
     const s=this.volca,step=s.step,family=s.chain[s.chainPosition]??0,solo=s.soloMask;
@@ -102,7 +102,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
       if(s.fill&&step>=12&&((step+track)&1)===0){note=family===2?38:(note||48);velocity=120;}
       if(note){
         if(track<3&&family!==2&&family!==4)note=Math.min(127,note+track*12);
-        this.volcaNote(track,note,velocity,true);s.active[track]=note;
+        if(this.volcaNote(track,note,velocity,true)){this.seqLaneEvents[track]++;s.active[track]=note;}
       }
     }
     s.step=(s.step+1)&15;this.seqSteps++;
@@ -213,7 +213,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     this.count++;
     if((this.count&255)===0){
       const s=this.jitter.slice().sort((a,b)=>a-b),p95=s.length?s[Math.min(s.length-1,Math.ceil(s.length*.95)-1)]:0;
-      this.port.postMessage({type:'metrics',callbacks:this.count,underruns:this.underruns,lateCallbacks:this.lateCallbacks,renderOverrunCandidates:this.renderOverrunCandidates,jitterP95:p95,jitterMax:this.maxJitter,renderMax:this.maxRender,sequencerMax:this.seqMax,sequencerAvg:this.seqTotal/this.count,seqSteps:this.seqSteps,seqClockTicks:this.seqClockTicks,rackMax:this.rackMax,ghoulboxMax:this.ghoulMax,mixerMax:this.mixerMax,rackAvg:this.rackTotal/this.count,ghoulboxAvg:this.ghoulTotal/this.count,mixerAvg:this.mixerTotal/this.count,timingSource,timingResolutionMs});
+      this.port.postMessage({type:'metrics',callbacks:this.count,underruns:this.underruns,lateCallbacks:this.lateCallbacks,renderOverrunCandidates:this.renderOverrunCandidates,jitterP95:p95,jitterMax:this.maxJitter,renderMax:this.maxRender,sequencerMax:this.seqMax,sequencerAvg:this.seqTotal/this.count,seqSteps:this.seqSteps,seqClockTicks:this.seqClockTicks,seqLaneEvents:this.seqLaneEvents.slice(),rackMax:this.rackMax,ghoulboxMax:this.ghoulMax,mixerMax:this.mixerMax,rackAvg:this.rackTotal/this.count,ghoulboxAvg:this.ghoulTotal/this.count,mixerAvg:this.mixerTotal/this.count,timingSource,timingResolutionMs});
     }
     return true;
   }
