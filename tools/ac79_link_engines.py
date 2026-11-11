@@ -325,7 +325,7 @@ def main():
 
     seq_c=a.felucca/"firmware/src/seq.c"
     patch_source(seq_c, "static void keyboard_block(void)",
-                 "extern void hybrid_audio_note_on(uint8_t, uint8_t);\nextern void hybrid_audio_note_off(uint8_t);\nextern void hybrid_audio_panic(void);\n\nstatic void keyboard_block(void)",
+                 "extern void hybrid_audio_note_on(uint8_t, uint8_t);\nextern void hybrid_audio_note_off(uint8_t);\nextern void hybrid_audio_panic(void);\nextern void hybrid_audio_seq_sync(uint8_t, uint16_t);\n\nstatic void keyboard_block(void)",
                  "seq.c declarations")
     patch_source(seq_c, "    if (midi_route != (uint8_t)song.g[G_ROUTE]) {",
                  "    hybrid_audio_seq_sync((uint8_t)song.playing, (uint16_t)song.g[G_BPM]);\n    if (midi_route != (uint8_t)song.g[G_ROUTE]) {",
