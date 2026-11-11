@@ -309,6 +309,9 @@ def main():
     patch_source(audio_c, "    mix_block(out, n);",
                  "    hybrid_audio_seq_process(n);\n    hybrid_profile_begin(3);\n    mix_block(out, n);\n    hybrid_profile_end(3, n);\n    hybrid_audio_process(out, n, fx_usb_fixed ? MASTER_FULL : (int32_t)song.master_q12);",
                  "audio.c mixer hook")
+    patch_source(audio_c, "        if (fm1_audio_free_half() != half)\n            felucca_dbg.late++;",
+                 "        if (fm1_audio_free_half() != half) {\n            felucca_dbg.late++;\n            hybrid_profile_underrun();\n        }",
+                 "audio.c DMA underrun profiler hook")
 
     main_c=a.felucca/"firmware/src/main.c"
     patch_source(main_c, "static void felucca_init(void)",
