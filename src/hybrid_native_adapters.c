@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include "hybrid_core.h"
 #include "hybrid_profile.h"
+#include "hybrid_sequencer.h"
 #include "hybrid_native_ports.h"
 
 #define HYBRID_RENDER_MAX 128u
@@ -149,10 +150,41 @@ const hybrid_engine_ops_t hybrid_zen_ops = {
 static hybrid_core_t hybrid_audio_core;
 static int32_t hybrid_audio_mix[HYBRID_MAX_FRAMES * 2u];
 static uint8_t hybrid_audio_ready;
+static hybrid_seq_t hybrid_audio_sequencer;
+
+static void hybrid_seq_emit(void *context, uint8_t engine, hybrid_seq_event_t event, uint8_t note, uint8_t velocity)
+{
+    hybrid_core_t *core = (hybrid_core_t *)context;
+    if (event == HYBRID_SEQ_CLOCK) { native_midi_out(0xF8u, 0u, 0u); return; }
+    if (event == HYBRID_SEQ_START) { native_midi_out(0xFAu, 0u, 0u); return; }
+    if (event == HYBRID_SEQ_STOP) { native_midi_out(0xFCu, 0u, 0u); return; }
+    if (!core || engine >= HYBRID_CHANNELS) return;
+    if (event == HYBRID_SEQ_NOTE_ON && core->engine[engine].ops && core->engine[engine].ops->note_on)
+        core->engine[engine].ops->note_on(core->engine[engine].state, note, velocity);
+    else if (event == HYBRID_SEQ_NOTE_OFF && core->engine[engine].ops && core->engine[engine].ops->note_off)
+        core->engine[engine].ops->note_off(core->engine[engine].state, note);
+}
+
+void hybrid_audio_seq_process(uint32_t frames)
+{
+    if (!hybrid_audio_ready || !frames || frames > HYBRID_MAX_FRAMES) return;
+    hybrid_profile_begin(HYBRID_PROF_SEQUENCER);
+    hybrid_seq_process(&hybrid_audio_sequencer, (uint16_t)frames);
+    hybrid_profile_end(HYBRID_PROF_SEQUENCER, frames);
+}
+int hybrid_audio_seq_tempo(uint16_t bpm) { return hybrid_seq_tempo(&hybrid_audio_sequencer, bpm); }
+int hybrid_audio_seq_chain(const uint8_t *families, uint8_t length) { return hybrid_seq_chain(&hybrid_audio_sequencer, families, length); }
+void hybrid_audio_seq_start(void) { hybrid_seq_start(&hybrid_audio_sequencer); }
+void hybrid_audio_seq_stop(void) { hybrid_seq_stop(&hybrid_audio_sequencer); }
+void hybrid_audio_seq_variation(uint8_t value) { hybrid_seq_variation(&hybrid_audio_sequencer, value); }
+void hybrid_audio_seq_fill(uint8_t value) { hybrid_seq_fill(&hybrid_audio_sequencer, value); }
+void hybrid_audio_seq_mute(uint8_t track, uint8_t value) { hybrid_seq_mute(&hybrid_audio_sequencer, track, value); }
+void hybrid_audio_seq_solo(uint8_t track, uint8_t value) { hybrid_seq_solo(&hybrid_audio_sequencer, track, value); }
 
 int hybrid_audio_init(void)
 {
     hybrid_profile_init();
+    hybrid_seq_init(&hybrid_audio_sequencer, HYBRID_SAMPLE_RATE, hybrid_seq_emit, &hybrid_audio_core);
     hybrid_profile_buffers(0u, (uint32_t)sizeof(hybrid_audio_mix) + (uint32_t)sizeof(native_lr));
     hybrid_init_defaults(&hybrid_audio_core);
     if (hybrid_register_native_engines(&hybrid_audio_core) != 0)
