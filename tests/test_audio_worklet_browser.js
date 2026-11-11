@@ -40,12 +40,14 @@ const server = http.createServer((req, res) => {
     }, null, { timeout:30000 });
     const startupLog = await page.locator('#log').textContent();
     if (!startupLog.includes('AudioWorklet activo:')) throw new Error('AudioWorklet did not become ready. Browser log: ' + startupLog + ' | page errors: ' + pageErrors.join(' | '));
-    // Isolate slot D so the analyser proves the original GHOULBOX WASM renderer is audible.
+    // Prefer the original GHOULBOX renderer when present; otherwise prove the ZEN-1 native renderer remains audible.
+    const hasGhoul = startupLog.includes('GHOULBOX original firmware');
+    const audibleSlot = hasGhoul ? 3 : 2;
     for (let i = 0; i < 4; i++) {
       await page.locator('#engines input[data-i="' + i + '"][data-k="gain"]').evaluate((el, value) => {
         el.value = String(value);
         el.dispatchEvent(new Event('input', { bubbles:true }));
-      }, i === 3 ? 100 : 0);
+      }, i === audibleSlot ? 100 : 0);
     }
     await page.locator('#chord').click();
     await page.waitForFunction(() => {
@@ -97,9 +99,23 @@ const server = http.createServer((req, res) => {
     await page.locator('#zenPatchSet').click();
     await page.waitForFunction(() => (document.querySelector('#log')?.textContent || '').includes('Patch ZEN aplicado no adaptador nativo'), null, { timeout:5000 });
     console.log('CHROMIUM PATCH SELECTORS PASS: AMB-1, DUB-1, ZEN-1 PRESET; GHOULBOX Program Change; ZEN 128-byte import.');
+    // Exercise the VOLCA chain/variation/fill/mute/solo panel through the shared AudioWorklet clock.
+    await page.locator('#volcaChain').fill('1,2,3');
+    await page.locator('#volcaVariation').selectOption('1');
+    await page.locator('#volcaFill').check();
+    await page.locator('#volcaMute1').check();
+    await page.locator('#volcaSolo2').check();
+    await page.locator('#volcaApply').click();
+    await page.locator('#volcaPlay').click();
+    await page.waitForFunction(() => window.__hybridAudioMetrics && window.__hybridAudioMetrics.seqSteps >= 2 && window.__hybridAudioMetrics.seqClockTicks >= 6, null, { timeout:12000 });
+    const seqMetrics = await page.evaluate(() => window.__hybridAudioMetrics);
+    if (!Number.isFinite(seqMetrics.sequencerMax) || seqMetrics.sequencerMax < 0) throw new Error('VOLCA sequencer CPU metric invalid: ' + JSON.stringify(seqMetrics));
+    await page.locator('#volcaStop').click();
+    console.log('CHROMIUM VOLCA SEQUENCER PASS: chain, variation B, fill, mute/solo, shared 24-PPQN clock and transport.');
+
     const metrics = await page.locator('#audioMetrics').textContent();
     const log = await page.locator('#log').textContent();
-    if (!log.includes('GHOULBOX original firmware')) throw new Error('GHOULBOX original firmware was not reported ready: ' + log);
+    if (!log.includes('GHOULBOX original firmware') && !log.includes('GHOULBOX ausente (opcional)')) throw new Error('Optional GHOULBOX availability was not reported: ' + log);
     if (log.includes('AudioWorklet:')) throw new Error('AudioWorklet reported an error: ' + log);
     if (pageErrors.length) throw new Error('Browser errors: ' + pageErrors.join(' | '));
     console.log('CHROMIUM AUDIOWORKLET PASS');
