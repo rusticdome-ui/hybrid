@@ -63,17 +63,17 @@ The existing AC79 profiler now has a separate sequencer timing channel (TIMER4),
 
 Static POOL, RAM, XIP and NOINIT usage must be taken from the final linked ELF/map. The runtime buffer counters are **not** a live measurement of every private GHOULBOX/DSP POOL allocation. GitHub-hosted CI cannot measure the physical board's live CPU, stack or DMA underruns.
 
-The latest successful final AC79 map for the first integrated sequencer build (Actions run [#43113694960](https://github.com/rusticdome-ui/hybrid/actions/runs/43113694960), commit 7a7983cc) reported:
+The latest confirmed final AC79 ELF link is from Actions run [#43114897656](https://github.com/rusticdome-ui/hybrid/actions/runs/43114897656), commit 51a65b7b. The AC79 compile, final link and native-symbol checks passed; the job failed afterward only because the first version of the report parser did not recognize the blank section-header row in Jieli objdump output. That parser has since been fixed and is being re-run.
 
 | Region | Used | Capacity | Remaining |
 |---|---:|---:|---:|
-| XIP | 608,688 B | 619,520 B | 10,832 B |
+| XIP (.text) | 609,140 B | 619,520 B | 10,380 B |
 | RAM (.data + .bss) | 83,248 B | 98,304 B | 15,056 B |
 | POOL | 335,296 B | 344,064 B | 8,768 B |
+| RAMTEXT | 3,036 B | 24,576 B | 21,540 B |
 | NOINIT | 15,564 B | 15,696 B | 132 B |
 
-These values include the first integrated C sequencer object and its AC79 adapter hook. Subsequent external-clock pulse-lock changes are still awaiting a fresh final link/map, so these are the latest confirmed baseline rather than the final margins for the current HEAD. NOINIT and POOL are particularly tight; do not add large runtime buffers or assume external SDRAM.
-
+These values include the shared-clock sequencer, its AC79 adapter and profiler integration, including external MIDI clock pulse forwarding. NOINIT and POOL remain particularly tight; do not add large runtime buffers or assume external SDRAM. The subsequent parser fix does not change firmware code or these ELF sections.
 ## Validation gates
 
 1. Host tests for tempo bounds, 24-PPQN clock, chain advancement, variation, fill, mute/solo and note release.
