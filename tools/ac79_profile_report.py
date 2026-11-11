@@ -44,7 +44,7 @@ def main():
         "| Metric | Instrumentation |", "|---|---|",
         "| AMB-1 / DUB-1 / ZEN-1 | TIMER4 calls, frames, total/last/max ticks |",
         "| GHOULBOX | TIMER4 around native mix_block() |",
-        "| HYBRID mixer | TIMER4 aggregate duration |",
+        "| HYBRID sequencer | TIMER4 duration for shared-clock scheduling |\n| HYBRID mixer | TIMER4 aggregate duration |",
         "| DMA underruns | increments when DMA advances before render completes |",
         "| Stack watermark | sampled local stack-marker high-water against linker stack windows |",
         "| Audio scratch buffers | current block occupancy / registered capacity |",
