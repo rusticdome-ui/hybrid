@@ -334,12 +334,9 @@ def main():
                  "    hybrid_audio_seq_sync((uint8_t)song.playing, (uint16_t)song.g[G_BPM], (uint8_t)song.g[G_CLOCK]);\n    if (midi_route != (uint8_t)song.g[G_ROUTE]) {",
                  "seq.c shared transport and BPM sync")
     midi_clock_c=a.felucca/"firmware/src/midi_clock.c"
-    patch_source(midi_clock_c, "static __attribute__((noinline)) void midi_clock_pulse(uint32_t ms)\n{",
-                 "extern void hybrid_audio_seq_clock_pulse(void);\nstatic __attribute__((noinline)) void midi_clock_pulse(uint32_t ms)\n{",
-                 "midi_clock.c VOLCA clock declaration")
-    patch_source(midi_clock_c, "extern void hybrid_audio_seq_clock_pulse(void);\nstatic __attribute__((noinline)) void midi_clock_transport(uint32_t status, uint32_t ms)",
-                 "extern void hybrid_audio_seq_clock_pulse(void);\nextern void hybrid_audio_seq_sync(uint8_t, uint16_t, uint8_t);\nstatic __attribute__((noinline)) void midi_clock_transport(uint32_t status, uint32_t ms)",
-                 "midi_clock.c external transport declaration")
+    patch_source(midi_clock_c, "static __attribute__((noinline)) void midi_clock_transport(uint32_t status, uint32_t ms)\n{",
+                 "extern void hybrid_audio_seq_clock_pulse(void);\nextern void hybrid_audio_seq_sync(uint8_t, uint16_t, uint8_t);\nstatic __attribute__((noinline)) void midi_clock_transport(uint32_t status, uint32_t ms)\n{",
+                 "midi_clock.c VOLCA clock and transport declarations")
     patch_source(midi_clock_c, "        seq_start();\n    } else if (status == 0xFBu)",
                  "        seq_start();\n        hybrid_audio_seq_sync((uint8_t)song.playing, (uint16_t)song.g[G_BPM], (uint8_t)song.g[G_CLOCK]);\n    } else if (status == 0xFBu)",
                  "midi_clock.c external Start sync")
