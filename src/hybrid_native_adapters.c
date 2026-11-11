@@ -153,13 +153,14 @@ static uint8_t hybrid_audio_ready;
 static hybrid_seq_t hybrid_audio_sequencer;
 static uint8_t hybrid_audio_seq_synced;
 static uint16_t hybrid_audio_seq_bpm;
+static uint8_t hybrid_audio_seq_external;
 
 static void hybrid_seq_emit(void *context, uint8_t engine, hybrid_seq_event_t event, uint8_t note, uint8_t velocity)
 {
     hybrid_core_t *core = (hybrid_core_t *)context;
-    if (event == HYBRID_SEQ_CLOCK) { native_midi_out(0xF8u, 0u, 0u); return; }
-    if (event == HYBRID_SEQ_START) { native_midi_out(0xFAu, 0u, 0u); return; }
-    if (event == HYBRID_SEQ_STOP) { native_midi_out(0xFCu, 0u, 0u); return; }
+    if (event == HYBRID_SEQ_CLOCK) { if (!hybrid_audio_seq_external) native_midi_out(0xF8u, 0u, 0u); return; }
+    if (event == HYBRID_SEQ_START) { if (!hybrid_audio_seq_external) native_midi_out(0xFAu, 0u, 0u); return; }
+    if (event == HYBRID_SEQ_STOP) { if (!hybrid_audio_seq_external) native_midi_out(0xFCu, 0u, 0u); return; }
     if (!core || engine >= HYBRID_CHANNELS) return;
     if (event == HYBRID_SEQ_NOTE_ON && core->engine[engine].ops && core->engine[engine].ops->note_on)
         core->engine[engine].ops->note_on(core->engine[engine].state, note, velocity);
@@ -178,10 +179,12 @@ int hybrid_audio_seq_tempo(uint16_t bpm) { return hybrid_seq_tempo(&hybrid_audio
 int hybrid_audio_seq_chain(const uint8_t *families, uint8_t length) { return hybrid_seq_chain(&hybrid_audio_sequencer, families, length); }
 void hybrid_audio_seq_start(void) { hybrid_seq_start(&hybrid_audio_sequencer); }
 void hybrid_audio_seq_stop(void) { hybrid_seq_stop(&hybrid_audio_sequencer); }
-void hybrid_audio_seq_sync(uint8_t playing, uint16_t bpm)
+void hybrid_audio_seq_sync(uint8_t playing, uint16_t bpm, uint8_t external_clock)
 {
     if (bpm < 40u) bpm = 40u;
     if (bpm > 240u) bpm = 240u;
+    hybrid_audio_seq_external = (uint8_t)!!external_clock;
+    hybrid_seq_external_clock(&hybrid_audio_sequencer, hybrid_audio_seq_external);
     if (bpm != hybrid_audio_seq_bpm) {
         (void)hybrid_seq_tempo(&hybrid_audio_sequencer, bpm);
         hybrid_audio_seq_bpm = bpm;
@@ -189,6 +192,10 @@ void hybrid_audio_seq_sync(uint8_t playing, uint16_t bpm)
     if (playing && !hybrid_audio_seq_synced) hybrid_seq_start(&hybrid_audio_sequencer);
     else if (!playing && hybrid_audio_seq_synced) hybrid_seq_stop(&hybrid_audio_sequencer);
     hybrid_audio_seq_synced = (uint8_t)!!playing;
+}
+void hybrid_audio_seq_clock_pulse(void)
+{
+    if (hybrid_audio_ready) hybrid_seq_clock_pulse(&hybrid_audio_sequencer);
 }
 void hybrid_audio_seq_variation(uint8_t value) { hybrid_seq_variation(&hybrid_audio_sequencer, value); }
 void hybrid_audio_seq_fill(uint8_t value) { hybrid_seq_fill(&hybrid_audio_sequencer, value); }
