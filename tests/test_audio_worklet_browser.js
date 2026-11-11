@@ -99,15 +99,32 @@ const server = http.createServer((req, res) => {
     await page.locator('#zenPatchSet').click();
     await page.waitForFunction(() => (document.querySelector('#log')?.textContent || '').includes('Patch ZEN aplicado no adaptador nativo'), null, { timeout:5000 });
     console.log('CHROMIUM PATCH SELECTORS PASS: AMB-1, DUB-1, ZEN-1 PRESET; GHOULBOX Program Change; ZEN 128-byte import.');
-    // Exercise the VOLCA chain/variation/fill/mute/solo panel through the shared AudioWorklet clock.
+    // First run all four lanes together to exercise simultaneous DSP/overlay load.
     await page.locator('#volcaChain').fill('1,2,3');
+    await page.locator('#volcaVariation').selectOption('0');
+    await page.locator('#volcaFill').uncheck();
+    for (let i = 0; i < 4; i++) {
+      await page.locator('#volcaMute' + i).uncheck();
+      await page.locator('#volcaSolo' + i).uncheck();
+    }
+    await page.locator('#volcaApply').click();
+    const allLaneBase = await page.evaluate(() => ({steps:window.__hybridAudioMetrics.seqSteps,lanes:window.__hybridAudioMetrics.seqLaneEvents}));
+    await page.locator('#volcaPlay').click();
+    await page.waitForFunction(({steps,lanes,hasGhoul}) => {
+      const m=window.__hybridAudioMetrics;
+      return m&&m.seqSteps>=steps+2&&m.seqClockTicks>=6&&m.seqLaneEvents[0]>lanes[0]&&m.seqLaneEvents[1]>lanes[1]&&m.seqLaneEvents[2]>lanes[2]&&(!hasGhoul||m.seqLaneEvents[3]>lanes[3]);
+    }, {...allLaneBase,hasGhoul}, { timeout:12000 });
+    await page.locator('#volcaStop').click();
+
+    // Exercise chain, variation B, fill, mute and solo under the same transport.
     await page.locator('#volcaVariation').selectOption('1');
     await page.locator('#volcaFill').check();
     await page.locator('#volcaMute1').check();
     await page.locator('#volcaSolo2').check();
     await page.locator('#volcaApply').click();
+    const performanceBase = await page.evaluate(() => ({steps:window.__hybridAudioMetrics.seqSteps,clocks:window.__hybridAudioMetrics.seqClockTicks}));
     await page.locator('#volcaPlay').click();
-    await page.waitForFunction(() => window.__hybridAudioMetrics && window.__hybridAudioMetrics.seqSteps >= 2 && window.__hybridAudioMetrics.seqClockTicks >= 6, null, { timeout:12000 });
+    await page.waitForFunction(({steps,clocks}) => window.__hybridAudioMetrics && window.__hybridAudioMetrics.seqSteps>=steps+2 && window.__hybridAudioMetrics.seqClockTicks>=clocks+6, performanceBase, { timeout:12000 });
     const seqMetrics = await page.evaluate(() => window.__hybridAudioMetrics);
     if (!Number.isFinite(seqMetrics.sequencerMax) || seqMetrics.sequencerMax < 0) throw new Error('VOLCA sequencer CPU metric invalid: ' + JSON.stringify(seqMetrics));
     await page.locator('#volcaStop').click();
