@@ -22,7 +22,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     super();
     this.ready=false;this.failed=false;this.rack=null;this.core=null;this.ghoulbox=null;this.pendingMessages=[];
     this.count=0;this.underruns=0;this.lateCallbacks=0;this.renderOverrunCandidates=0;this.lastTime=0;this.maxJitter=0;this.jitter=[];
-    this.maxRender=0;this.rackMax=0;this.ghoulMax=0;this.mixerMax=0;this.rackTotal=0;this.ghoulTotal=0;this.mixerTotal=0;this.seqMax=0;this.seqTotal=0;this.seqSteps=0;this.seqClockTicks=0;this.period=128/sampleRate*1000;this.ghoulViews=new Map();this.outputViews=new Map();this.volca={running:false,bpm:120,clockPhase:0,clockDivider:0,step:0,chain:[0],chainPosition:0,variation:0,fill:false,muteMask:0,soloMask:0,active:[0,0,0,0]};
+    this.maxRender=0;this.rackMax=0;this.ghoulMax=0;this.mixerMax=0;this.rackTotal=0;this.ghoulTotal=0;this.mixerTotal=0;this.seqMax=0;this.seqTotal=0;this.seqSteps=0;this.seqClockTicks=0;this.period=128/sampleRate*1000;this.ghoulViews=new Map();this.outputViews=new Map();this.volca={running:false,bpm:120,clockPhase:0,clockDivider:0,step:0,chain:[0],chainPosition:0,variation:0,fill:false,externalClock:false,muteMask:0,soloMask:0,active:[0,0,0,0]};
     this.port.onmessage=e=>this.message(e.data);
     this.initialize(options.processorOptions?.wasmBytes).catch(err=>{
       this.failed=true;this.port.postMessage({type:'error',message:err.message});
@@ -80,6 +80,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     if(Array.isArray(m.chain)&&m.chain.length)s.chain=m.chain.slice(0,16).map(x=>Math.max(0,Math.min(4,x|0)));
     if(Number.isFinite(m.variation))s.variation=m.variation?1:0;
     if(typeof m.fill==='boolean')s.fill=m.fill;
+    if(typeof m.externalClock==='boolean')s.externalClock=m.externalClock;
     if(Number.isInteger(m.muteMask))s.muteMask=m.muteMask&15;
     if(Number.isInteger(m.soloMask))s.soloMask=m.soloMask&15;
   }
@@ -120,22 +121,27 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     s.running=false;s.clockPhase=0;s.clockDivider=0;
     if(this.ghoulbox)this.ghoulbox.web_midi(0xFC,0,0);
   }
+  volcaClockPulse(external=false) {
+    const s=this.volca;if(!s.running||(external&&!s.externalClock))return;
+    this.seqClockTicks++;
+    if(this.ghoulbox)this.ghoulbox.web_midi(0xF8,0,0);
+    if(++s.clockDivider>=6){s.clockDivider=0;this.volcaStep();}
+  }
   volcaAdvance(frames) {
-    const s=this.volca;if(!s.running)return;
+    const s=this.volca;if(!s.running||s.externalClock)return;
     const samplesPerClock=sampleRate*60/(s.bpm*24);
     s.clockPhase+=frames;
-    while(s.clockPhase>=samplesPerClock){
-      s.clockPhase-=samplesPerClock;this.seqClockTicks++;
-      if(this.ghoulbox)this.ghoulbox.web_midi(0xF8,0,0);
-      if(++s.clockDivider>=6){s.clockDivider=0;this.volcaStep();}
-    }
+    while(s.clockPhase>=samplesPerClock){s.clockPhase-=samplesPerClock;this.volcaClockPulse(false);}
   }
   message(m) {
     if(!m)return;
     if(m.type==='volcaConfigure'){this.volcaConfigure(m);return;}
     if(m.type==='volcaStart'){this.volcaConfigure(m);this.volcaStart();return;}
     if(m.type==='volcaStop'){this.volcaStop();return;}
-    if(!this.ready){if(['presetStep','programChange','volcaConfigure','volcaStart','volcaStop'].includes(m.type))this.pendingMessages.push(m);return;}
+    if(m.type==='volcaExternalStart'){this.volca.externalClock=true;this.volcaStart();return;}
+    if(m.type==='volcaExternalStop'){this.volcaStop();return;}
+    if(m.type==='volcaExternalClock'){this.volcaClockPulse(true);return;}
+    if(!this.ready){if(['presetStep','programChange','volcaConfigure','volcaStart','volcaStop','volcaExternalStart','volcaExternalStop','volcaExternalClock'].includes(m.type))this.pendingMessages.push(m);return;}
     if(m.type==='noteOn'){
       this.rack.noteOn(m.note,m.velocity,m.channel);
       const ch=Number.isInteger(m.channel)&&m.channel>=1&&m.channel<=4?m.channel:1;
