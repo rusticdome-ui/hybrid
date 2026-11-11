@@ -168,7 +168,9 @@ def apply_volca_patterns(felucca):
     src = path.read_text()
     names = ("VOLCBASS", "VOLCKEYS", "VOLCDRUM", "VOLCFM", "VOLCSAMP")
     present = [name for name in names if ('{"' + name + '"') in src]
-    if present and len(present) != len(names):
+    if len(present) == len(names):
+        return
+    if present:
         raise SystemExit("Partial Volca pattern set found; refusing duplicate or incomplete insertion")
     anchor = '''    {"TOMBBEAT", {36, 42, 0, 42, 45, 42, 36, 42, 36, 42, 45, 45, 38, 42, 39, 42},       /* 22 a procession */
      {1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}},
