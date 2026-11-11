@@ -13,7 +13,7 @@ NOINIT_CAPACITY = 0x3D50
 
 def read_sections(path):
     sections = {}
-    pattern = re.compile(r"^\s*\d+\s+(\S+)\s+([0-9a-fA-F]{8,16})\s+", re.M)
+    pattern = re.compile(r"^[ \t]*\d+[ \t]+(\S+)[ \t]+([0-9a-fA-F]{8,16})[ \t]+", re.M)
     for name, raw_size in pattern.findall(path.read_text(errors="replace")):
         sections[name] = int(raw_size, 16)
     return sections
