@@ -17,7 +17,7 @@ int main(void)
 {
  hybrid_seq_t s;trace_t t={0};uint8_t chain[3]={HYBRID_SEQ_BASS,HYBRID_SEQ_DRUM,HYBRID_SEQ_FM};
  hybrid_seq_init(&s,44100u,event,&t);
- assert(hybrid_seq_tempo(&s,120u)==0);assert(hybrid_seq_tempo(&s,39u)==-1);
+ assert(hybrid_seq_tempo(&s,120u)==0);assert(hybrid_seq_tempo(&s,240u)==0);assert(hybrid_seq_tempo(&s,241u)==-1);assert(hybrid_seq_tempo(&s,120u)==0);assert(hybrid_seq_tempo(&s,39u)==-1);
  assert(hybrid_seq_chain(&s,chain,3u)==0);assert(hybrid_seq_chain(&s,chain,0u)==-1);
  hybrid_seq_mute(&s,1u,1u);hybrid_seq_solo(&s,2u,1u);hybrid_seq_variation(&s,1u);hybrid_seq_fill(&s,1u);
  hybrid_seq_start(&s);assert(t.start==1u);
