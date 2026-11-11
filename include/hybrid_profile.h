@@ -2,7 +2,7 @@
 #ifndef SMK37_HYBRID_PROFILE_H
 #define SMK37_HYBRID_PROFILE_H
 #include <stdint.h>
-typedef enum { HYBRID_PROF_AMB=0, HYBRID_PROF_DUB=1, HYBRID_PROF_ZEN=2, HYBRID_PROF_GHOULBOX=3, HYBRID_PROF_MIXER=4, HYBRID_PROF_COUNT=5 } hybrid_profile_id_t;
+typedef enum { HYBRID_PROF_AMB=0, HYBRID_PROF_DUB=1, HYBRID_PROF_ZEN=2, HYBRID_PROF_GHOULBOX=3, HYBRID_PROF_MIXER=4, HYBRID_PROF_SEQUENCER=5, HYBRID_PROF_COUNT=6 } hybrid_profile_id_t;
 typedef struct { uint32_t calls, frames, total_ticks, max_ticks, last_ticks, overruns; } hybrid_profile_engine_stats_t;
 typedef struct {
  hybrid_profile_engine_stats_t engine[HYBRID_PROF_COUNT];
