@@ -43,7 +43,7 @@ void hybrid_seq_init(hybrid_seq_t *s, uint32_t rate, hybrid_seq_event_fn fn, voi
 }
 int hybrid_seq_tempo(hybrid_seq_t *s, uint16_t bpm)
 {
-    if (!s || bpm < 40u || bpm > 220u) return -1;
+    if (!s || bpm < 40u || bpm > 240u) return -1;
     s->bpm=bpm;
     /* One 16th note = 1/4 beat; one MIDI clock = 1/24 beat. */
     s->step_q16=period_q16(s->sample_rate,bpm,24u);
