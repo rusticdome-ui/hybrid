@@ -27,7 +27,7 @@ Bass, Keys, Drum, FM and Sample are performance/phrase roles, not claims that fi
 
 ## Build and certification status
 
-The workflow .github/workflows/ac79-hybrid-linker.yml compiles the native DSP objects, HYBRID mixer, adapters, profiler and VOLCA sequencer with the JieLi pi32v2 toolchain, then attempts the final AC79 link and emits linker diagnostics. The workflow .github/workflows/deploy-simulator.yml builds and tests the browser simulator with Chromium and deploys GitHub Pages on an eligible branch push.
+The workflow .github/workflows/ac79-hybrid-linker.yml compiles the native DSP objects, HYBRID mixer, adapters, profiler and VOLCA sequencer with the JieLi pi32v2 toolchain, then attempts the final AC79 link and emits XIP/RAMTEXT/RAM/POOL/NOINIT margins. The first post-sequencer linked baseline passed in Actions run #43113694960; later external-clock pulse-lock changes are pending a fresh link. The workflow .github/workflows/deploy-simulator.yml builds and tests the browser simulator with Chromium and deploys GitHub Pages on an eligible branch push.
 
 **A successful Actions run is not proof of hardware operation.** Final RAM/POOL/XIP/NOINIT margins must come from the latest successful linked ELF/map. Runtime CPU/stack/underrun values require a physical SMK-37 Pro session. The profiler's buffer counters cover registered HYBRID scratch buffers; they do not replace a live measurement of all private upstream POOL allocations. Do not flash a reference package until the final AC79 link and physical-board checks are confirmed.
 
