@@ -195,7 +195,11 @@ void hybrid_audio_seq_sync(uint8_t playing, uint16_t bpm, uint8_t external_clock
 }
 void hybrid_audio_seq_clock_pulse(void)
 {
-    if (hybrid_audio_ready) hybrid_seq_clock_pulse(&hybrid_audio_sequencer);
+    if (hybrid_audio_ready) {
+        hybrid_profile_begin(HYBRID_PROF_SEQUENCER);
+        hybrid_seq_clock_pulse(&hybrid_audio_sequencer);
+        hybrid_profile_end(HYBRID_PROF_SEQUENCER, 0u);
+    }
 }
 void hybrid_audio_seq_variation(uint8_t value) { hybrid_seq_variation(&hybrid_audio_sequencer, value); }
 void hybrid_audio_seq_fill(uint8_t value) { hybrid_seq_fill(&hybrid_audio_sequencer, value); }
