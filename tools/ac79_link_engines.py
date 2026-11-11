@@ -337,6 +337,18 @@ def main():
     patch_source(midi_clock_c, "static void __attribute__((noinline)) midi_clock_pulse(uint32_t ms)\n{",
                  "extern void hybrid_audio_seq_clock_pulse(void);\nstatic void __attribute__((noinline)) midi_clock_pulse(uint32_t ms)\n{",
                  "midi_clock.c VOLCA clock declaration")
+    patch_source(midi_clock_c, "extern void hybrid_audio_seq_clock_pulse(void);\nstatic void __attribute__((noinline)) midi_clock_transport(uint32_t status, uint32_t ms)",
+                 "extern void hybrid_audio_seq_clock_pulse(void);\nextern void hybrid_audio_seq_sync(uint8_t, uint16_t, uint8_t);\nstatic void __attribute__((noinline)) midi_clock_transport(uint32_t status, uint32_t ms)",
+                 "midi_clock.c external transport declaration")
+    patch_source(midi_clock_c, "        seq_start();\n    } else if (status == 0xFBu)",
+                 "        seq_start();\n        hybrid_audio_seq_sync((uint8_t)song.playing, (uint16_t)song.g[G_BPM], (uint8_t)song.g[G_CLOCK]);\n    } else if (status == 0xFBu)",
+                 "midi_clock.c external Start sync")
+    patch_source(midi_clock_c, "        song.playing = 1;\n    } else if (status == 0xFCu)",
+                 "        song.playing = 1;\n        hybrid_audio_seq_sync((uint8_t)song.playing, (uint16_t)song.g[G_BPM], (uint8_t)song.g[G_CLOCK]);\n    } else if (status == 0xFCu)",
+                 "midi_clock.c external Continue sync")
+    patch_source(midi_clock_c, "        seq_stop();\n    }\n}",
+                 "        seq_stop();\n        hybrid_audio_seq_sync((uint8_t)song.playing, (uint16_t)song.g[G_BPM], (uint8_t)song.g[G_CLOCK]);\n    }\n}",
+                 "midi_clock.c external Stop sync")
     patch_source(midi_clock_c, "static void __attribute__((noinline)) midi_clock_pulse(uint32_t ms)\n{\n    uint32_t q;",
                  "static void __attribute__((noinline)) midi_clock_pulse(uint32_t ms)\n{\n    uint32_t q;\n    hybrid_audio_seq_clock_pulse();",
                  "midi_clock.c external clock forwarding")
