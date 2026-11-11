@@ -27,6 +27,16 @@ int main(void)
  assert(s.chain_position==1u);
  hybrid_seq_stop(&s);assert(t.stop==1u);assert(!s.running);
  assert(t.off>0u);
+ {
+  hybrid_seq_t ext;trace_t e={0};uint8_t one[1]={HYBRID_SEQ_KEYS};
+  hybrid_seq_init(&ext,44100u,event,&e);assert(hybrid_seq_chain(&ext,one,1u)==0);
+  hybrid_seq_external_clock(&ext,1u);hybrid_seq_start(&ext);
+  for(unsigned i=0;i<700;i++)hybrid_seq_process(&ext,128u);
+  assert(e.clock==0u&&e.on==0u);
+  for(unsigned i=0;i<6;i++)hybrid_seq_clock_pulse(&ext);
+  assert(e.clock==6u&&e.on>0u);
+  hybrid_seq_stop(&ext);
+ }
  puts("SMK-37 VOLCA shared-clock sequencer tests: PASS");
  return 0;
 }
