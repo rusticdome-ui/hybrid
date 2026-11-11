@@ -1,71 +1,84 @@
-# SMK-37 VOLCA HYBRID — architecture and implementation plan
+# SMK-37 VOLCA HYBRID — architecture and implementation
 
-Status: **sequencer phrase pack implemented in the AC79 build path; complete Volca-style performance mode is not yet implemented or hardware-certified.**
+Status: **shared-clock sequencer core, AC79 link integration and browser performance panel are implemented in this branch. The latest AC79 link and Chromium validations are pending; no physical-board certification is claimed.**
 
-## Design decision: extend the existing sequencer, do not replace it
+## Design decision: add a sequencer/coordination layer; preserve original DSPs
 
-The upstream GHOULBOX firmware already provides the strongest low-cost foundation:
+The existing native DSP objects remain independently compiled and namespaced:
+- AMB-1 (amb_en_*)
+- DUB-1 (dub_en_*)
+- ZEN-1 (zen_fm_*)
+- GHOULBOX remains the upstream firmware engine in the AC79 reference package, but the VOLCA sequencer does not depend on its presence.
 
-- Four independent parts and one shared transport.
-- Per-part pattern length, division, swing and gate.
-- Step accents, slides, ties, probability and ratchets.
-- MIDI clock Start/Continue/Stop and clock-loss handling.
-- Pattern recording/playback, arpeggiator and parameter-motion recording.
-- A native engine table that includes ANALOG (0), PHASE (2), SAMPLE (4), DRUM (10) and FM6 (12).
+No Korg firmware or DSP algorithms are copied. The VOLCA names describe performance roles and phrase styles.
 
-The HYBRID overlay remains above the original GHOULBOX mixer. AMB-1, DUB-1 and ZEN-1 continue to be compiled as isolated, namespaced DSP objects. This feature does not replace their renderers, GHOULBOX's four internal tracks, or the native sequencer.
+## VOLCA family and phrase roles
 
-## Volca-inspired family mapping
+| Family | Phrase role | Important limitation |
+|---|---|---|
+| Bass | 16-step bass line with accents/syncopation | Uses the selected native engine's note/control path; not a Volca Bass clone |
+| Keys | Chord/lead phrase | ZEN-1 is the current HYBRID overlay with a conventional note API |
+| Drum | GM-style percussion triggers | Requires a drum-capable destination; not a new drum DSP |
+| FM | Arpeggiated melodic phrase | A phrase role, not proof of a new six-operator FM implementation in AMB/DUB/ZEN |
+| Sample | Sample trigger phrase | Contains note/trigger events only; no sample audio or sample bank is embedded |
 
-The five families are selectable sound/phrase roles, not five new DSP implementations:
+The GHOULBOX AC79 build path also appends five factory phrase records (IDs 23–27) to the upstream pattern table, without reordering existing pattern IDs. These records are loaded through the existing GHOULBOX pattern workflow; they are separate from the bounded HYBRID sequencer phrase tables.
 
-| Family | Existing GHOULBOX engine | Factory phrase | Notes |
-|---|---|---|---|
-| Bass | ANALOG (engine 0) | VOLCBASS (23) | Acid/bass line with accents and slides |
-| Keys | ANALOG (0) or PHASE (2) | VOLCKEYS (24) | Off-beat chord/lead notes; enable the track's chord mode for chord stabs |
-| Drum | DRUM (10) | VOLCDRUM (25) | GM kick/snare/closed/open-hat triggers |
-| FM | FM6 (12) | VOLCFM (26) | Six-operator FM arpeggio phrase |
-| Sample | SAMPLE (4) | VOLCSAMP (27) | Trigger pattern for a loaded sample set; the pattern does not contain sample audio |
+## Shared-clock sequencer
 
-The five phrases are appended after the existing factory patterns. Existing pattern numbers 1–22 and all scene references remain unchanged. Each pattern is loaded through the existing **SEQ > PATTERNS** workflow, on whichever of the four parts is selected.
+New files:
+- include/hybrid_sequencer.h
+- src/hybrid_sequencer.c
+- tests/test_hybrid_sequencer.c
 
-There are four GHOULBOX parts, so up to four of these roles can run simultaneously inside GHOULBOX. The fifth role remains available by changing the engine/pattern on a part; this first implementation does not claim five independent GHOULBOX parts.
+Properties:
+- Four fixed lanes corresponding to HYBRID slots AMB-1, DUB-1, ZEN-1 and optional GHOULBOX.
+- One sample-rate-derived transport clock, 40–220 BPM, 24 PPQN MIDI clock and 16th-note steps.
+- Up to 16 pattern-family entries in a chain; the chain advances at each 16-step bar.
+- Variation A/B, a four-step fill overlay, per-lane mute and solo.
+- Immutable factory note/velocity tables; no heap allocation, no dynamic pattern buffers and no new sample/PCM buffers.
+- Start/Stop releases active notes. The AC79 callback emits MIDI Start/Clock/Stop on the existing USB-MIDI output and routes note events to registered native engine callbacks.
+- The AC79 audio hook advances the sequencer once per audio block, before the existing GHOULBOX mix and HYBRID overlay render.
 
-AMB-1 and DUB-1 are generative engines whose current native MIDI note callbacks intentionally do nothing; their performance/clock/freeze controls need a separate, source-accurate command mapping before they can be treated as conventional note sequencer destinations. ZEN-1 has a native note/velocity API and remains available as a HYBRID overlay. No synthetic substitute is introduced for any of them.
+AMB-1 and DUB-1 are self-running generative engines in the current adapter. Their note callbacks intentionally remain no-ops until a source-accurate performance/clock control mapping is validated. ZEN-1 accepts the sequencer's note events. The sequencer does not fabricate note support for AMB/DUB.
 
-## Memory and CPU policy
+## Simulator performance panel
 
-The current successful AC79 map for base commit `df735cfd63bb3db79f6dc8ff1ac6fe117e35afad` reported:
+The browser AudioWorklet has the same 24-PPQN clock and 16-step scheduler, with four independently muteable/soloable lanes. The panel provides:
+- Bass, Keys, Drum, FM and Sample family selection.
+- Pattern chains of up to 16 IDs (1–5).
+- Variation A/B and a fill on the last four steps.
+- Four-lane mute/solo and Start/Stop.
+- Sequencer max/average execution time, clock ticks and step counters in browser metrics.
 
-| Region | Used | Capacity | Free |
+The three original AMB/DUB/ZEN WASM renderers remain required. GHOULBOX WASM is optional in the simulator; when absent, lane 4 and GHOULBOX Program Change are inactive, while the other lanes and transport remain available. Browser timing is not an AC79 CPU measurement.
+
+## AC79 profiling and memory policy
+
+The existing AC79 profiler now has a separate sequencer timing channel (TIMER4), alongside AMB, DUB, ZEN, GHOULBOX and mixer timing. It continues to expose:
+- CPU ticks/calls/frames/last/max per profiled engine and sequencer.
+- Stack watermark and peak sampled usage.
+- HYBRID scratch-buffer occupancy/capacity.
+- DMA underrun count.
+
+Static POOL, RAM, XIP and NOINIT usage must be taken from the final linked ELF/map. The runtime buffer counters are **not** a live measurement of every private GHOULBOX/DSP POOL allocation. GitHub-hosted CI cannot measure the physical board's live CPU, stack or DMA underruns.
+
+The last documented successful AC79 map (before the new sequencer object) reported:
+
+| Region | Used | Capacity | Remaining |
 |---|---:|---:|---:|
 | XIP | 607,584 B | 619,520 B | 11,936 B |
 | RAM (.data + .bss) | 83,248 B | 98,304 B | 15,056 B |
 | POOL | 335,212 B | 344,064 B | 8,852 B |
 | NOINIT | 15,564 B | 15,696 B | 132 B |
 
-These are linker-map values from Actions run [#42895951511](https://github.com/rusticdome-ui/hybrid/actions/runs/42895951511), not runtime measurements on a physical board.
-
-The phrase pack is constant factory data compiled into the firmware image. It adds no sequencer state, heap allocation, PCM buffer, voice, or sample RAM. Its exact XIP delta and the final region margins must be re-measured in the next AC79 link run. Keep the new code/data small: NOINIT has only 132 B of reported margin and POOL only 8,852 B.
-
-No external SDRAM is assumed. The SMK-37 Pro board/package must be physically verified before any design uses external RAM. The current runtime profiler can measure CPU ticks, stack watermark, registered buffers and underruns on hardware; CI can only validate static linker occupancy and host/WASM behaviour.
-
-## Implementation in this branch
-
-`tools/ac79_link_engines.py` now appends five named 16-step phrases to the upstream GHOULBOX pattern table when constructing the compact AC79 target build. The insertion is guarded by an exact source anchor, validates all five names, and is idempotent. It does not edit upstream DSP algorithms or the existing pattern IDs.
+These are **pre-sequencer reference values**, from Actions run #42895951511. The current branch must pass a fresh final link/map to establish updated margins. NOINIT and POOL are particularly tight; do not add large runtime buffers or assume external SDRAM.
 
 ## Validation gates
 
-1. Host validation: verify all five phrase names, 16 notes and 16 flag bytes; verify the insertion is idempotent and old pattern IDs are preserved.
-2. AC79 target validation: compile and link the original GHOULBOX, AMB-1, DUB-1 and ZEN-1 objects; inspect final XIP/RAM/POOL/NOINIT sections and symbols.
-3. Sequencer regression: use the upstream GHOULBOX tests for pattern loading, MIDI transport, ratchet, gate, swing, ties/slides and sample-set missing behaviour.
-4. Runtime validation on a physical SMK-37 Pro: profile all four parts plus the three HYBRID overlays, measure CPU maxima, stack high-water, pool use and DMA underruns over a sustained session.
-5. Only after these gates, add a Volca performance UI for quick family/engine selection, pattern chains, per-part mutes and performance macros.
+1. Host tests for tempo bounds, 24-PPQN clock, chain advancement, variation, fill, mute/solo and note release.
+2. AC79 target compile/link including hybrid_sequencer.o; final ELF/map must report positive RAM and POOL margins and retain all original DSP symbols.
+3. Chromium AudioWorklet test for real original DSP WASM output, VOLCA controls, shared clock, chain and transport; no underruns in the defined test window.
+4. Physical SMK-37 Pro run with four DSP engines/overlays enabled: measure TIMER4 maxima, stack high-water, static POOL link occupancy and DMA underruns over a sustained session.
 
-## Explicit non-goals of this first increment
-
-- No new Volca DSP code or reverse-engineered Korg firmware.
-- No claim of five simultaneous GHOULBOX parts.
-- No fabricated sample bank or generated replacement audio.
-- No changes to original AMB-1, DUB-1, ZEN-1 or GHOULBOX DSP algorithms.
-- No claim of hardware certification from GitHub Actions alone.
+A successful host or Chromium test is not a physical-board certification. No firmware artifact should be flashed until the final AC79 build and board-level validation are explicitly confirmed.
