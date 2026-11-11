@@ -61,6 +61,7 @@ int hybrid_seq_chain(hybrid_seq_t *s,const uint8_t *f,uint8_t n)
     return 0;
 }
 void hybrid_seq_variation(hybrid_seq_t*s,uint8_t v){if(s)s->variation_b=(uint8_t)!!v;}
+static void step_event(hybrid_seq_t *s);
 void hybrid_seq_fill(hybrid_seq_t*s,uint8_t v){if(s)s->fill=(uint8_t)!!v;}
 void hybrid_seq_external_clock(hybrid_seq_t*s,uint8_t v){if(s)s->external_clock=(uint8_t)!!v;}
 void hybrid_seq_clock_pulse(hybrid_seq_t*s)
