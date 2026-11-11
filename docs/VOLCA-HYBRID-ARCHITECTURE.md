@@ -51,7 +51,7 @@ The browser AudioWorklet has the same 24-PPQN clock and 16-step scheduler, with 
 - Four-lane mute/solo and Start/Stop.
 - Sequencer max/average execution time, clock ticks and step counters in browser metrics.
 
-The three original AMB/DUB/ZEN WASM renderers remain required. GHOULBOX WASM is optional in the simulator; when absent, lane 4 and GHOULBOX Program Change are inactive, while the other lanes and transport remain available. Browser timing is not an AC79 CPU measurement.
+The three original AMB/DUB/ZEN WASM renderers remain required. GHOULBOX WASM is optional in the simulator; when absent, lane 4 and GHOULBOX Program Change are inactive, while the other lanes and transport remain available. The AC79 reference-link workflow still uses Felucca/GHOULBOX as the board startup/audio base; a GHOULBOX-free AC79 image requires a different startup/codec/transport base and is not part of this patch. Browser timing is not an AC79 CPU measurement.
 
 ## AC79 profiling and memory policy
 
