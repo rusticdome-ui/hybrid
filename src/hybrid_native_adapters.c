@@ -151,6 +151,8 @@ static hybrid_core_t hybrid_audio_core;
 static int32_t hybrid_audio_mix[HYBRID_MAX_FRAMES * 2u];
 static uint8_t hybrid_audio_ready;
 static hybrid_seq_t hybrid_audio_sequencer;
+static uint8_t hybrid_audio_seq_synced;
+static uint16_t hybrid_audio_seq_bpm;
 
 static void hybrid_seq_emit(void *context, uint8_t engine, hybrid_seq_event_t event, uint8_t note, uint8_t velocity)
 {
@@ -176,6 +178,18 @@ int hybrid_audio_seq_tempo(uint16_t bpm) { return hybrid_seq_tempo(&hybrid_audio
 int hybrid_audio_seq_chain(const uint8_t *families, uint8_t length) { return hybrid_seq_chain(&hybrid_audio_sequencer, families, length); }
 void hybrid_audio_seq_start(void) { hybrid_seq_start(&hybrid_audio_sequencer); }
 void hybrid_audio_seq_stop(void) { hybrid_seq_stop(&hybrid_audio_sequencer); }
+void hybrid_audio_seq_sync(uint8_t playing, uint16_t bpm)
+{
+    if (bpm < 40u) bpm = 40u;
+    if (bpm > 240u) bpm = 240u;
+    if (bpm != hybrid_audio_seq_bpm) {
+        (void)hybrid_seq_tempo(&hybrid_audio_sequencer, bpm);
+        hybrid_audio_seq_bpm = bpm;
+    }
+    if (playing && !hybrid_audio_seq_synced) hybrid_seq_start(&hybrid_audio_sequencer);
+    else if (!playing && hybrid_audio_seq_synced) hybrid_seq_stop(&hybrid_audio_sequencer);
+    hybrid_audio_seq_synced = (uint8_t)!!playing;
+}
 void hybrid_audio_seq_variation(uint8_t value) { hybrid_seq_variation(&hybrid_audio_sequencer, value); }
 void hybrid_audio_seq_fill(uint8_t value) { hybrid_seq_fill(&hybrid_audio_sequencer, value); }
 void hybrid_audio_seq_mute(uint8_t track, uint8_t value) { hybrid_seq_mute(&hybrid_audio_sequencer, track, value); }
@@ -185,6 +199,7 @@ int hybrid_audio_init(void)
 {
     hybrid_profile_init();
     hybrid_seq_init(&hybrid_audio_sequencer, HYBRID_SAMPLE_RATE, hybrid_seq_emit, &hybrid_audio_core);
+    hybrid_audio_seq_synced = 0u; hybrid_audio_seq_bpm = 120u;
     hybrid_profile_buffers(0u, (uint32_t)sizeof(hybrid_audio_mix) + (uint32_t)sizeof(native_lr));
     hybrid_init_defaults(&hybrid_audio_core);
     if (hybrid_register_native_engines(&hybrid_audio_core) != 0)
