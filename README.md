@@ -10,7 +10,7 @@ The hybrid-memory-reduction branch contains an AC79 integration path for the M-V
 - Signed Q15 four-slot mixer, per-slot volume/pan/mute/solo, MIDI zones and fixed render quantum.
 - Bounded shared-clock VOLCA sequencer: four lanes, internal BPM or external MIDI IN pulse lock (24 PPQN), 16-step patterns, up to 16 chain entries, A/B variation, fills, mute and solo.
 - AC79 TIMER4 profiler channels for AMB/DUB/ZEN/GHOULBOX/mixer/sequencer, stack watermark, buffer occupancy and underruns.
-- Browser simulator with original DSP WASM renderers, VOLCA performance panel and optional GHOULBOX WASM renderer.
+- Browser simulator with original DSP WASM renderers, VOLCA performance panel and optional GHOULBOX WASM renderer. The performance panel is currently a simulator UI; physical SMK-37 buttons/encoder mappings for family/chain/mute/solo are not yet wired.
 
 ## Important engine limits
 
