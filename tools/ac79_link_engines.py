@@ -162,6 +162,37 @@ static void bed_drop(int vel, int pan, int pad) { (void)vel; (void)pan; (void)pa
     src = replace_once(src, old, new, "Felucca linker HYBRID BSS placement")
     ld.write_text(src)
 
+def apply_volca_patterns(felucca):
+    """Append five Volca-inspired factory phrases without changing existing pattern IDs."""
+    path = felucca / "firmware/src/engines.c"
+    src = path.read_text()
+    names = ("VOLCBASS", "VOLCKEYS", "VOLCDRUM", "VOLCFM", "VOLCSAMP")
+    if all(('{"' + name + '"') in src for name in names):
+        return
+    anchor = '''    {"TOMBBEAT", {36, 42, 0, 42, 45, 42, 36, 42, 36, 42, 45, 45, 38, 42, 39, 42},       /* 22 a procession */
+     {1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}},
+'''
+    addition = anchor + '''    /* SMK-37 VOLCA HYBRID: appended IDs 23..27; existing factory IDs stay stable. */
+    {"VOLCBASS", {36, 36, 43, 36, 0, 36, 46, 36, 36, 0, 48, 43, 36, 36, 0, 34},
+     {1, 0, 2, 0, 0, 1, 0, 2, 1, 0, 0, 2, 1, 0, 0, 1}},
+    {"VOLCKEYS", {60, 0, 64, 67, 0, 64, 67, 71, 60, 0, 64, 67, 0, 65, 69, 72},
+     {1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0}},
+    {"VOLCDRUM", {36, 42, 42, 42, 38, 42, 36, 42, 36, 42, 42, 42, 38, 42, 46, 42},
+     {1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0}},
+    {"VOLCFM",   {48, 55, 60, 64, 67, 64, 60, 55, 50, 57, 62, 65, 69, 65, 62, 57},
+     {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0}},
+    {"VOLCSAMP", {36, 0, 38, 0, 42, 42, 0, 46, 36, 0, 40, 0, 42, 0, 46, 0},
+     {1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0}},
+'''
+    if src.count(anchor) != 1:
+        raise SystemExit("GHOULBOX factory pattern anchor changed; refusing unsafe Volca pattern insertion")
+    src = src.replace(anchor, addition)
+    if not all(('{"' + name + '"') in src for name in names):
+        raise SystemExit("Volca factory pattern verification failed")
+    path.write_text(src)
+    print("Volca factory patterns appended: " + ", ".join(names))
+
+
 def main():
     p=argparse.ArgumentParser()
     p.add_argument("--amb",type=Path,required=True)
@@ -193,6 +224,7 @@ def main():
     if not clang.is_file(): raise SystemExit(f"missing JieLi compiler: {clang}")
     out=a.felucca/"build/hybrid"; out.mkdir(parents=True,exist_ok=True)
     apply_memory_profile(a.amb, a.dub, a.zen, a.felucca)
+    apply_volca_patterns(a.felucca)
     # Compact the native GHOULBOX translation unit as well as the added DSPs.
     build_py=a.felucca/"tools/build.py"
     build_src=build_py.read_text()
