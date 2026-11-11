@@ -25,7 +25,7 @@ typedef struct {
     uint32_t sample_rate, step_q16, clock_q16, phase_q16, clock_phase_q16;
     uint16_t bpm;
     uint8_t chain[HYBRID_SEQ_CHAIN_MAX], chain_length, chain_position;
-    uint8_t step, running, variation_b, fill;
+    uint8_t step, clock_divider, running, variation_b, fill;
     uint8_t mute_mask, solo_mask, active_note[HYBRID_SEQ_TRACKS];
     hybrid_seq_event_fn emit;
     void *context;
