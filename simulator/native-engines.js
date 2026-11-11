@@ -106,6 +106,22 @@
         else e.exports.web_keys(this._mask(e));
       }
     }
+    noteOnEngine(id,note,velocity=100,channel=0){
+      if(channel&&this.channel&&channel!==this.channel)return;
+      const e=this.engines.get(id);if(!e)return false;
+      const n=clamp(note|0,0,127);e.notes.add(n);
+      if(e.id===2&&typeof e.exports.web_key==='function')e.exports.web_key(n-KEY_MIN,1);
+      else e.exports.web_keys(this._mask(e));
+      return true;
+    }
+    noteOffEngine(id,note,channel=0){
+      if(channel&&this.channel&&channel!==this.channel)return;
+      const e=this.engines.get(id);if(!e)return false;
+      const n=note|0;e.notes.delete(n);
+      if(e.id===2&&typeof e.exports.web_key==='function')e.exports.web_key(n-KEY_MIN,0);
+      else e.exports.web_keys(this._mask(e));
+      return true;
+    }
     allNotesOff(){
       for(const e of this.engines.values()){e.notes.clear();if(e.id===2&&typeof e.exports.web_panic==='function')e.exports.web_panic();else e.exports.web_keys(0);}
       this.held.clear();
