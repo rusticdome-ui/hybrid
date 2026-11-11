@@ -29,18 +29,21 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     });
   }
   async initialize(wasmBytes) {
-    if(!wasmBytes?.core||!wasmBytes?.ghoulbox||!Array.isArray(wasmBytes?.engines)||wasmBytes.engines.length!==3)
+    if(!wasmBytes?.core||!Array.isArray(wasmBytes?.engines)||wasmBytes.engines.length!==3)
       throw Error('Missing preloaded WASM buffers from main thread');
     const instance=await WebAssembly.instantiate(wasmBytes.core,{});
     this.core=instance.instance?.exports||instance.exports;
     if(this.core.hybrid_wasm_init()!==0)throw Error('HYBRID core init failed in AudioWorklet');
     this.core.hybrid_wasm_set_mix(3,0,0,0,0);
-    const ghoulInstance=await WebAssembly.instantiate(wasmBytes.ghoulbox,{});
-    this.ghoulbox=ghoulInstance.instance?.exports||ghoulInstance.exports;
-    for(const name of ['_initialize','web_nor_erase','web_boot','web_midi','web_render','web_out_l','web_out_r'])
-      if(typeof this.ghoulbox[name]!=='function')throw Error('Missing original GHOULBOX WASM export: '+name);
-    this.ghoulbox._initialize();this.ghoulbox.web_nor_erase();this.ghoulbox.web_boot();
-    for(let i=0;i<180;i++)this.ghoulbox.web_render(128); // run original firmware boot clock before audio starts
+    this.ghoulbox=null;
+    if(wasmBytes.ghoulbox){
+      const ghoulInstance=await WebAssembly.instantiate(wasmBytes.ghoulbox,{});
+      this.ghoulbox=ghoulInstance.instance?.exports||ghoulInstance.exports;
+      for(const name of ['_initialize','web_nor_erase','web_boot','web_midi','web_render','web_out_l','web_out_r'])
+        if(typeof this.ghoulbox[name]!=='function')throw Error('Missing original GHOULBOX WASM export: '+name);
+      this.ghoulbox._initialize();this.ghoulbox.web_nor_erase();this.ghoulbox.web_boot();
+      for(let i=0;i<180;i++)this.ghoulbox.web_render(128);
+    }
     this.rack=new globalThis.HYBRIDNativeEngines.NativeEngineRack();
     const loaded=await this.rack.loadAll(wasmBytes.engines);
     if(loaded.length!==3)throw Error('Expected original AMB/DUB/ZEN DSPs');
@@ -49,7 +52,8 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     // This keeps first-call WASM/JIT work out of the live render deadline.
     for(let warm=0;warm<8;warm++){
       this.rack.renderToCore(this.core,128,false);
-      this.ghoulbox.web_render(128);
+      if(this.ghoulbox)this.ghoulbox.web_render(128);
+      if(this.ghoulbox){
       const gm=this.ghoulbox.memory.buffer,cm=this.core.memory.buffer;
       const glp=this.ghoulbox.web_out_l()>>>0,grp=this.ghoulbox.web_out_r()>>>0,gp=this.core.hybrid_wasm_pcm_ptr(3)>>>0;
       let gv=this.ghoulViews.get(128);
@@ -62,12 +66,13 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
         gv.pcm[2*i+1]=Math.max(-32768,Math.min(32767,Math.round(gv.right[i]*32767)));
       }
       if(this.core.hybrid_wasm_submit_pcm(3,128)!==0)throw Error('GHOULBOX warm-up PCM submit failed');
+      }
       if(this.core.hybrid_wasm_process(128)!==0)throw Error('HYBRID warm-up mixer failed');
     }
     this.rack.allNotesOff();this.core.hybrid_wasm_panic();
     this.ready=true;
     for(const message of this.pendingMessages.splice(0))this.message(message);
-    this.port.postMessage({type:'ready',engines:[...loaded,'GHOULBOX original firmware']});
+    this.port.postMessage({type:'ready',engines:[...loaded,...(this.ghoulbox?['GHOULBOX original firmware']:[])]});
   }
   volcaConfigure(m) {
     const s=this.volca;
@@ -130,7 +135,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     if(m.type==='volcaConfigure'){this.volcaConfigure(m);return;}
     if(m.type==='volcaStart'){this.volcaConfigure(m);this.volcaStart();return;}
     if(m.type==='volcaStop'){this.volcaStop();return;}
-    if(!this.ready){if(m.type==='presetStep'||m.type==='programChange')this.pendingMessages.push(m);return;}
+    if(!this.ready){if(['presetStep','programChange','volcaConfigure','volcaStart','volcaStop'].includes(m.type))this.pendingMessages.push(m);return;}
     if(m.type==='noteOn'){
       this.rack.noteOn(m.note,m.velocity,m.channel);
       const ch=Number.isInteger(m.channel)&&m.channel>=1&&m.channel<=4?m.channel:1;
@@ -170,22 +175,24 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
       this.rack.renderToCore(this.core,frames,false);
       const rackMs=nowMs()-segmentStart;this.rackMax=Math.max(this.rackMax,rackMs);this.rackTotal+=rackMs;
       segmentStart=nowMs();
-      this.ghoulbox.web_render(frames);
-      const ghoulMs=nowMs()-segmentStart;this.ghoulMax=Math.max(this.ghoulMax,ghoulMs);this.ghoulTotal+=ghoulMs;
-      segmentStart=nowMs();
-      const ghoulMemory=this.ghoulbox.memory.buffer,coreMemory=this.core.memory.buffer;
-      const glp=this.ghoulbox.web_out_l()>>>0,grp=this.ghoulbox.web_out_r()>>>0,gp=this.core.hybrid_wasm_pcm_ptr(3)>>>0;
-      let gv=this.ghoulViews.get(frames);
-      if(!gv||gv.ghoulMemory!==ghoulMemory||gv.coreMemory!==coreMemory||gv.glp!==glp||gv.grp!==grp||gv.gp!==gp){
-        gv={ghoulMemory,coreMemory,glp,grp,gp,left:new Float32Array(ghoulMemory,glp,frames),right:new Float32Array(ghoulMemory,grp,frames),pcm:new Int32Array(coreMemory,gp,frames*2)};
-        this.ghoulViews.set(frames,gv);
+      if(this.ghoulbox){
+        this.ghoulbox.web_render(frames);
+        const ghoulMs=nowMs()-segmentStart;this.ghoulMax=Math.max(this.ghoulMax,ghoulMs);this.ghoulTotal+=ghoulMs;
+        segmentStart=nowMs();
+        const ghoulMemory=this.ghoulbox.memory.buffer,coreMemory=this.core.memory.buffer;
+        const glp=this.ghoulbox.web_out_l()>>>0,grp=this.ghoulbox.web_out_r()>>>0,gp=this.core.hybrid_wasm_pcm_ptr(3)>>>0;
+        let gv=this.ghoulViews.get(frames);
+        if(!gv||gv.ghoulMemory!==ghoulMemory||gv.coreMemory!==coreMemory||gv.glp!==glp||gv.grp!==grp||gv.gp!==gp){
+          gv={ghoulMemory,coreMemory,glp,grp,gp,left:new Float32Array(ghoulMemory,glp,frames),right:new Float32Array(ghoulMemory,grp,frames),pcm:new Int32Array(coreMemory,gp,frames*2)};
+          this.ghoulViews.set(frames,gv);
+        }
+        const gl=gv.left,gr=gv.right,gq=gv.pcm;
+        for(let i=0;i<frames;i++){
+          gq[2*i]=Math.max(-32768,Math.min(32767,Math.round(gl[i]*32767)));
+          gq[2*i+1]=Math.max(-32768,Math.min(32767,Math.round(gr[i]*32767)));
+        }
+        if(this.core.hybrid_wasm_submit_pcm(3,frames)!==0)throw Error('GHOULBOX PCM submit failed');
       }
-      const gl=gv.left,gr=gv.right,gq=gv.pcm;
-      for(let i=0;i<frames;i++){
-        gq[2*i]=Math.max(-32768,Math.min(32767,Math.round(gl[i]*32767)));
-        gq[2*i+1]=Math.max(-32768,Math.min(32767,Math.round(gr[i]*32767)));
-      }
-      if(this.core.hybrid_wasm_submit_pcm(3,frames)!==0)throw Error('GHOULBOX PCM submit failed');
       if(this.core.hybrid_wasm_process(frames)!==0)throw Error('HYBRID mixer process failed');
       const outputMemory=this.core.memory.buffer,ptr=this.core.hybrid_wasm_output_ptr()>>>0;
       let ov=this.outputViews.get(frames);
