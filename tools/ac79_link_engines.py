@@ -167,8 +167,9 @@ def apply_volca_patterns(felucca):
     path = felucca / "firmware/src/engines.c"
     src = path.read_text()
     names = ("VOLCBASS", "VOLCKEYS", "VOLCDRUM", "VOLCFM", "VOLCSAMP")
-    if all(('{"' + name + '"') in src for name in names):
-        return
+    present = [name for name in names if ('{"' + name + '"') in src]
+    if present and len(present) != len(names):
+        raise SystemExit("Partial Volca pattern set found; refusing duplicate or incomplete insertion")
     anchor = '''    {"TOMBBEAT", {36, 42, 0, 42, 45, 42, 36, 42, 36, 42, 45, 45, 38, 42, 39, 42},       /* 22 a procession */
      {1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}},
 '''
@@ -187,8 +188,17 @@ def apply_volca_patterns(felucca):
     if src.count(anchor) != 1:
         raise SystemExit("GHOULBOX factory pattern anchor changed; refusing unsafe Volca pattern insertion")
     src = src.replace(anchor, addition)
-    if not all(('{"' + name + '"') in src for name in names):
-        raise SystemExit("Volca factory pattern verification failed")
+    pattern_re = re.compile(r'\\{"(VOLCBASS|VOLCKEYS|VOLCDRUM|VOLCFM|VOLCSAMP)"\\s*,\\s*\\{([^}]*)\\}\\s*,\\s*\\{([^}]*)\\}')
+    records = {m.group(1): m for m in pattern_re.finditer(src)}
+    if set(records) != set(names):
+        raise SystemExit("Volca factory pattern names or records are incomplete")
+    for name, match in records.items():
+        notes = [int(x.strip()) for x in match.group(2).split(",")]
+        flags = [int(x.strip()) for x in match.group(3).split(",")]
+        if len(notes) != 16 or len(flags) != 16:
+            raise SystemExit(f"{name}: expected exactly 16 note and 16 flag values")
+        if any(x < 0 or x > 127 for x in notes) or any(x < 0 or x > 7 for x in flags):
+            raise SystemExit(f"{name}: note/flag value outside supported range")
     path.write_text(src)
     print("Volca factory patterns appended: " + ", ".join(names))
 
