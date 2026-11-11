@@ -16,10 +16,10 @@ static const uint8_t velocity[HYBRID_SEQ_FAMILIES][HYBRID_SEQ_STEPS] = {
  {88,72,78,84,96,84,78,72,80,72,78,84,96,84,78,72},
  {108,0,76,0,92,88,0,100,108,0,76,0,92,0,100,0}
 };
-static uint32_t period_q16(uint32_t sample_rate, uint16_t bpm, uint8_t clocks_per_beat)
+static uint32_t period_q16(uint32_t sample_rate, uint16_t bpm)
 {
     uint32_t n = sample_rate * 15u;
-    uint32_t d = (uint32_t)bpm * (uint32_t)(clocks_per_beat / 6u);
+    uint32_t d = (uint32_t)bpm;
     uint32_t whole = n / d, rem = n % d;
     return (whole << 16) + ((rem << 16) / d);
 }
@@ -46,7 +46,7 @@ int hybrid_seq_tempo(hybrid_seq_t *s, uint16_t bpm)
     if (!s || bpm < 40u || bpm > 240u) return -1;
     s->bpm=bpm;
     /* One 16th note = 1/4 beat; one MIDI clock = 1/24 beat. */
-    s->step_q16=period_q16(s->sample_rate,bpm,24u);
+    s->step_q16=period_q16(s->sample_rate,bpm);
     s->clock_q16=s->step_q16/6u;
     if (!s->clock_q16) s->clock_q16=1u;
     return 0;
