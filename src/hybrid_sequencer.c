@@ -36,7 +36,7 @@ void hybrid_seq_init(hybrid_seq_t *s, uint32_t rate, hybrid_seq_event_fn fn, voi
     s->emit = fn; s->context = ctx; s->bpm = 120u;
     s->chain_length = 1u; s->chain[0] = HYBRID_SEQ_BASS;
     s->step = 0u; s->clock_divider=0u; s->running = 0u; s->variation_b = 0u; s->fill = 0u; s->external_clock=0u;
-    s->mute_mask = 0u; s->solo_mask = 0u; s->phase_q16 = 0u; s->clock_phase_q16 = 0u;
+    s->mute_mask = 0u; s->solo_mask = 0u; s->clock_phase_q16 = 0u;
     s->chain_position = 0u;
     for (i=0;i<HYBRID_SEQ_TRACKS;i++) s->active_note[i]=NO_NOTE;
     (void)hybrid_seq_tempo(s,120u);
@@ -92,7 +92,7 @@ void hybrid_seq_start(hybrid_seq_t*s)
 {
     uint8_t t;if(!s)return;
     for(t=0;t<HYBRID_SEQ_TRACKS;t++)if(s->active_note[t]){emit(s,t,HYBRID_SEQ_NOTE_OFF,s->active_note[t],0u);s->active_note[t]=0u;}
-    s->phase_q16=0u;s->clock_phase_q16=0u;s->step=0u;s->clock_divider=0u;s->chain_position=0u;s->running=1u;
+    s->clock_phase_q16=0u;s->step=0u;s->clock_divider=0u;s->chain_position=0u;s->running=1u;
     emit(s,0xffu,HYBRID_SEQ_START,0u,0u);
 }
 void hybrid_seq_stop(hybrid_seq_t*s)
@@ -107,7 +107,7 @@ void hybrid_seq_process(hybrid_seq_t*s,uint16_t frames)
     uint32_t add;
     if(!s||!s->running||s->external_clock||!frames)return;
     add=(uint32_t)frames<<16;
-    s->phase_q16+=add;s->clock_phase_q16+=add;
+    s->clock_phase_q16+=add;
     while(s->clock_phase_q16>=s->clock_q16){
         s->clock_phase_q16-=s->clock_q16;
         emit(s,0xffu,HYBRID_SEQ_CLOCK,0u,0u);
