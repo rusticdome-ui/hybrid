@@ -205,7 +205,7 @@ void hybrid_audio_seq_solo(uint8_t track, uint8_t value) { hybrid_seq_solo(&hybr
 int hybrid_audio_init(void)
 {
     hybrid_profile_init();
-    hybrid_seq_init(&hybrid_audio_sequencer, HYBRID_SAMPLE_RATE, hybrid_seq_emit, &hybrid_audio_core);
+    hybrid_seq_init(&hybrid_audio_sequencer, 44118u, hybrid_seq_emit, &hybrid_audio_core); /* AC79 I2S: 24 MHz / 544 ticks */
     hybrid_audio_seq_synced = 0u; hybrid_audio_seq_bpm = 120u;
     hybrid_profile_buffers(0u, (uint32_t)sizeof(hybrid_audio_mix) + (uint32_t)sizeof(native_lr));
     hybrid_init_defaults(&hybrid_audio_core);
