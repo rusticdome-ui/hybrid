@@ -111,7 +111,13 @@ const server = http.createServer((req, res) => {
     const seqMetrics = await page.evaluate(() => window.__hybridAudioMetrics);
     if (!Number.isFinite(seqMetrics.sequencerMax) || seqMetrics.sequencerMax < 0) throw new Error('VOLCA sequencer CPU metric invalid: ' + JSON.stringify(seqMetrics));
     await page.locator('#volcaStop').click();
-    console.log('CHROMIUM VOLCA SEQUENCER PASS: chain, variation B, fill, mute/solo, shared 24-PPQN clock and transport.');
+    await page.locator('#volcaClock').selectOption('midi');
+    await page.locator('#volcaPlay').click();
+    const externalClockBase = await page.evaluate(() => window.__hybridAudioMetrics.seqClockTicks);
+    await page.evaluate(() => { for (let i = 0; i < 6; i++) window.__hybridAudioNode.port.postMessage({type:'volcaExternalClock'}); });
+    await page.waitForFunction(base => window.__hybridAudioMetrics && window.__hybridAudioMetrics.seqClockTicks >= base + 6, externalClockBase, { timeout:12000 });
+    await page.locator('#volcaStop').click();
+    console.log('CHROMIUM VOLCA SEQUENCER PASS: chain, variation B, fill, mute/solo, internal and external 24-PPQN clocks, transport.');
 
     const metrics = await page.locator('#audioMetrics').textContent();
     const log = await page.locator('#log').textContent();
