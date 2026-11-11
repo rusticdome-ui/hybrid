@@ -58,7 +58,7 @@ def main():
         "", "## Hardware measurements", "",
         "**Pending physical SMK-37 run.** GitHub-hosted CI cannot measure live DSP CPU,",
         "stack high-water or underruns. The firmware snapshot API exposes these counters",
-        "for debugger/CDC diagnostics; this report does not invent runtime values.", "",
+        "through the snapshot function when inspected with a debugger; no CDC telemetry transport is included. This report does not invent runtime values.", "",
         "Stack watermark is sampled rather than a guard-band proof. Buffer occupancy",
         "covers HYBRID audio scratch buffers only; it excludes private allocations in",
         "upstream engines and the Felucca pool. POOL is reported from the final static ELF",
