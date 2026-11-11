@@ -145,16 +145,16 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     if(m.type==='noteOn'){
       this.rack.noteOn(m.note,m.velocity,m.channel);
       const ch=Number.isInteger(m.channel)&&m.channel>=1&&m.channel<=4?m.channel:1;
-      this.ghoulbox.web_midi(0x90|(ch-1),m.note,m.velocity);
+      if(this.ghoulbox)this.ghoulbox.web_midi(0x90|(ch-1),m.note,m.velocity);
     }
     else if(m.type==='noteOff'){
       this.rack.noteOff(m.note,m.channel);
       const ch=Number.isInteger(m.channel)&&m.channel>=1&&m.channel<=4?m.channel:1;
-      this.ghoulbox.web_midi(0x80|(ch-1),m.note,0);
+      if(this.ghoulbox)this.ghoulbox.web_midi(0x80|(ch-1),m.note,0);
     }
     else if(m.type==='panic'){
       this.rack.allNotesOff();
-      for(let ch=0;ch<4;ch++)for(let note=0;note<128;note++)this.ghoulbox.web_midi(0x80|ch,note,0);
+      if(this.ghoulbox)for(let ch=0;ch<4;ch++)for(let note=0;note<128;note++)this.ghoulbox.web_midi(0x80|ch,note,0);
     }
     else if(m.type==='presetStep'){if(this.rack&&Number.isInteger(m.id)&&m.id>=0&&m.id<3)this.rack.encoder(m.id,2,m.delta|0);}
     else if(m.type==='programChange'){const ch=Number.isInteger(m.channel)&&m.channel>=1&&m.channel<=16?m.channel:1;const program=Math.max(0,Math.min(127,m.program|0));if(this.ghoulbox)this.ghoulbox.web_midi(0xC0|(ch-1),program,0);}
