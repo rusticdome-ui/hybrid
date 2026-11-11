@@ -44,14 +44,15 @@ def main():
                               (zen_obj, "zen_fm_render")):
             if required not in linker.defined(Path(nm), obj):
                 raise SystemExit(f"real native symbol missing after namespace: {required}")
-        core_obj, profile_obj, adapter_obj = out / "hybrid_core.o", out / "hybrid_profile.o", out / "hybrid_native_adapters.o"
+        core_obj, profile_obj, adapter_obj, seq_obj = out / "hybrid_core.o", out / "hybrid_profile.o", out / "hybrid_native_adapters.o", out / "hybrid_sequencer.o"
         inc = [f"-I{ROOT / 'include'}", f"-I{ROOT / 'tests/fakes'}"]
         run([cc, *common, *inc, "-c", ROOT / "src/hybrid_core.c", "-o", core_obj])
         run([cc, *common, *inc, "-c", ROOT / "src/hybrid_profile.c", "-o", profile_obj])
         run([cc, *common, *inc, "-c", ROOT / "src/hybrid_native_adapters.c", "-o", adapter_obj])
+        run([cc, *common, *inc, "-c", ROOT / "src/hybrid_sequencer.c", "-o", seq_obj])
         exe = out / "native-adapters-test"
         run([cc, *common, *inc, ROOT / "tests/test_native_adapters_host.c",
-             amb_obj, dub_obj, zen_obj, core_obj, profile_obj, adapter_obj, "-lm", "-o", exe])
+             amb_obj, dub_obj, zen_obj, core_obj, profile_obj, adapter_obj, seq_obj, "-lm", "-o", exe])
         run([exe])
 
 if __name__ == "__main__":
