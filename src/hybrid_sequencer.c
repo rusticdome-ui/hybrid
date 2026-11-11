@@ -99,7 +99,7 @@ void hybrid_seq_stop(hybrid_seq_t*s)
 {
     uint8_t t;if(!s)return;
     for(t=0;t<HYBRID_SEQ_TRACKS;t++)if(s->active_note[t]){emit(s,t,HYBRID_SEQ_NOTE_OFF,s->active_note[t],0u);s->active_note[t]=0u;}
-    s->running=0u;s->phase_q16=0u;s->clock_phase_q16=0u;s->clock_divider=0u;
+    s->running=0u;s->clock_phase_q16=0u;s->clock_divider=0u;
     emit(s,0xffu,HYBRID_SEQ_STOP,0u,0u);
 }
 void hybrid_seq_process(hybrid_seq_t*s,uint16_t frames)
