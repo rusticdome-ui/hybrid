@@ -2,13 +2,27 @@
 const hasHighResClock=typeof globalThis.performance?.now==='function';
 const timingSource=hasHighResClock?'performance.now':'Date.now (coarse, 1 ms granularity)';
 const timingResolutionMs=hasHighResClock?0:1;
+const VOLCA_NOTES=[
+ [36,36,43,36,0,36,46,36,36,0,48,43,36,36,0,34],
+ [60,0,64,67,0,64,67,71,60,0,64,67,0,65,69,72],
+ [36,42,42,42,38,42,36,42,36,42,42,42,38,42,46,42],
+ [48,55,60,64,67,64,60,55,50,57,62,65,69,65,62,57],
+ [36,0,38,0,42,42,0,46,36,0,40,0,42,0,46,0]
+];
+const VOLCA_VELOCITY=[
+ [112,72,96,72,0,96,80,72,104,0,92,88,104,72,0,100],
+ [96,0,78,92,0,78,92,100,96,0,78,92,0,78,92,104],
+ [118,0,76,0,110,0,84,0,118,0,76,0,110,0,96,0],
+ [88,72,78,84,96,84,78,72,80,72,78,84,96,84,78,72],
+ [108,0,76,0,92,88,0,100,108,0,76,0,92,0,100,0]
+];
 const nowMs=()=>hasHighResClock?globalThis.performance.now():Date.now();
 class SMK37HybridProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
     this.ready=false;this.failed=false;this.rack=null;this.core=null;this.ghoulbox=null;this.pendingMessages=[];
     this.count=0;this.underruns=0;this.lateCallbacks=0;this.renderOverrunCandidates=0;this.lastTime=0;this.maxJitter=0;this.jitter=[];
-    this.maxRender=0;this.rackMax=0;this.ghoulMax=0;this.mixerMax=0;this.rackTotal=0;this.ghoulTotal=0;this.mixerTotal=0;this.period=128/sampleRate*1000;this.ghoulViews=new Map();this.outputViews=new Map();
+    this.maxRender=0;this.rackMax=0;this.ghoulMax=0;this.mixerMax=0;this.rackTotal=0;this.ghoulTotal=0;this.mixerTotal=0;this.seqMax=0;this.seqTotal=0;this.seqSteps=0;this.seqClockTicks=0;this.period=128/sampleRate*1000;this.ghoulViews=new Map();this.outputViews=new Map();this.volca={running:false,bpm:120,clockPhase:0,clockDivider:0,step:0,chain:[0],chainPosition:0,variation:0,fill:false,muteMask:0,soloMask:0,active:[0,0,0,0]};
     this.port.onmessage=e=>this.message(e.data);
     this.initialize(options.processorOptions?.wasmBytes).catch(err=>{
       this.failed=true;this.port.postMessage({type:'error',message:err.message});
@@ -55,8 +69,67 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     for(const message of this.pendingMessages.splice(0))this.message(message);
     this.port.postMessage({type:'ready',engines:[...loaded,'GHOULBOX original firmware']});
   }
+  volcaConfigure(m) {
+    const s=this.volca;
+    if(Number.isFinite(m.bpm))s.bpm=Math.max(40,Math.min(220,m.bpm|0));
+    if(Array.isArray(m.chain)&&m.chain.length)s.chain=m.chain.slice(0,16).map(x=>Math.max(0,Math.min(4,x|0)));
+    if(Number.isFinite(m.variation))s.variation=m.variation?1:0;
+    if(typeof m.fill==='boolean')s.fill=m.fill;
+    if(Number.isInteger(m.muteMask))s.muteMask=m.muteMask&15;
+    if(Number.isInteger(m.soloMask))s.soloMask=m.soloMask&15;
+  }
+  volcaNote(track,note,velocity,on) {
+    if(track<3&&this.rack){
+      if(on)this.rack.noteOnEngine(track,note,velocity);
+      else this.rack.noteOffEngine(track,note);
+    } else if(track===3&&this.ghoulbox) {
+      this.ghoulbox.web_midi((on?0x90:0x80)|3,note,on?velocity:0);
+    }
+  }
+  volcaStep() {
+    const s=this.volca,step=s.step,family=s.chain[s.chainPosition]??0,solo=s.soloMask;
+    for(let track=0;track<4;track++){
+      if(s.active[track]){this.volcaNote(track,s.active[track],0,false);s.active[track]=0;}
+      const bit=1<<track;if((s.muteMask&bit)||(solo&&!(solo&bit)))continue;
+      let note=VOLCA_NOTES[family][step],velocity=VOLCA_VELOCITY[family][step];
+      if(s.variation){if(step%4===2)note=0;else if(note&&family!==2&&family!==4)note=Math.min(127,note+12);}
+      if(s.fill&&step>=12&&((step+track)&1)===0){note=family===2?38:(note||48);velocity=120;}
+      if(note){
+        if(track<3&&family!==2&&family!==4)note=Math.min(127,note+track*12);
+        this.volcaNote(track,note,velocity,true);s.active[track]=note;
+      }
+    }
+    s.step=(s.step+1)&15;this.seqSteps++;
+    if(s.step===0)s.chainPosition=(s.chainPosition+1)%s.chain.length;
+  }
+  volcaStart() {
+    const s=this.volca;
+    for(let track=0;track<4;track++)if(s.active[track]){this.volcaNote(track,s.active[track],0,false);s.active[track]=0;}
+    s.running=true;s.clockPhase=0;s.clockDivider=0;s.step=0;s.chainPosition=0;
+    if(this.ghoulbox)this.ghoulbox.web_midi(0xFA,0,0);
+    this.volcaStep();
+  }
+  volcaStop() {
+    const s=this.volca;
+    for(let track=0;track<4;track++)if(s.active[track]){this.volcaNote(track,s.active[track],0,false);s.active[track]=0;}
+    s.running=false;s.clockPhase=0;s.clockDivider=0;
+    if(this.ghoulbox)this.ghoulbox.web_midi(0xFC,0,0);
+  }
+  volcaAdvance(frames) {
+    const s=this.volca;if(!s.running)return;
+    const samplesPerClock=sampleRate*60/(s.bpm*24);
+    s.clockPhase+=frames;
+    while(s.clockPhase>=samplesPerClock){
+      s.clockPhase-=samplesPerClock;this.seqClockTicks++;
+      if(this.ghoulbox)this.ghoulbox.web_midi(0xF8,0,0);
+      if(++s.clockDivider>=6){s.clockDivider=0;this.volcaStep();}
+    }
+  }
   message(m) {
     if(!m)return;
+    if(m.type==='volcaConfigure'){this.volcaConfigure(m);return;}
+    if(m.type==='volcaStart'){this.volcaConfigure(m);this.volcaStart();return;}
+    if(m.type==='volcaStop'){this.volcaStop();return;}
     if(!this.ready){if(m.type==='presetStep'||m.type==='programChange')this.pendingMessages.push(m);return;}
     if(m.type==='noteOn'){
       this.rack.noteOn(m.note,m.velocity,m.channel);
@@ -91,6 +164,9 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     try{
       if(frames>128)throw Error('AudioWorklet quantum exceeds 128 frames');
       let segmentStart=nowMs();
+      this.volcaAdvance(frames);
+      const seqMs=nowMs()-segmentStart;this.seqMax=Math.max(this.seqMax,seqMs);this.seqTotal+=seqMs;
+      segmentStart=nowMs();
       this.rack.renderToCore(this.core,frames,false);
       const rackMs=nowMs()-segmentStart;this.rackMax=Math.max(this.rackMax,rackMs);this.rackTotal+=rackMs;
       segmentStart=nowMs();
@@ -124,7 +200,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     this.count++;
     if((this.count&255)===0){
       const s=this.jitter.slice().sort((a,b)=>a-b),p95=s.length?s[Math.min(s.length-1,Math.ceil(s.length*.95)-1)]:0;
-      this.port.postMessage({type:'metrics',callbacks:this.count,underruns:this.underruns,lateCallbacks:this.lateCallbacks,renderOverrunCandidates:this.renderOverrunCandidates,jitterP95:p95,jitterMax:this.maxJitter,renderMax:this.maxRender,rackMax:this.rackMax,ghoulboxMax:this.ghoulMax,mixerMax:this.mixerMax,rackAvg:this.rackTotal/this.count,ghoulboxAvg:this.ghoulTotal/this.count,mixerAvg:this.mixerTotal/this.count,timingSource,timingResolutionMs});
+      this.port.postMessage({type:'metrics',callbacks:this.count,underruns:this.underruns,lateCallbacks:this.lateCallbacks,renderOverrunCandidates:this.renderOverrunCandidates,jitterP95:p95,jitterMax:this.maxJitter,renderMax:this.maxRender,sequencerMax:this.seqMax,sequencerAvg:this.seqTotal/this.count,seqSteps:this.seqSteps,seqClockTicks:this.seqClockTicks,rackMax:this.rackMax,ghoulboxMax:this.ghoulMax,mixerMax:this.mixerMax,rackAvg:this.rackTotal/this.count,ghoulboxAvg:this.ghoulTotal/this.count,mixerAvg:this.mixerTotal/this.count,timingSource,timingResolutionMs});
     }
     return true;
   }
