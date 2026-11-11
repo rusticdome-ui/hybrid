@@ -156,6 +156,7 @@ static void bed_drop(int vel, int pan, int pad) { (void)vel; (void)pan; (void)pa
         build/hybrid/hybrid_core.o(.bss* COMMON)
         build/hybrid/hybrid_native_adapters.o(.bss* COMMON)
         build/hybrid/hybrid_profile.o(.bss* COMMON)
+        build/hybrid/hybrid_sequencer.o(.bss* COMMON)
         . = ALIGN(4); _pool_end = .;
     } > POOL
     .bss (NOLOAD) : { _bss_start = .; *(.bss*) *(.sbss*) *(COMMON) . = ALIGN(4); _bss_end = .; } > RAM"""
@@ -266,9 +267,11 @@ def main():
     hybrid_core_obj=out/"hybrid_core.o"
     hybrid_adapter_obj=out/"hybrid_native_adapters.o"
     hybrid_profile_obj=out/"hybrid_profile.o"
+    hybrid_seq_obj=out/"hybrid_sequencer.o"
     compile_one(clang,a.hybrid/"src/hybrid_core.c",hybrid_core_obj,[hybrid_inc,fwsrc,hal])
     compile_one(clang,a.hybrid/"src/hybrid_native_adapters.c",hybrid_adapter_obj,[hybrid_inc,fwsrc,hal])
     compile_one(clang,a.hybrid/"src/hybrid_profile.c",hybrid_profile_obj,[hybrid_inc,fwsrc,hal])
+    compile_one(clang,a.hybrid/"src/hybrid_sequencer.c",hybrid_seq_obj,[hybrid_inc,fwsrc,hal])
 
     required={"amb_en_init","amb_en_set","amb_en_play","amb_en_render","amb_en_panic",
               "dub_en_init","dub_en_set","dub_en_play","dub_en_render","dub_en_panic",
@@ -284,6 +287,7 @@ def main():
        OUT / "felucca.o", OUT / "hybrid" / "amb.o", OUT / "hybrid" / "dub.o",
        {zen_link_args}, OUT / "hybrid" / "hybrid_core.o",
        OUT / "hybrid" / "hybrid_native_adapters.o", OUT / "hybrid" / "hybrid_profile.o",
+       OUT / "hybrid" / "hybrid_sequencer.o",
        "-Map", OUT / "felucca.map", "-o", elf)"""
     if replacement not in src:
         if src.count(anchor)!=1:
