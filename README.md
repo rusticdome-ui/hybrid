@@ -1,42 +1,36 @@
-# SMK-37 HYBRID — common core (integration scaffold)
+# SMK-37 HYBRID — native DSP integration and VOLCA sequencer
 
-Initial isolated common-core implementation for the M-VAVE SMK-37 Pro hybrid firmware.
+The hybrid-memory-reduction branch contains an AC79 integration path for the M-VAVE SMK-37 Pro reference firmware and a browser-based HYBRID simulator.
 
-## Included
-- Four engine slots: A=AMB-1, B=DUB-1, C=ZEN-1, D=GHOULBOX.
-- Engine callback contract (init/reset/note/control/render/panic).
-- MIDI routing GLOBAL / ZONE / OFF, channel filter, velocity window and transpose.
-- Per-channel volume, pan, mute and solo.
-- Four-way stereo summing in signed Q15 with output saturation.
-- Sixteen in-memory scenes and optional per-engine 64-byte scene-state hooks.
-- Linear volume/pan transition; discrete controls switch at fade completion.
-- Fixed render quantum up to 128 frames; no heap allocation in audio callback.
+## Current implementation
 
-## Host test
-```sh
-cc -std=c99 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c tests/test_hybrid_core.c -o test_hybrid_core
-./test_hybrid_core
-```
+- Four HYBRID slots: A=AMB-1, B=DUB-1, C=ZEN-1, D=GHOULBOX (optional to the VOLCA sequencer).
+- Original AMB-1, DUB-1 and ZEN-1 DSP sources are compiled as isolated, namespaced AC79 objects and connected through native adapters.
+- The upstream GHOULBOX engine/mixer remains the base firmware engine in the AC79 reference build; HYBRID overlays are mixed after its native mix.
+- Signed Q15 four-slot mixer, per-slot volume/pan/mute/solo, MIDI zones and fixed render quantum.
+- Bounded shared-clock VOLCA sequencer: four lanes, 24 PPQN, 16-step patterns, up to 16 chain entries, A/B variation, fills, mute and solo.
+- AC79 TIMER4 profiler channels for AMB/DUB/ZEN/GHOULBOX/mixer/sequencer, stack watermark, buffer occupancy and underruns.
+- Browser simulator with original DSP WASM renderers, VOLCA performance panel and optional GHOULBOX WASM renderer.
 
-## Integration status and limitations
-This is a tested host-side scaffold, **not a complete firmware image**. It does not yet include or instantiate the AMB-1, DUB-1, ZEN-1 or GHOULBOX engine sources, and has not been built with the JieLi SDK or tested on an SMK-37 Pro.
+## Important engine limits
 
-Felucca's build compiles `firmware/src/felucca.c` as a single translation unit; integration must include the core in a deliberate location and connect MIDI/key events and the audio callback. Do not map HYBRID slots to GHOULBOX's four internal tracks: GHOULBOX is one engine in slot D, retaining its own internal engines and sequencer.
+AMB-1 and DUB-1 are self-running generative instruments. Their current HYBRID note callbacks intentionally do nothing; they continue to render their original DSP, but arbitrary sequencer notes are not mapped to invented controls. ZEN-1 has a native note/velocity API and receives sequencer note events. GHOULBOX's own sequencer and internal engine table remain upstream code.
 
-Remaining work includes engine adapters, persistent scene storage/versioning/CRC, per-engine FX, equal-power pan, CPU/polyphony arbitration, audio HAL/DMA integration, and note ownership tracking so zone changes cannot strand sustained notes. Scene hooks currently hold at most 64 bytes per engine.
+Bass, Keys, Drum, FM and Sample are performance/phrase roles, not claims that five new Korg DSPs have been implemented. The Sample phrase contains triggers only and requires a compatible loaded sample source. The browser's GHOULBOX renderer is optional; if absent, the other three native DSPs and sequencer transport still run.
+
+## Host tests
+
+    cc -std=c99 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c tests/test_hybrid_core.c -o test_hybrid_core
+    ./test_hybrid_core
+    cc -std=c99 -Wall -Wextra -Werror -Iinclude src/hybrid_sequencer.c tests/test_hybrid_sequencer.c -o test_hybrid_sequencer
+    ./test_hybrid_sequencer
+
+## Build and certification status
+
+The workflow .github/workflows/ac79-hybrid-linker.yml compiles the native DSP objects, HYBRID mixer, adapters, profiler and VOLCA sequencer with the JieLi pi32v2 toolchain, then attempts the final AC79 link and emits linker diagnostics. The workflow .github/workflows/deploy-simulator.yml builds and tests the browser simulator with Chromium and deploys GitHub Pages on an eligible branch push.
+
+**A successful Actions run is not proof of hardware operation.** Final RAM/POOL/XIP/NOINIT margins must come from the latest successful linked ELF/map. Runtime CPU/stack/underrun values require a physical SMK-37 Pro session. The profiler's buffer counters cover registered HYBRID scratch buffers; they do not replace a live measurement of all private upstream POOL allocations. Do not flash a reference package until the final AC79 link and physical-board checks are confirmed.
 
 ## Licensing
-SPDX-License-Identifier: GPL-3.0-only. When importing upstream engine code, retain all copyright, license and third-party notices and verify compatibility for every imported file.
 
-
-## GitHub Actions: SMK-37 build pipeline
-
-The workflow `.github/workflows/smk37-hybrid.yml` runs on pushes, pull requests and manual dispatch.
-
-- Compiles and runs the isolated HYBRID core host tests.
-- Downloads the Linux x86-64 JieLi pi32v2 toolchain.
-- Checks out JieLi AC79 SDK `AC79NN_SDK_V1.2.1_2023-12-13`.
-- Checks out the upstream `Felucca` `ghoulbox-smk37` branch and builds its SMK-37 Pro reference package with `tools/build.py --board smk37 --model pro`.
-- Uploads `ghoulbox-smk37.fwsc` as a 14-day Actions artifact, alongside the upstream source commit identifier.
-
-**Important:** this is currently a GHOULBOX reference package build, not an integrated SMK-37 HYBRID firmware. The hybrid core tests do not imply that AMB-1, DUB-1, ZEN-1 and GHOULBOX have been integrated into the device firmware. Do not flash the reference artifact as the HYBRID build.
+SPDX-License-Identifier: GPL-3.0-only. Retain upstream copyright, license and third-party notices for all imported engine code.
