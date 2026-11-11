@@ -37,6 +37,14 @@ int main(void)
   assert(e.clock==6u&&e.on>0u);
   hybrid_seq_stop(&ext);
  }
+ {
+  hybrid_seq_t all;trace_t a={0};uint8_t one[1]={HYBRID_SEQ_BASS};
+  hybrid_seq_init(&all,44100u,event,&a);assert(hybrid_seq_chain(&all,one,1u)==0);
+  hybrid_seq_start(&all);
+  for(unsigned i=0;i<700;i++)hybrid_seq_process(&all,128u);
+  assert(a.on_by_engine[0]>0u&&a.on_by_engine[1]>0u&&a.on_by_engine[2]>0u&&a.on_by_engine[3]>0u);
+  hybrid_seq_stop(&all);
+ }
  puts("SMK-37 VOLCA shared-clock sequencer tests: PASS");
  return 0;
 }
