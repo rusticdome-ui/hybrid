@@ -22,7 +22,7 @@ typedef void (*hybrid_seq_event_fn)(void *context, uint8_t engine,
                                     hybrid_seq_event_t event,
                                     uint8_t note, uint8_t velocity);
 typedef struct {
-    uint32_t sample_rate, step_q16, clock_q16, phase_q16, clock_phase_q16;
+    uint32_t sample_rate, step_q16, clock_q16, clock_phase_q16;
     uint16_t bpm;
     uint8_t chain[HYBRID_SEQ_CHAIN_MAX], chain_length, chain_position;
     uint8_t step, clock_divider, running, variation_b, fill, external_clock;
