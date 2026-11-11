@@ -188,7 +188,7 @@ def apply_volca_patterns(felucca):
     if src.count(anchor) != 1:
         raise SystemExit("GHOULBOX factory pattern anchor changed; refusing unsafe Volca pattern insertion")
     src = src.replace(anchor, addition)
-    pattern_re = re.compile(r'\\{"(VOLCBASS|VOLCKEYS|VOLCDRUM|VOLCFM|VOLCSAMP)"\\s*,\\s*\\{([^}]*)\\}\\s*,\\s*\\{([^}]*)\\}')
+    pattern_re = re.compile(r'\{"(VOLCBASS|VOLCKEYS|VOLCDRUM|VOLCFM|VOLCSAMP)"\s*,\s*\{([^}]*)\}\s*,\s*\{([^}]*)\}')
     records = {m.group(1): m for m in pattern_re.finditer(src)}
     if set(records) != set(names):
         raise SystemExit("Volca factory pattern names or records are incomplete")
