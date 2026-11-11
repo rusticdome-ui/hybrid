@@ -63,16 +63,16 @@ The existing AC79 profiler now has a separate sequencer timing channel (TIMER4),
 
 Static POOL, RAM, XIP and NOINIT usage must be taken from the final linked ELF/map. The runtime buffer counters are **not** a live measurement of every private GHOULBOX/DSP POOL allocation. GitHub-hosted CI cannot measure the physical board's live CPU, stack or DMA underruns.
 
-The last documented successful AC79 map (before the new sequencer object) reported:
+The latest successful final AC79 map for the first integrated sequencer build (Actions run [#43113694960](https://github.com/rusticdome-ui/hybrid/actions/runs/43113694960), commit 7a7983cc) reported:
 
 | Region | Used | Capacity | Remaining |
 |---|---:|---:|---:|
-| XIP | 607,584 B | 619,520 B | 11,936 B |
+| XIP | 608,688 B | 619,520 B | 10,832 B |
 | RAM (.data + .bss) | 83,248 B | 98,304 B | 15,056 B |
-| POOL | 335,212 B | 344,064 B | 8,852 B |
+| POOL | 335,296 B | 344,064 B | 8,768 B |
 | NOINIT | 15,564 B | 15,696 B | 132 B |
 
-These are **pre-sequencer reference values**, from Actions run #42895951511. The current branch must pass a fresh final link/map to establish updated margins. NOINIT and POOL are particularly tight; do not add large runtime buffers or assume external SDRAM.
+These values include the first integrated C sequencer object and its AC79 adapter hook. Subsequent external-clock pulse-lock changes are still awaiting a fresh final link/map, so these are the latest confirmed baseline rather than the final margins for the current HEAD. NOINIT and POOL are particularly tight; do not add large runtime buffers or assume external SDRAM.
 
 ## Validation gates
 
