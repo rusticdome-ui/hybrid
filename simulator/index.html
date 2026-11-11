@@ -20,7 +20,7 @@
 </main>
 <script src="./native-engines.js"></script>
 <script>(()=> {
-const defs=[['A','AMB-1','DSP original WASM · mixer C','#62d9df'],['B','DUB-1','DSP original WASM · mixer C','#ffc477'],['C','ZEN-1','DSP original WASM · mixer C','#b89aff'],['D','GHOULBOX','TEST ONLY · renderer WASM pendente','#80e0b0']];
+const defs=[['A','AMB-1','DSP original WASM · mixer C','#62d9df'],['B','DUB-1','DSP original WASM · mixer C','#ffc477'],['C','ZEN-1','DSP original WASM · mixer C','#b89aff'],['D','GHOULBOX','Firmware original WASM · opcional','#80e0b0']];
 const S=defs.map(()=>({gain:.72,pan:0,mute:false,solo:false,route:'GLOBAL',mode:'NORMAL',voices:0,peak:0}));
 let ctx=null,master=null,processor=null,wasm=null,wasmReady=false,nativeRack=null,nativeReady=false,ghoulReady=false,midiAccess=null,midiCC=new Map(),scene=0,scenes=Array(16).fill(false),seq=null,held=new Set();
 let audioLastCallback=0,audioCallbackCount=0,audioUnderruns=0,audioMaxJitterMs=0,audioMaxRenderMs=0,audioJitterWindow=[];
