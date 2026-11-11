@@ -335,7 +335,7 @@ def main():
                  "extern void hybrid_audio_seq_clock_pulse(void);\nstatic void __attribute__((noinline)) midi_clock_pulse(uint32_t ms)\n{",
                  "midi_clock.c VOLCA clock declaration")
     patch_source(midi_clock_c, "static void __attribute__((noinline)) midi_clock_pulse(uint32_t ms)\n{\n    uint32_t q;",
-                 "static void __attribute__((noinline)) midi_clock_pulse(uint32_t ms)\n{\n    hybrid_audio_seq_clock_pulse();\n    uint32_t q;",
+                 "static void __attribute__((noinline)) midi_clock_pulse(uint32_t ms)\n{\n    uint32_t q;\n    hybrid_audio_seq_clock_pulse();",
                  "midi_clock.c external clock forwarding")
     patch_source(seq_c, "    for (i = 0; i < NTRK; i++) {\n        track_t *t = &trk[i];\n        if (((pr >> i) & 1u)",
                  "    if (pr) hybrid_audio_panic();\n    for (i = 0; i < NTRK; i++) {\n        track_t *t = &trk[i];\n        if (((pr >> i) & 1u)",
