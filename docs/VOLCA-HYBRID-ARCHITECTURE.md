@@ -44,7 +44,7 @@ AMB-1 and DUB-1 are self-running generative engines in the current adapter. Thei
 
 ## Simulator performance panel
 
-The browser AudioWorklet has the same 24-PPQN clock and 16-step scheduler, with four independently muteable/soloable lanes. The panel provides:
+The browser AudioWorklet has the same 24-PPQN clock and 16-step scheduler, with four independently muteable/soloable lanes. This panel is the simulator control surface; physical SMK-37 buttons/encoder are not yet mapped to family/chain/mute/solo controls. The AC79 control API is present, but the hardware UI binding remains a separate task. The panel provides:
 - Bass, Keys, Drum, FM and Sample family selection.
 - Pattern chains of up to 16 IDs (1–5).
 - Variation A/B and a fill on the last four steps.
