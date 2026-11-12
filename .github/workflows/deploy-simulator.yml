@@ -19,7 +19,6 @@ on:
       - "include/hybrid_core.h"
       - "tests/test_hybrid_wasm_bridge.c"
       - "tests/test_audio_worklet_browser.js"
-      - "tests/test_ghoulbox_wasm.js"
       - ".github/workflows/deploy-simulator.yml"
 permissions:
   contents: read
