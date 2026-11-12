@@ -14,7 +14,7 @@ extern "C" {
 #define HYBRID_MAX_FRAMES 128u
 #define HYBRID_ENGINE_STATE 64u
 #define HYBRID_SAMPLE_RATE 44100u
-typedef enum { HYBRID_AMB=0, HYBRID_DUB=1, HYBRID_ZEN=2, HYBRID_GHOULBOX=3 } hybrid_channel_id_t;
+typedef enum { HYBRID_AMB=0, HYBRID_DUB=1, HYBRID_ZEN=2, HYBRID_SAMPLE=3 } hybrid_channel_id_t;
 typedef enum { HYBRID_ROUTE_OFF=0, HYBRID_ROUTE_GLOBAL, HYBRID_ROUTE_ZONE } hybrid_route_mode_t;
 typedef struct {
  uint8_t enabled, route_mode, midi_channel;
