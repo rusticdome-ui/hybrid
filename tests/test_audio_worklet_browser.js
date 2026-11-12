@@ -48,7 +48,12 @@ function wavSine(freq=220,duration=.5,rate=44100){
   if(await page.locator('#soundbankPanel').count()!==1||!await page.locator('#soundbankPanel').isVisible()||await page.locator('#soundbankPanel').evaluate(el=>!el.closest('.daw-left'))||await page.locator('#engines').isVisible())throw Error('FL-style soundbank browser is missing or legacy engine panels are visible');
   const patchOptions=bank=>page.locator('#patchSelect option').allTextContents();
   if(await page.locator('#patchBank').inputValue()!=='0'||await page.locator('#patchCount').textContent()!=='8 presets/vozes')throw Error('AMB-1 patch count mismatch');
+  if(await page.locator('#patchGrid [data-patch]').count()!==8||!await page.locator('#patchGrid [data-patch="0"]').evaluate(el=>el.classList.contains('selected')))throw Error('AMB-1 quick patch grid missing or not highlighted');
+  if(await page.locator('#keys [data-n]').count()!==37)throw Error('SMK-37 keybed must expose exactly 37 keys');
+  if(!await page.locator('#volcaMute0').isChecked()||!await page.locator('#volcaMute2').isChecked())throw Error('AMB-1 and ZEN-1 automatic lanes must be muted by default');
   if(!(await patchOptions()).join('|').includes('Garden')||!(await patchOptions()).join('|').includes('Tides'))throw Error('AMB-1 source patch names missing');
+  await page.locator('#patchGrid [data-patch="2"]').click();
+  if((await page.locator('#patchState').textContent()).trim()!=='AMB-1 · Voices · 3/8')throw Error('AMB-1 quick patch selection failed');
   await page.locator('#patchBank').selectOption('1');
   if(await page.locator('#patchCount').textContent()!=='8 presets/vozes'||!(await patchOptions()).join('|').includes('Night Drive'))throw Error('DUB-1 source patch names/count missing');
   await page.locator('#patchSelect').selectOption('1');
@@ -62,7 +67,7 @@ function wavSine(freq=220,duration=.5,rate=44100){
   if(!(await page.locator('#soundbankPanel').textContent()).includes('9 patches adicionais'))throw Error('ZEN-1 scene-layer patch disclosure missing');
   await page.locator('#patchBank').selectOption('0');
   if(!(await patchOptions()).join('|').includes('Garden'))throw Error('AMB-1 bank did not restore its patch list');
-  console.log('CHROMIUM SOUNDBANK PASS: source-derived AMB-1 (8), DUB-1 (8), ZEN-1 FuMi voices (14); soundbank browser in DAW sidebar; legacy engine panels hidden.');
+  console.log('CHROMIUM SOUNDBANK PASS: named patch grid, isolated manual AMB/DUB/ZEN routing, 37-key keybed, AMB-1/ZEN-1 sequencer lanes muted by default.');
   // Load four real WAV files into four independent sampler slots.
   for(let slot=0;slot<4;slot++){
    await page.locator('#sampleFile'+slot).setInputFiles({name:'sample-'+slot+'.wav',mimeType:'audio/wav',buffer:wavSine(150+slot*70)});
