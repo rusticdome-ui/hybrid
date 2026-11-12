@@ -81,7 +81,7 @@ function wavSine(freq=220,duration=.5,rate=44100){
   },base,{timeout:15000});
   await page.locator('#dawStop').click();
   await page.locator('#dawVariation').selectOption('1');await page.locator('#dawFill').check();
-  await page.locator('[data-mute="1"]').click();await page.locator('[data-solo="2"]').click();await page.locator('#dawApply').click();
+  await page.locator('[data-mute="1"]').evaluate(el=>el.click());await page.locator('[data-solo="2"]').evaluate(el=>el.click());await page.locator('#dawApply').click();
   const seqBase=await page.evaluate(()=>({steps:window.__hybridAudioMetrics.seqSteps,clocks:window.__hybridAudioMetrics.seqClockTicks}));
   await page.locator('#dawPlay').click();
   await page.waitForFunction(({steps,clocks})=>window.__hybridAudioMetrics&&window.__hybridAudioMetrics.seqSteps>=steps+2&&window.__hybridAudioMetrics.seqClockTicks>=clocks+6,seqBase,{timeout:12000});
