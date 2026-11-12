@@ -7,6 +7,7 @@ class TuningState {
  public:
   virtual ~TuningState() {}
   virtual int32_t midinote_to_logfreq(int midinote) = 0;
+  virtual bool is_standard_tuning() { return true; }
 };
 std::shared_ptr<TuningState> createStandardTuning();
 #endif
