@@ -1,4 +1,4 @@
-/* AudioWorklet: original DUB-1 WASM renderer + PCM ingress + HYBRID C mixer. */
+/* AudioWorklet: MSFA six-operator DX7 renderer + PCM ingress + HYBRID C mixer. */
 const hasHighResClock=typeof globalThis.performance?.now==='function';
 const timingSource=hasHighResClock?'performance.now':'Date.now (coarse, 1 ms granularity)';
 const timingResolutionMs=hasHighResClock?0:1;
@@ -20,36 +20,54 @@ const nowMs=()=>hasHighResClock?globalThis.performance.now():Date.now();
 class SMK37HybridProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
-    this.ready=false;this.failed=false;this.rack=null;this.core=null;this.pendingMessages=[];this.sampleSlots=Array(8).fill(null);this.sampleVoices=Array(8).fill(null);this.sampleTriggers=0;
+    this.ready=false;this.failed=false;this.dx7=null;this.core=null;this.pendingMessages=[];this.sampleSlots=Array(8).fill(null);this.sampleVoices=Array(8).fill(null);this.sampleTriggers=0;
     this.count=0;this.underruns=0;this.lateCallbacks=0;this.renderOverrunCandidates=0;this.lastTime=0;this.maxJitter=0;this.jitter=[];
-    this.maxRender=0;this.rackMax=0;this.mixerMax=0;this.rackTotal=0;this.mixerTotal=0;this.seqMax=0;this.seqTotal=0;this.seqSteps=0;this.seqClockTicks=0;this.seqLaneEvents=[0,0,0,0];this.period=128/sampleRate*1000;this.outputViews=new Map();this.volca={running:false,bpm:120,clockPhase:0,clockDivider:0,step:0,chain:[0],chainPosition:0,variation:0,fill:false,externalClock:false,muteMask:0,soloMask:0,active:[0,0,0,0]};
+    this.maxRender=0;this.dx7Max=0;this.dx7Total=0;this.dx7Peak=0;this.dx7NoteOns=0;this.mixerMax=0;this.mixerTotal=0;this.seqMax=0;this.seqTotal=0;this.seqSteps=0;this.seqClockTicks=0;this.seqLaneEvents=[0,0,0,0];this.period=128/sampleRate*1000;this.outputViews=new Map();this.volca={running:false,bpm:120,clockPhase:0,clockDivider:0,step:0,chain:[0],chainPosition:0,variation:0,fill:false,externalClock:false,muteMask:0,soloMask:0,active:[0,0,0,0]};
     this.port.onmessage=e=>this.message(e.data);
     this.initialize(options.processorOptions?.wasmBytes).catch(err=>{
       this.failed=true;this.port.postMessage({type:'error',message:err.message});
     });
   }
+  dx7Export(name){const fn=this.dx7?.[name]||this.dx7?.['_'+name];if(typeof fn!=='function')throw Error('DX7 WASM export missing: '+name);return fn;}
+  loadDx7Bank(data,program=0){
+    if(!this.dx7||!data||data.length!==4096)throw Error('DX7 bank must contain 4096 VMEM bytes');
+    const ptr=this.dx7Export('dx7_bank_ptr')()>>>0;
+    new Uint8Array(this.dx7.memory.buffer,ptr,4096).set(data);
+    if(this.dx7Export('dx7_load_bank')()!==0)throw Error('DX7 bank load failed');
+    if(this.dx7Export('dx7_select_program')(program|0)!==0)throw Error('DX7 program selection failed');
+    this.port.postMessage({type:'dx7BankLoaded',program:program|0});
+  }
   async initialize(wasmBytes) {
-    if(!wasmBytes?.core||!Array.isArray(wasmBytes?.engines)||wasmBytes.engines.length!==2||!wasmBytes.engines[1])
-      throw Error('Missing DUB-1 WASM buffer from main thread');
-    const instance=await WebAssembly.instantiate(wasmBytes.core,{});
-    this.core=instance.instance?.exports||instance.exports;
+    if(!wasmBytes?.core||!wasmBytes?.dx7||!wasmBytes?.bankData||wasmBytes.bankData.length!==4096)
+      throw Error('Missing HYBRID core, FM6/DX7 WASM or 4096-byte DX7 bank');
+    const [coreInstance,dx7Instance]=await Promise.all([
+      WebAssembly.instantiate(wasmBytes.core,{}),WebAssembly.instantiate(wasmBytes.dx7,{})
+    ]);
+    this.core=coreInstance.instance?.exports||coreInstance.exports;
+    this.dx7=dx7Instance.instance?.exports||dx7Instance.exports;
     if(this.core.hybrid_wasm_init()!==0)throw Error('HYBRID core init failed in AudioWorklet');
-    this.core.hybrid_wasm_set_mix(3,0,0,0,0);
-    this.rack=new globalThis.HYBRIDNativeEngines.NativeEngineRack();
-    const loaded=await this.rack.loadAll(wasmBytes.engines);
-    if(loaded.length!==1||loaded[0]!=='DUB-1')throw Error('Expected only the original DUB-1 DSP');
-    this.rack.setMaster(100);
-    // Warm the original DUB-1 DSP + PCM ingress + Q15 mixer before exposing the node.
-    // This keeps first-call WASM/JIT work out of the live render deadline.
+    if(this.dx7Export('dx7_init')(sampleRate)!==0)throw Error('MSFA DX7 engine init failed');
+    this.loadDx7Bank(wasmBytes.bankData,wasmBytes.program||0);
     for(let warm=0;warm<8;warm++){
-      this.rack.renderToCore(this.core,128,false);
+      this.renderDx7ToCore(128);
       this.renderSamplesToCore(128);
       if(this.core.hybrid_wasm_process(128)!==0)throw Error('HYBRID warm-up mixer failed');
     }
-    this.rack.allNotesOff();this.core.hybrid_wasm_panic();
+    this.dx7Export('dx7_panic')();this.core.hybrid_wasm_panic();
     this.ready=true;
     for(const message of this.pendingMessages.splice(0))this.message(message);
-    this.port.postMessage({type:'ready',engines:[...loaded,'PCM ingress · 8 slots']});
+    this.port.postMessage({type:'ready',engines:['FM6/DX7 · MSFA','PCM ingress · 8 slots']});
+  }
+  renderDx7ToCore(frames){
+    if(this.dx7Export('dx7_render')(frames)!==0)throw Error('MSFA DX7 render failed');
+    const sourcePtr=this.dx7Export('dx7_output_ptr')()>>>0;
+    const source=new Int16Array(this.dx7.memory.buffer,sourcePtr,frames);
+    const targetPtr=this.core.hybrid_wasm_pcm_ptr(1)>>>0;
+    const target=new Int32Array(this.core.memory.buffer,targetPtr,frames*2);
+    let peak=0;
+    for(let i=0;i<frames;i++){const sample=source[i];target[2*i]=sample;target[2*i+1]=sample;const amp=Math.abs(sample);if(amp>peak)peak=amp;}
+    this.dx7Peak=peak;
+    if(this.core.hybrid_wasm_submit_pcm(1,frames)!==0)throw Error('DX7 PCM ingress failed');
   }
   volcaConfigure(m) {
     const s=this.volca;
@@ -62,8 +80,9 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     if(Number.isInteger(m.soloMask))s.soloMask=m.soloMask&15;
   }
   volcaNote(track,note,velocity,on) {
-    if(track===1&&this.rack){
-      return on?this.rack.noteOnEngine(track,note,velocity):this.rack.noteOffEngine(track,note);
+    if(track===1&&this.dx7){
+      this.dx7Export('dx7_midi')(on?0x90:0x80,note,on?velocity:0);
+      return true;
     } else if(track===3) {
       if(on){const map={36:0,38:1,42:2,46:3,48:4,50:5,54:6,56:7};const slot=map[note]??(note>=36&&note<44?note-36:-1);return slot>=0&&this.sampleTrigger(slot,velocity);}
       return true;
@@ -135,7 +154,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
   }
   message(m) {
     if(!m)return;
-    if(!this.ready){if(['presetStep','volcaConfigure','volcaStart','volcaStop','volcaExternalStart','volcaExternalStop','volcaExternalClock','sampleLoad','sampleTrigger','sampleStop'].includes(m.type))this.pendingMessages.push(m);return;}
+    if(!this.ready){if(['noteOn','noteOff','midi','dx7Bank','dx7Program','panic','volcaConfigure','volcaStart','volcaStop','volcaExternalStart','volcaExternalStop','volcaExternalClock','sampleLoad','sampleTrigger','sampleStop'].includes(m.type))this.pendingMessages.push(m);return;}
     if(m.type==='sampleLoad'){const pcm=new Float32Array(m.pcm);if(pcm.length<2||pcm.length%2)throw Error('Sample PCM must be stereo interleaved');if(!Number.isInteger(m.slot)||m.slot<0||m.slot>=8)throw Error('Sample slot must be 0..7');this.sampleSlots[m.slot]={pcm,frames:pcm.length/2,name:m.name||('Sample '+(m.slot+1))};this.port.postMessage({type:'sampleLoaded',slot:m.slot,name:this.sampleSlots[m.slot].name,frames:pcm.length/2,samplesLoaded:this.sampleSlots.filter(Boolean).length});return;}
     if(m.type==='sampleTrigger'){this.sampleTrigger(m.slot,m.velocity);return;}
     if(m.type==='sampleStop'){this.sampleVoices.fill(null);return;}
@@ -146,24 +165,22 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     if(m.type==='volcaExternalStop'){this.volcaStop();return;}
     if(m.type==='volcaExternalClock'){this.volcaClockPulse(true);return;}
     if(m.type==='noteOn'){
-      if(Number.isInteger(m.engine)&&m.engine>=0&&m.engine<3)this.rack.noteOnEngine(m.engine,m.note,m.velocity,m.channel);
-      else this.rack.noteOn(m.note,m.velocity,m.channel);
+      const channel=Number.isInteger(m.channel)?Math.max(0,Math.min(15,m.channel>0?m.channel-1:0)):0;
+      this.dx7Export('dx7_midi')(0x90|channel,m.note,m.velocity);this.dx7NoteOns++;
     }
     else if(m.type==='noteOff'){
-      if(Number.isInteger(m.engine)&&m.engine>=0&&m.engine<3)this.rack.noteOffEngine(m.engine,m.note,m.channel);
-      else this.rack.noteOff(m.note,m.channel);
+      const channel=Number.isInteger(m.channel)?Math.max(0,Math.min(15,m.channel>0?m.channel-1:0)):0;
+      this.dx7Export('dx7_midi')(0x80|channel,m.note,0);
     }
-    else if(m.type==='panic'){
-      this.rack.allNotesOff();
-      this.sampleVoices.fill(null);
-    }
-    else if(m.type==='presetStep'){if(this.rack&&Number.isInteger(m.id)&&m.id>=0&&m.id<3)this.rack.encoder(m.id,2,m.delta|0);}
-    else if(m.type==='channel')this.rack.channel=m.value==='Omni'?0:+m.value;
+    else if(m.type==='midi')this.dx7Export('dx7_midi')(m.status,m.data1||0,m.data2||0);
+    else if(m.type==='dx7Bank')this.loadDx7Bank(m.data,m.program||0);
+    else if(m.type==='dx7Program'){if(this.dx7Export('dx7_select_program')(m.program|0)!==0)throw Error('DX7 program selection failed');this.port.postMessage({type:'dx7ProgramSelected',program:m.program|0});}
+    else if(m.type==='panic'){this.dx7Export('dx7_panic')();this.sampleVoices.fill(null);}
     else if(m.type==='mix'){
       this.core.hybrid_wasm_set_mix(m.id,m.volume,m.pan,+m.mute,+m.solo);
       this.core.hybrid_wasm_set_route(m.id,m.mode,m.low,m.high);
       this.core.hybrid_wasm_set_midi(m.id,m.channel,m.velocityLow||1,m.velocityHigh||127,m.transpose||0);
-    } else if(m.type==='master')this.rack.setMaster(m.value);
+    }
   }
   process(_inputs,outputs) {
     const out=outputs[0],left=out[0],right=out[1]||out[0];
@@ -178,8 +195,8 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
       this.volcaAdvance(frames);
       const seqMs=nowMs()-segmentStart;this.seqMax=Math.max(this.seqMax,seqMs);this.seqTotal+=seqMs;
       segmentStart=nowMs();
-      this.rack.renderToCore(this.core,frames,false);
-      const rackMs=nowMs()-segmentStart;this.rackMax=Math.max(this.rackMax,rackMs);this.rackTotal+=rackMs;
+      this.renderDx7ToCore(frames);
+      const dx7Ms=nowMs()-segmentStart;this.dx7Max=Math.max(this.dx7Max,dx7Ms);this.dx7Total+=dx7Ms;
       segmentStart=nowMs();
       this.renderSamplesToCore(frames);
       if(this.core.hybrid_wasm_process(frames)!==0)throw Error('HYBRID mixer process failed');
@@ -196,7 +213,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     this.count++;
     if((this.count&255)===0){
       const s=this.jitter.slice().sort((a,b)=>a-b),p95=s.length?s[Math.min(s.length-1,Math.ceil(s.length*.95)-1)]:0;
-      this.port.postMessage({type:'metrics',callbacks:this.count,underruns:this.underruns,lateCallbacks:this.lateCallbacks,renderOverrunCandidates:this.renderOverrunCandidates,jitterP95:p95,jitterMax:this.maxJitter,renderMax:this.maxRender,sequencerMax:this.seqMax,sequencerAvg:this.seqTotal/this.count,seqSteps:this.seqSteps,seqClockTicks:this.seqClockTicks,seqLaneEvents:this.seqLaneEvents.slice(),rackMax:this.rackMax,sampleTriggers:this.sampleTriggers,samplesLoaded:this.sampleSlots.filter(Boolean).length,mixerMax:this.mixerMax,rackAvg:this.rackTotal/this.count,mixerAvg:this.mixerTotal/this.count,timingSource,timingResolutionMs});
+      this.port.postMessage({type:'metrics',callbacks:this.count,underruns:this.underruns,lateCallbacks:this.lateCallbacks,renderOverrunCandidates:this.renderOverrunCandidates,jitterP95:p95,jitterMax:this.maxJitter,renderMax:this.maxRender,sequencerMax:this.seqMax,sequencerAvg:this.seqTotal/this.count,seqSteps:this.seqSteps,seqClockTicks:this.seqClockTicks,seqLaneEvents:this.seqLaneEvents.slice(),dx7Max:this.dx7Max,dx7Avg:this.dx7Total/this.count,dx7Peak:this.dx7Peak,dx7NoteOns:this.dx7NoteOns,sampleTriggers:this.sampleTriggers,samplesLoaded:this.sampleSlots.filter(Boolean).length,mixerMax:this.mixerMax,mixerAvg:this.mixerTotal/this.count,timingSource,timingResolutionMs});
     }
     return true;
   }
