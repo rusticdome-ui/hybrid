@@ -144,9 +144,9 @@ const hybrid_engine_ops_t hybrid_zen_ops = {
 };
 
 
-/* Runtime bridge used by Felucca's audio ISR. GHOULBOX remains the native
- * fourth engine: its mix_block() runs first and is never replaced. These
- * three DSPs are mixed afterwards in the same signed-Q15 domain. */
+/* Runtime bridge used by the upstream board audio ISR. The HYBRID fourth
+ * channel is reserved for sample PCM ingress; this AC79 build currently has
+ * no sample-bank loader. AMB/DUB/ZEN remain independent original DSPs. */
 static hybrid_core_t hybrid_audio_core;
 static int32_t hybrid_audio_mix[HYBRID_MAX_FRAMES * 2u];
 static uint8_t hybrid_audio_ready;
