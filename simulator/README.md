@@ -12,9 +12,9 @@ Use HTTP/HTTPS rather than `file://` so WebAssembly modules can be fetched.
 
 ## DAW workstation
 
-The interface uses an FL Studio-inspired workstation layout (original styling): project/browser sidebar, transport and tempo strip, playlist/arrangement, piano roll, soundbank patch browser and eight-slot sample browser. AMB-1 and ZEN-1 are not shown as separate engine panels; their original DSP renderers remain internal so their named soundbanks can still be selected. DUB-1 is also available through the same bank selector.
+The interface uses an original hardware-inspired SMK-37 faceplate and workstation layout: patch display, named quick-select buttons, transport/tempo, arrangement, piano roll, a 37-key virtual keybed and eight-slot sample browser. AMB-1 and ZEN-1 are not shown as separate engine panels; their original DSP renderers remain internal so their named soundbanks can still be selected. DUB-1 is also available through the same bank selector.
 
-The arrangement edits a shared chain of Bass, Keys, Drum, FM and Sample phrases. Independent per-track clips, editable piano-roll notes, automation, project save/load and recording are not yet implemented.
+Manual keyboard notes are routed only to the selected soundbank (AMB-1, DUB-1 or ZEN-1), rather than broadcast to all three engines. The sequencer starts with the AMB-1 and ZEN-1 lanes muted; the user can enable either lane with its Mute control. The DUB-1 and sample lanes remain independently controllable. The arrangement edits a shared chain of Bass, Keys, Drum, FM and Sample phrases. Independent per-track clips, editable piano-roll notes, automation, project save/load and recording are not yet implemented.
 
 ## PCM sampler
 
