@@ -52,7 +52,7 @@ function wavSine(freq=220,duration=.5,rate=44100){
   if(!Number.isFinite(metrics.renderMax)||!Number.isFinite(metrics.sequencerMax))throw Error('Invalid CPU timing metrics');
   console.log('CHROMIUM PCM SAMPLER PASS: four WAV imports, preview trigger, non-zero output, zero underruns.');
   // The arrangement clips drive the bounded family chain; four bars exercise Bass, Keys, Drum and Sample.
-  await page.locator('#dawArrangement .clip[data-bar="7"]').click();
+  await page.locator('#dawArrangement .clip[data-bar="7"]').first().click();
   await page.locator('#volcaChain').fill('1,2,3,5');
   for(let i=0;i<4;i++){await page.locator('#volcaMute'+i).uncheck();await page.locator('#volcaSolo'+i).uncheck();}
   await page.locator('#volcaVariation').selectOption('0');await page.locator('#volcaFill').uncheck();await page.locator('#volcaApply').click();
