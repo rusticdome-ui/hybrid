@@ -22,7 +22,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     super();
     this.ready=false;this.failed=false;this.dx7=null;this.core=null;this.pendingMessages=[];this.sampleSlots=Array(8).fill(null);this.sampleVoices=Array(8).fill(null);this.sampleTriggers=0;
     this.count=0;this.underruns=0;this.lateCallbacks=0;this.renderOverrunCandidates=0;this.lastTime=0;this.maxJitter=0;this.jitter=[];
-    this.maxRender=0;this.dx7Max=0;this.dx7Total=0;this.dx7Peak=0;this.dx7NoteOns=0;this.mixerMax=0;this.mixerTotal=0;this.seqMax=0;this.seqTotal=0;this.seqSteps=0;this.seqClockTicks=0;this.seqLaneEvents=[0,0,0,0];this.period=128/sampleRate*1000;this.outputViews=new Map();this.volca={running:false,bpm:120,clockPhase:0,clockDivider:0,step:0,chain:[0],chainPosition:0,variation:0,fill:false,externalClock:false,muteMask:0,soloMask:0,active:[0,0,0,0]};
+    this.maxRender=0;this.dx7Max=0;this.dx7Total=0;this.dx7Peak=0;this.dx7NoteOns=0;this.dx7ActiveNotes=new Set();this.mixerMax=0;this.mixerTotal=0;this.seqMax=0;this.seqTotal=0;this.seqSteps=0;this.seqClockTicks=0;this.seqLaneEvents=[0,0,0,0];this.period=128/sampleRate*1000;this.outputViews=new Map();this.volca={running:false,bpm:120,clockPhase:0,clockDivider:0,step:0,chain:[0],chainPosition:0,variation:0,fill:false,externalClock:false,muteMask:0,soloMask:0,active:[0,0,0,0]};
     this.port.onmessage=e=>this.message(e.data);
     this.initialize(options.processorOptions?.wasmBytes).catch(err=>{
       this.failed=true;this.port.postMessage({type:'error',message:err.message});
@@ -82,7 +82,8 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
   volcaNote(track,note,velocity,on) {
     if(track===1&&this.dx7){
       this.dx7Export('dx7_midi')(on?0x90:0x80,note,on?velocity:0);
-      return true;
+      if(on){this.dx7ActiveNotes.add(note);this.dx7NoteOns++;}else this.dx7ActiveNotes.delete(note);
+      this.port.postMessage({type:'dx7Notes',notes:[...this.dx7ActiveNotes]});return true;
     } else if(track===3) {
       if(on){const map={36:0,38:1,42:2,46:3,48:4,50:5,54:6,56:7};const slot=map[note]??(note>=36&&note<44?note-36:-1);return slot>=0&&this.sampleTrigger(slot,velocity);}
       return true;
@@ -166,16 +167,16 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     if(m.type==='volcaExternalClock'){this.volcaClockPulse(true);return;}
     if(m.type==='noteOn'){
       const channel=Number.isInteger(m.channel)?Math.max(0,Math.min(15,m.channel>0?m.channel-1:0)):0;
-      this.dx7Export('dx7_midi')(0x90|channel,m.note,m.velocity);this.dx7NoteOns++;
+      this.dx7Export('dx7_midi')(0x90|channel,m.note,m.velocity);this.dx7ActiveNotes.add(m.note);this.dx7NoteOns++;this.port.postMessage({type:'dx7Notes',notes:[...this.dx7ActiveNotes]});
     }
     else if(m.type==='noteOff'){
       const channel=Number.isInteger(m.channel)?Math.max(0,Math.min(15,m.channel>0?m.channel-1:0)):0;
-      this.dx7Export('dx7_midi')(0x80|channel,m.note,0);
+      this.dx7Export('dx7_midi')(0x80|channel,m.note,0);this.dx7ActiveNotes.delete(m.note);this.port.postMessage({type:'dx7Notes',notes:[...this.dx7ActiveNotes]});
     }
     else if(m.type==='midi')this.dx7Export('dx7_midi')(m.status,m.data1||0,m.data2||0);
     else if(m.type==='dx7Bank')this.loadDx7Bank(m.data,m.program||0);
     else if(m.type==='dx7Program'){if(this.dx7Export('dx7_select_program')(m.program|0)!==0)throw Error('DX7 program selection failed');this.port.postMessage({type:'dx7ProgramSelected',program:m.program|0});}
-    else if(m.type==='panic'){this.dx7Export('dx7_panic')();this.sampleVoices.fill(null);}
+    else if(m.type==='panic'){this.dx7Export('dx7_panic')();this.dx7ActiveNotes.clear();this.port.postMessage({type:'dx7Notes',notes:[]});this.sampleVoices.fill(null);}
     else if(m.type==='mix'){
       this.core.hybrid_wasm_set_mix(m.id,m.volume,m.pan,+m.mute,+m.solo);
       this.core.hybrid_wasm_set_route(m.id,m.mode,m.low,m.high);
@@ -213,7 +214,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     this.count++;
     if((this.count&255)===0){
       const s=this.jitter.slice().sort((a,b)=>a-b),p95=s.length?s[Math.min(s.length-1,Math.ceil(s.length*.95)-1)]:0;
-      this.port.postMessage({type:'metrics',callbacks:this.count,underruns:this.underruns,lateCallbacks:this.lateCallbacks,renderOverrunCandidates:this.renderOverrunCandidates,jitterP95:p95,jitterMax:this.maxJitter,renderMax:this.maxRender,sequencerMax:this.seqMax,sequencerAvg:this.seqTotal/this.count,seqSteps:this.seqSteps,seqClockTicks:this.seqClockTicks,seqLaneEvents:this.seqLaneEvents.slice(),dx7Max:this.dx7Max,dx7Avg:this.dx7Total/this.count,dx7Peak:this.dx7Peak,dx7NoteOns:this.dx7NoteOns,sampleTriggers:this.sampleTriggers,samplesLoaded:this.sampleSlots.filter(Boolean).length,mixerMax:this.mixerMax,mixerAvg:this.mixerTotal/this.count,timingSource,timingResolutionMs});
+      this.port.postMessage({type:'metrics',callbacks:this.count,underruns:this.underruns,lateCallbacks:this.lateCallbacks,renderOverrunCandidates:this.renderOverrunCandidates,jitterP95:p95,jitterMax:this.maxJitter,renderMax:this.maxRender,sequencerMax:this.seqMax,sequencerAvg:this.seqTotal/this.count,seqSteps:this.seqSteps,seqClockTicks:this.seqClockTicks,seqLaneEvents:this.seqLaneEvents.slice(),dx7Max:this.dx7Max,dx7Avg:this.dx7Total/this.count,dx7Peak:this.dx7Peak,dx7NoteOns:this.dx7NoteOns,dx7ActiveNotes:this.dx7ActiveNotes.size,sampleTriggers:this.sampleTriggers,samplesLoaded:this.sampleSlots.filter(Boolean).length,mixerMax:this.mixerMax,mixerAvg:this.mixerTotal/this.count,timingSource,timingResolutionMs});
     }
     return true;
   }
