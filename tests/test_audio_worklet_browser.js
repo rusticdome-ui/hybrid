@@ -53,9 +53,8 @@ function wavSine(freq=220,duration=.5,rate=44100){
   console.log('CHROMIUM PCM SAMPLER PASS: four WAV imports, preview trigger, non-zero output, zero underruns.');
   // The arrangement clips drive the bounded family chain; four bars exercise Bass, Keys, Drum and Sample.
   await page.locator('#dawArrangement .clip[data-bar="7"]').first().click();
-  await page.locator('#volcaChain').fill('1,2,3,5');
-  for(let i=0;i<4;i++){await page.locator('#volcaMute'+i).uncheck();await page.locator('#volcaSolo'+i).uncheck();}
-  await page.locator('#volcaVariation').selectOption('0');await page.locator('#volcaFill').uncheck();await page.locator('#volcaApply').click();
+  for(const bar of [3,5,6,7])await page.locator('#dawArrangement .clip[data-bar="'+bar+'"]').first().click();
+  await page.locator('#dawVariation').selectOption('0');await page.locator('#dawFill').uncheck();await page.locator('#dawApply').click();
   const base=await page.evaluate(()=>({steps:window.__hybridAudioMetrics.seqSteps,lanes:window.__hybridAudioMetrics.seqLaneEvents,triggers:window.__hybridAudioMetrics.sampleTriggers}));
   await page.locator('#dawPlay').click();
   await page.waitForFunction(({steps,lanes,triggers})=>{
@@ -64,7 +63,7 @@ function wavSine(freq=220,duration=.5,rate=44100){
   },base,{timeout:15000});
   await page.locator('#dawStop').click();
   await page.locator('#dawVariation').selectOption('1');await page.locator('#dawFill').check();
-  await page.locator('#volcaMute1').check();await page.locator('#volcaSolo2').check();await page.locator('#dawApply').click();
+  await page.locator('[data-mute="1"]').click();await page.locator('[data-solo="2"]').click();await page.locator('#dawApply').click();
   const seqBase=await page.evaluate(()=>({steps:window.__hybridAudioMetrics.seqSteps,clocks:window.__hybridAudioMetrics.seqClockTicks}));
   await page.locator('#dawPlay').click();
   await page.waitForFunction(({steps,clocks})=>window.__hybridAudioMetrics&&window.__hybridAudioMetrics.seqSteps>=steps+2&&window.__hybridAudioMetrics.seqClockTicks>=clocks+6,seqBase,{timeout:12000});
