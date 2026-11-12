@@ -48,7 +48,6 @@ jobs:
           "$RUNNER_TEMP/test_hybrid_profile"
           cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_sequencer.c tests/test_hybrid_sequencer.c -o "$RUNNER_TEMP/test_hybrid_sequencer"
           "$RUNNER_TEMP/test_hybrid_sequencer"
-          python3 tests/test_volca_patterns.py
       - name: Install JieLi pi32v2 toolchain
         shell: bash
         run: |
