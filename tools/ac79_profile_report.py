@@ -49,7 +49,7 @@ def main():
         "", "## Runtime instrumentation linked into firmware", "",
         "| Metric | Instrumentation |", "|---|---|",
         "| AMB-1 / DUB-1 / ZEN-1 | TIMER4 calls, frames, total/last/max ticks |",
-        "| GHOULBOX | TIMER4 around native mix_block() |",
+        "| PCM Sample Player | Browser AudioWorklet only; AC79 sample playback not yet implemented |",
         "| HYBRID sequencer | TIMER4 duration for shared-clock scheduling |",
         "| HYBRID mixer | TIMER4 aggregate duration |",
         "| DMA underruns | increments when DMA advances before render completes |",
