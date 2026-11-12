@@ -185,7 +185,7 @@ $('pattern').onchange=()=>{let p=$('pattern').value;if(seq){clearInterval(seq);s
 $('zone').onchange=()=>{syncAll();log('Zona aplicada às janelas de teclas no core C: '+$('zone').value)};$('channel').onchange=()=>{syncAll();if(nativeReady)nativeRack.channel=$('channel').value==='Omni'?0:+$('channel').value;if(processor&&processor.port)processor.port.postMessage({type:'channel',value:$('channel').value});log('Filtro MIDI actualizado no core C e nos adaptadores WASM')};$('fadePair').onchange=()=>{syncAll();log('Crossfade aplicado como ganho por canal antes do mixer Q15 C')};$('fade').addEventListener('input',syncAll);$('trans').addEventListener('input',syncAll);
 function volcaConfig(){
  const chainText=$('volcaChain').value.trim(),chain=chainText?chainText.split(',').map(x=>Number(x.trim())-1):[+$('volcaFamily').value];
- if(!chain.length||chain.length>16||chain.some(x=>!Number.isInteger(x)||x<0||x>3)){log('Pattern chain inválida: usa até 16 IDs entre 1 e 5');return null}
+ if(!chain.length||chain.length>16||chain.some(x=>!Number.isInteger(x)||x<0||x>3)){log('Pattern chain inválida: usa até 16 IDs entre 1 e 4');return null}
  const muteMask=0;
  const soloMask=0;
  return {type:'volcaConfigure',bpm:+$('bpm').value,chain,externalClock:$('volcaClock').value==='midi',variation:+$('volcaVariation').value,fill:$('volcaFill').checked,muteMask,soloMask};
