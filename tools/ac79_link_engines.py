@@ -48,7 +48,7 @@ def replace_once(text, old, new, label):
 
 
 def apply_memory_profile(amb, dub, zen, felucca):
-    """Compact profile: preserve all four engines, trim duplicate ambience DSP memory."""
+    """Compact profile: preserve the upstream board audio base and three added DSPs."""
     for root, label in ((amb, "AMB-1"), (dub, "DUB-1")):
         path = root / "amb.c"
         src = path.read_text()
@@ -56,7 +56,7 @@ def apply_memory_profile(amb, dub, zen, felucca):
         end = src.find("/* ------------------------------------------------- echo: tape", start)
         if start < 0 or end < 0:
             raise SystemExit(f"{label}: Dattorro plate section anchors changed")
-        stubs = """/* HYBRID compact profile: plate reverb is omitted; GHOULBOX remains the native reverb engine. */
+        stubs = """/* HYBRID compact profile: plate reverb is omitted; upstream board audio effects remain available. */
 static float pl_decay = 0.5f, pl_decay_t = 0.5f, pl_dd2 = 0.5f;
 static void plate_init(void) {}
 static inline void reverb(float in, float *ol, float *or_)
@@ -163,48 +163,6 @@ static void bed_drop(int vel, int pan, int pad) { (void)vel; (void)pan; (void)pa
     src = replace_once(src, old, new, "Felucca linker HYBRID BSS placement")
     ld.write_text(src)
 
-def apply_volca_patterns(felucca):
-    """Append five Volca-inspired factory phrases without changing existing pattern IDs."""
-    path = felucca / "firmware/src/engines.c"
-    src = path.read_text()
-    names = ("VOLCBASS", "VOLCKEYS", "VOLCDRUM", "VOLCFM", "VOLCSAMP")
-    present = [name for name in names if ('{"' + name + '"') in src]
-    if len(present) == len(names):
-        return
-    if present:
-        raise SystemExit("Partial Volca pattern set found; refusing duplicate or incomplete insertion")
-    anchor = '''    {"TOMBBEAT", {36, 42, 0, 42, 45, 42, 36, 42, 36, 42, 45, 45, 38, 42, 39, 42},       /* 22 a procession */
-     {1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}},
-'''
-    addition = anchor + '''    /* SMK-37 VOLCA HYBRID: appended IDs 23..27; existing factory IDs stay stable. */
-    {"VOLCBASS", {36, 36, 43, 36, 0, 36, 46, 36, 36, 0, 48, 43, 36, 36, 0, 34},
-     {1, 0, 2, 0, 0, 1, 0, 2, 1, 0, 0, 2, 1, 0, 0, 1}},
-    {"VOLCKEYS", {60, 0, 64, 67, 0, 64, 67, 71, 60, 0, 64, 67, 0, 65, 69, 72},
-     {1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0}},
-    {"VOLCDRUM", {36, 42, 42, 42, 38, 42, 36, 42, 36, 42, 42, 42, 38, 42, 46, 42},
-     {1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0}},
-    {"VOLCFM",   {48, 55, 60, 64, 67, 64, 60, 55, 50, 57, 62, 65, 69, 65, 62, 57},
-     {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0}},
-    {"VOLCSAMP", {36, 0, 38, 0, 42, 42, 0, 46, 36, 0, 40, 0, 42, 0, 46, 0},
-     {1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0}},
-'''
-    if src.count(anchor) != 1:
-        raise SystemExit("GHOULBOX factory pattern anchor changed; refusing unsafe Volca pattern insertion")
-    src = src.replace(anchor, addition)
-    pattern_re = re.compile(r'\{"(VOLCBASS|VOLCKEYS|VOLCDRUM|VOLCFM|VOLCSAMP)"\s*,\s*\{([^}]*)\}\s*,\s*\{([^}]*)\}')
-    records = {m.group(1): m for m in pattern_re.finditer(src)}
-    if set(records) != set(names):
-        raise SystemExit("Volca factory pattern names or records are incomplete")
-    for name, match in records.items():
-        notes = [int(x.strip()) for x in match.group(2).split(",")]
-        flags = [int(x.strip()) for x in match.group(3).split(",")]
-        if len(notes) != 16 or len(flags) != 16:
-            raise SystemExit(f"{name}: expected exactly 16 note and 16 flag values")
-        if any(x < 0 or x > 127 for x in notes) or any(x < 0 or x > 7 for x in flags):
-            raise SystemExit(f"{name}: note/flag value outside supported range")
-    path.write_text(src)
-    print("Volca factory patterns appended: " + ", ".join(names))
-
 
 def main():
     p=argparse.ArgumentParser()
@@ -237,7 +195,6 @@ def main():
     if not clang.is_file(): raise SystemExit(f"missing JieLi compiler: {clang}")
     out=a.felucca/"build/hybrid"; out.mkdir(parents=True,exist_ok=True)
     apply_memory_profile(a.amb, a.dub, a.zen, a.felucca)
-    apply_volca_patterns(a.felucca)
     # Compact the native GHOULBOX translation unit as well as the added DSPs.
     build_py=a.felucca/"tools/build.py"
     build_src=build_py.read_text()
@@ -379,7 +336,7 @@ def main():
     (out/"NAMESPACE-MANIFEST.txt").write_text(
         "Exported DSP globals: "+str(len(exports))+"\nObjects: "+", ".join(x.name for x in [amb_obj,dub_obj,*zen_objs,hybrid_core_obj,hybrid_adapter_obj,hybrid_profile_obj,hybrid_seq_obj])+"\n")
     print("DSP objects compiled, namespaced and added to Felucca's final AC79 link.")
-    print("HYBRID mixer hooks installed: GHOULBOX native mix plus AMB-1, DUB-1 and ZEN-1 overlays.")
+    print("HYBRID mixer hooks installed: AMB-1, DUB-1 and ZEN-1 overlays; fourth HYBRID slot reserved for sample PCM.")
     print("AC79 runtime profiler linked: per-engine and sequencer TIMER4 timing, stack samples, buffer registration and DMA underruns.")
 
 if __name__=="__main__": main()
