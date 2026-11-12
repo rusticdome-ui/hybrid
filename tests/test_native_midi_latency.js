@@ -10,7 +10,7 @@ const percentile=(a,p)=>a.slice().sort((x,y)=>x-y)[Math.min(a.length-1,Math.ceil
 (async()=>{
   const rack=new HYBRIDNativeEngines.NativeEngineRack();
   const loaded=await rack.loadAll();
-  if(loaded.length!==3)throw Error('Expected 3 original DSP engines');
+  if(loaded.length!==1||loaded[0]!=='DUB-1')throw Error('Expected only the original DUB-1 DSP');
   for(const e of rack.engines.values()){
     const dispatch=[],render=[];
     for(let i=0;i<100;i++){
