@@ -315,3 +315,28 @@ void SynthUnit::onParam(uint32_t id, char value)
 {
 	unpacked_patch_[id] = value;
 }
+
+/* HYBRID integration: bypass the legacy ring-buffer writer so MIDI dispatch
+ * never blocks the AudioWorklet render thread. The synthesis path remains MSFA. */
+void SynthUnit::sendMidi(uint8_t status, uint8_t data1, uint8_t data2) {
+  const uint8_t message[3] = { status, data1, data2 };
+  ProcessMidiMessage(message, 3);
+}
+void SynthUnit::loadBank(const uint8_t *bank4096) {
+  if (!bank4096) return;
+  memcpy(patch_data_, bank4096, sizeof(patch_data_));
+  ProgramChange(0);
+}
+void SynthUnit::selectProgram(int program) {
+  ProgramChange(max(0, min(31, program)));
+}
+void SynthUnit::allNotesOff() {
+  for (int i = 0; i < max_active_notes; ++i) {
+    if (active_note_[i].keydown) {
+      active_note_[i].dx7_note->keyup();
+      active_note_[i].keydown = false;
+      active_note_[i].sustained = false;
+    }
+  }
+  sustain_ = false;
+}
