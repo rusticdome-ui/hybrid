@@ -37,7 +37,7 @@ const server=http.createServer((req,res)=>{
   await page.locator('#dawAudio').click();
   await page.waitForFunction(()=>{const t=document.querySelector('#log')?.textContent||'';return t.includes('AudioWorklet activo:')||t.includes('AudioWorklet:');},null,{timeout:30000});
   let log=await page.locator('#log').textContent();
-  if(!log.includes('AudioWorklet ativo: FM6/DX7'))throw Error('FM6/DX7 AudioWorklet failed: '+log+' | '+errors.join(' | '));
+  if(!log.includes('AudioWorklet ativo: FM6/DX7')&&!log.includes('AudioWorklet activo: FM6/DX7'))throw Error('FM6/DX7 AudioWorklet failed: '+log+' | '+errors.join(' | '));
   for(let bank=0;bank<4;bank++){await page.locator('#dx7BankSelect').selectOption(String(bank));await page.waitForFunction(expected=>window.__hybridDx7Status?.bank===expected,bank,{timeout:5000});}
   await page.locator('#dx7VoiceSelect').selectOption('13');await page.waitForFunction(()=>window.__hybridDx7Status?.program===13,null,{timeout:5000});
   await page.waitForFunction(()=>window.__hybridAudioMetrics&&window.__hybridAudioMetrics.callbacks>=256,null,{timeout:15000});
