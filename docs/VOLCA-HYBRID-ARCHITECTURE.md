@@ -1,6 +1,6 @@
 # SMK-37 VOLCA HYBRID — DAW and sampler architecture
 
-Status: browser DAW UI and eight-slot PCM sample player are implemented in the current branch. AC79 still requires a fresh final link and the on-device sampler is not yet implemented.
+Status: browser DAW UI and eight-slot PCM sample player are implemented and the Chromium validation passes. AC79 final link and static memory report passed in Actions run #43191007027. The on-device sampler is not yet implemented and the output package is validation-only.
 
 ## DSP architecture
 
@@ -60,11 +60,11 @@ The Chromium test must validate:
 
 The browser test does not prove AC79 hardware sample playback or target CPU/stack/POOL margins.
 
-Historical AC79 baseline from the previous linked ELF:
-- XIP free: 10,380 B
+Current AC79 final-link report from Actions run [#43191007027](https://github.com/rusticdome-ui/hybrid/actions/runs/43191007027), commit 122d5d6d:
+- XIP free: 10,600 B
 - RAM free: 15,056 B
 - POOL free: 8,768 B
 - RAMTEXT free: 21,540 B
 - NOINIT free: 132 B
 
-These are not refreshed measurements for the current branch after removal of the Volca factory-pattern injection. A fresh AC79 compile/link/report is required. NOINIT and POOL remain the tightest constraints.
+All static regions pass the linker capacity check. NOINIT and POOL remain the tightest constraints. This is a linker-derived static report; physical-board stack watermark, live POOL allocator high-water, CPU and DMA underruns remain unmeasured. The AC79 artifact is validation-only, not a flash-ready release.
