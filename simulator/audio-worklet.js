@@ -45,6 +45,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     ]);
     this.core=coreInstance.instance?.exports||coreInstance.exports;
     this.dx7=dx7Instance.instance?.exports||dx7Instance.exports;
+    const dx7Ctors=this.dx7.__wasm_call_ctors||this.dx7._initialize;if(typeof dx7Ctors==='function')dx7Ctors();
     if(this.core.hybrid_wasm_init()!==0)throw Error('HYBRID core init failed in AudioWorklet');
     if(this.dx7Export('dx7_init')(sampleRate)!==0)throw Error('MSFA DX7 engine init failed');
     this.loadDx7Bank(wasmBytes.bankData,wasmBytes.program||0);
