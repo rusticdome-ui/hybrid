@@ -10,8 +10,8 @@ int main(void) {
  hybrid_profile_init();
  test_fm1_ticks=100u; hybrid_profile_begin(HYBRID_PROF_AMB);
  test_fm1_ticks=2500u; hybrid_profile_end(HYBRID_PROF_AMB,64u);
- test_fm1_ticks=2600u; hybrid_profile_begin(HYBRID_PROF_GHOULBOX);
- test_fm1_ticks=3800u; hybrid_profile_end(HYBRID_PROF_GHOULBOX,128u);
+ test_fm1_ticks=2600u; hybrid_profile_begin(HYBRID_PROF_SAMPLE);
+ test_fm1_ticks=3800u; hybrid_profile_end(HYBRID_PROF_Sample Player,128u);
  hybrid_profile_buffers(512u,2048u); hybrid_profile_underrun();
  hybrid_profile_begin(HYBRID_PROF_SEQUENCER); test_fm1_ticks+=120u; hybrid_profile_end(HYBRID_PROF_SEQUENCER,128u);
  hybrid_profile_audio_block_begin(); test_fm1_ticks+=240u; hybrid_profile_audio_block_end();
