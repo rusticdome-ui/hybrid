@@ -1,36 +1,34 @@
-# SMK-37 HYBRID — native DSP integration and VOLCA sequencer
+# SMK-37 HYBRID — DAW workstation and VOLCA sequencer
 
-The hybrid-memory-reduction branch contains an AC79 integration path for the M-VAVE SMK-37 Pro reference firmware and a browser-based HYBRID simulator.
+The `hybrid-memory-reduction` branch contains the SMK-37 AC79 integration work and a browser DAW-style workstation.
 
-## Current implementation
+## Current product architecture
 
-- Four HYBRID slots: A=AMB-1, B=DUB-1, C=ZEN-1, D=GHOULBOX (optional to the VOLCA sequencer).
-- Original AMB-1, DUB-1 and ZEN-1 DSP sources are compiled as isolated, namespaced AC79 objects and connected through native adapters.
-- The upstream GHOULBOX engine/mixer remains the base firmware engine in the AC79 reference build; HYBRID overlays are mixed after its native mix.
-- Signed Q15 four-slot mixer, per-slot volume/pan/mute/solo, MIDI zones and fixed render quantum.
-- Bounded shared-clock VOLCA sequencer: four lanes, internal BPM or external MIDI IN pulse lock (24 PPQN), 16-step patterns, up to 16 chain entries, A/B variation, fills, mute and solo.
-- AC79 TIMER4 profiler channels for AMB/DUB/ZEN/GHOULBOX/mixer/sequencer, stack watermark, buffer occupancy and underruns.
-- Browser simulator with original DSP WASM renderers, VOLCA performance panel and optional GHOULBOX WASM renderer. The performance panel is currently a simulator UI; physical SMK-37 buttons/encoder mappings for family/chain/mute/solo are not yet wired.
+- Three original DSPs: AMB-1, DUB-1 and ZEN-1, compiled independently and preserved.
+- Fourth HYBRID mixer slot is now **PCM Sample Player**, not a GHOULBOX instrument.
+- Browser sampler: eight stereo one-shot slots; imports audio files supported by Web Audio (WAV/AIFF/OGG/MP3 in Chromium), resampled by the browser to the active session rate; 20-second limit per slot.
+- DAW-style UI: arrangement view, 8-bar clip overview, shared family chain, transport, BPM, variation A/B, fill, track mute/solo, piano-roll phrase preview, mixer and sample browser.
+- Bounded shared-clock sequencer: 16-step phrases, up to 16 family entries in the chain, internal BPM or external MIDI IN clock at 24 PPQN.
+- Q15 four-channel mixer with per-slot volume, pan, mute, solo and routing.
+- Original native DSP WASM renderers remain the audio sources for AMB/DUB/ZEN. Sample PCM is submitted to the fourth mixer slot before the Q15 mix.
 
-## Important engine limits
+## Important limits
 
-AMB-1 and DUB-1 are self-running generative instruments. Their current HYBRID note callbacks intentionally do nothing; they continue to render their original DSP, but arbitrary sequencer notes are not mapped to invented controls. ZEN-1 has a native note/velocity API and receives sequencer note events. GHOULBOX's own sequencer and internal engine table remain upstream code.
+The browser's eight sample slots are session-memory only. They are not stored in the SMK-37 flash and do not yet stream from an SD card or external storage. The DAW arrangement currently edits a shared family chain; independent per-track clip patterns, editable piano-roll notes, automation lanes, save/load projects and recording/overdub are future work. The piano roll is a phrase preview, not yet a note editor.
 
-Bass, Keys, Drum, FM and Sample are performance/phrase roles, not claims that five new Korg DSPs have been implemented. The Sample phrase contains triggers only and requires a compatible loaded sample source. The browser's GHOULBOX renderer is optional; if absent, the other three native DSPs and sequencer transport still run. The generic sequencer core itself has no GHOULBOX dependency. The current AC79 reference-link workflow nevertheless uses Felucca/GHOULBOX as its startup/audio base; a fully GHOULBOX-free AC79 image would need a separate board startup, codec and audio-transport base, which is not claimed here.
+The GHOULBOX renderer, program-change controls, GHOULBOX lane and GHOULBOX WASM build have been removed from the browser simulator and its deployment workflow. The AC79 reference build still uses the Felucca board startup/audio base because the current repository does not yet contain a replacement AC79 startup, codec and DMA transport implementation. This is a remaining hardware-firmware dependency, not a HYBRID instrument slot. A fully GHOULBOX-free installable AC79 image is **not** claimed.
 
-## Host tests
+The AC79 sample slot is reserved in the mixer interface, but the on-device sample-bank loader/player is not implemented yet. Browser sample playback is real PCM through the WebAudio AudioWorklet and HYBRID Q15 mixer; it must not be confused with AC79 sample playback.
 
-    cc -std=c99 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c tests/test_hybrid_core.c -o test_hybrid_core
-    ./test_hybrid_core
-    cc -std=c99 -Wall -Wextra -Werror -Iinclude src/hybrid_sequencer.c tests/test_hybrid_sequencer.c -o test_hybrid_sequencer
-    ./test_hybrid_sequencer
+## Build and validation
 
-## Build and certification status
+- `src/hybrid_sequencer.c`: bounded shared-clock sequencer.
+- `src/hybrid_core.c`: Q15 mixer, routing and scenes.
+- `src/hybrid_native_adapters.c`: original AMB/DUB/ZEN AC79 adapters.
+- `simulator/audio-worklet.js`: original DSP WASM renderers and eight-slot PCM sampler.
+- `simulator/index.html`: DAW-style workstation.
+- `tests/test_audio_worklet_browser.js`: Chromium regression for sample imports, non-zero PCM, arrangement, transport, variation, fills and mute/solo.
 
-The workflow .github/workflows/ac79-hybrid-linker.yml compiles the native DSP objects, HYBRID mixer, adapters, profiler and VOLCA sequencer with the JieLi pi32v2 toolchain, then attempts the final AC79 link and emits XIP/RAMTEXT/RAM/POOL/NOINIT margins. The latest AC79 final ELF link (run #43114897656) passed compile/link and native-symbol checks, including external clock pulse forwarding. The job then failed only in the report parser; that parser is fixed and a new report run is pending. Measured margins from that ELF: XIP 10,380 B free; RAM 15,056 B; POOL 8,768 B; RAMTEXT 21,540 B; NOINIT 132 B. The workflow .github/workflows/deploy-simulator.yml builds and tests the browser simulator with Chromium and deploys GitHub Pages on an eligible branch push.
+The latest AC79 ELF baseline previously reported XIP 10,380 B free, RAM 15,056 B, POOL 8,768 B, RAMTEXT 21,540 B and NOINIT 132 B. Those are historical measurements from the earlier linked build; the current source/tool changes require a fresh AC79 run before treating them as current margins. NOINIT and POOL remain critical.
 
-**A successful Actions run is not proof of hardware operation.** Final RAM/POOL/XIP/NOINIT margins must come from the latest successful linked ELF/map. Runtime CPU/stack/underrun values require a physical SMK-37 Pro session. The profiler's buffer counters cover registered HYBRID scratch buffers; they do not replace a live measurement of all private upstream POOL allocations. Do not flash a reference package until the final AC79 link and physical-board checks are confirmed.
-
-## Licensing
-
-SPDX-License-Identifier: GPL-3.0-only. Retain upstream copyright, license and third-party notices for all imported engine code.
+A passing browser test proves the browser path only. It does not certify physical-board sample playback, CPU, stack, DMA underruns or an installable GHOULBOX-free AC79 image.
