@@ -24,7 +24,13 @@ Sample family notes 36, 38, 42 and 46 trigger sampler slots 1–4. Other slots c
 
 ## DSP and validation limits
 
-The original AMB-1, DUB-1 and ZEN-1 WASM renderers remain internally mapped to the first three mixer channels. The interface exposes a Soundbank selector and numbered patch positions; choosing a patch sends relative detents through the original PRESET encoder (role 2) for the selected DSP. Official patch names and exact patch counts are not exported by the current native modules, so the UI intentionally uses numbered positions rather than invented names. The fourth is the PCM sampler; no GHOULBOX renderer is included in the browser app or simulator CI.
+The original AMB-1, DUB-1 and ZEN-1 WASM renderers remain internally mapped to the first three mixer channels. The soundbank selector now uses names and counts read from the original source trees at their `smk37` refs:
+
+- **AMB-1 — 8 presets:** Garden, Departures, Voices, Afternoon, Night Bus, Shoreline, Glass, Tides.
+- **DUB-1 — 8 presets:** Basic, Chamber, Steppers, Fog, Concrete, Night Drive, Pressure, Haze.
+- **ZEN-1 — 14 selectable FuMi instrument voices:** Koto, Koto II, Sho, Shakuhachi, Dragon Flt, Bamboo Flt, Kokyu, Taiko, Hyoshigi, Mokugyo, Koto Pluck, Koto Ring, Koto Warm, Harp.
+
+ZEN-1 also defines **9 scene-layer patches** (Soft Pad, Soft Swell, Deep Pad, Drop, Mallet, Bell, Rin, Bamboo, Furin). These are assigned to ZEN scene parts, not the main instrument's 14-entry `P_VOICE` bank, so they are disclosed separately rather than incorrectly offered as main-instrument presets. AMB-1 and DUB-1's named entries are the eight `PIECES` presets in each original DSP source. The selector sends relative detents through the original PRESET encoder (role 2). The fourth mixer slot is the PCM sampler; no GHOULBOX renderer is included in the browser app or simulator CI.
 
 The AC79 reference build still uses Felucca for board startup, codec, MIDI/USB and DMA audio transport. The AC79 sample-bank loader/player is not implemented yet. The browser sampler is real PCM playback through the AudioWorklet and C mixer, but it is not evidence of sample playback on the physical SMK-37.
 
@@ -32,4 +38,4 @@ Browser tests do not certify target CPU, stack, POOL, NOINIT, DMA underruns or h
 
 ## Soundbank patch selection
 
-The independent AMB-1/DUB-1/ZEN-1 engine panels are hidden from the user interface. Select AMB-1, DUB-1 or ZEN-1 in **SOUNDBANK SELECT**, then choose a numbered patch or use Previous/Next. The selector sends the relative change to the native DSP PRESET encoder; it does not replace or emulate the original DSP. The 32 visible patch positions are navigation labels, not a verified statement that every module contains exactly 32 factory presets. The initial displayed position is a UI reference; the actual native preset naming/state is not currently readable from the WASM exports.
+The independent AMB-1/DUB-1/ZEN-1 engine panels are hidden from the user interface. Select a soundbank in **SOUNDBANK SELECT** and choose a named preset/voice or use Previous/Next. The list is bank-specific and bounded to the source-defined count: 8 AMB-1 presets, 8 DUB-1 presets and 14 ZEN-1 FuMi voices. The ZEN-1 scene-only layer bank contains 9 additional patch definitions, documented above but not mixed into the main instrument selector. Selection is sent as relative detents to the original DSP PRESET encoder; it does not replace or emulate the DSP.
