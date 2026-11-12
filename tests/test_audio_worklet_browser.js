@@ -70,6 +70,12 @@ const server=http.createServer((req,res)=>{
   for(let bank=0;bank<4;bank++){await page.locator('#dx7BankSelect').selectOption(String(bank));if(await page.locator('#dx7VoiceSelect option').count()!==32)throw Error('DX7 bank '+bank+' must contain 32 voices');const voices=await page.locator('#dx7VoiceSelect option').allTextContents();if(voices.some(x=>!x.trim()))throw Error('DX7 voice name missing')}
   if(!/FM-1_015/.test(await page.locator('#dx7SourceTag').textContent()))throw Error('DX7 provenance missing');
   if(!/não sintetiza/i.test(await page.locator('#dx7Library').innerText()))throw Error('DX7 audio limitation missing');
+  await page.locator('#dx7BankSelect').selectOption('0');
+  const [dx7Download]=await Promise.all([page.waitForEvent('download'),page.locator('#dx7DownloadBank').click()]);
+  const dx7Path=await dx7Download.path();const dx7Bytes=fs.readFileSync(dx7Path);
+  if(dx7Bytes.length!==4104||dx7Bytes[0]!==0xF0||dx7Bytes[1]!==0x43||dx7Bytes[2]!==0||dx7Bytes[3]!==9||dx7Bytes[4]!==0x20||dx7Bytes[5]!==0||dx7Bytes[4103]!==0xF7)throw Error('DX7 SysEx bank framing/length invalid: '+dx7Bytes.length);
+  let dx7Checksum=0;for(let i=6;i<4103;i++)dx7Checksum=(dx7Checksum+dx7Bytes[i])&127;
+  if(dx7Checksum!==0)throw Error('DX7 SysEx checksum invalid: '+dx7Checksum);
   console.log('CHROMIUM DUB-1 PASS: one original DSP loaded, 37-key routing, source patches and no AMB-1/ZEN-1.');
   console.log('CHROMIUM CHORD PASS: all 14 chord types, complete note release, selected chord trigger and single-note restore.');
   console.log('CHROMIUM CLEANUP PASS: AMB-1, ZEN-1 and Sample Browser absent from visible UI; audio underruns=0.');
