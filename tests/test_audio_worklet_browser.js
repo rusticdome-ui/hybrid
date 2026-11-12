@@ -34,13 +34,23 @@ function wavSine(freq=220,duration=.5,rate=44100){
   if(!log.includes('AudioWorklet activo:'))throw Error('AudioWorklet failed: '+log+' | '+errors.join(' | '));
   await page.waitForFunction(()=>document.querySelector('#log')?.textContent.includes('Soundbanks nativos carregados'),null,{timeout:30000});
   if(await page.locator('#soundbankPanel').count()!==1||await page.locator('#engines').isVisible())throw Error('Independent engine panels are still visible or soundbank UI is missing');
+  const patchOptions=bank=>page.locator('#patchSelect option').allTextContents();
+  if(await page.locator('#patchBank').inputValue()!=='0'||await page.locator('#patchCount').textContent()!=='8 presets/vozes')throw Error('AMB-1 patch count mismatch');
+  if(!(await patchOptions()).join('|').includes('Garden')||!(await patchOptions()).join('|').includes('Tides'))throw Error('AMB-1 source patch names missing');
   await page.locator('#patchBank').selectOption('1');
+  if(await page.locator('#patchCount').textContent()!=='8 presets/vozes'||!(await patchOptions()).join('|').includes('Night Drive'))throw Error('DUB-1 source patch names/count missing');
   await page.locator('#patchSelect').selectOption('1');
   await page.locator('#patchNext').click();
-  await page.waitForFunction(()=>document.querySelector('#log')?.textContent.includes('DUB-1 · seleção PRESET enviada: posição 3'),null,{timeout:5000});
-  if((await page.locator('#patchState').textContent()).trim()!=='DUB-1 · Patch 03')throw Error('Soundbank patch selector did not update');
+  await page.waitForFunction(()=>document.querySelector('#log')?.textContent.includes('DUB-1 · PRESET: Steppers (3/8)'),null,{timeout:5000});
+  if((await page.locator('#patchState').textContent()).trim()!=='DUB-1 · Steppers · 3/8')throw Error('DUB-1 named preset navigation did not update');
+  await page.locator('#patchBank').selectOption('2');
+  if(await page.locator('#patchCount').textContent()!=='14 presets/vozes')throw Error('ZEN-1 FuMi voice count mismatch');
+  const zenNames=(await patchOptions()).join('|');
+  if(!zenNames.includes('Koto II')||!zenNames.includes('Harp'))throw Error('ZEN-1 built-in voice names missing');
+  if(!(await page.locator('#soundbankPanel').textContent()).includes('9 patches adicionais'))throw Error('ZEN-1 scene-layer patch disclosure missing');
   await page.locator('#patchBank').selectOption('0');
-  console.log('CHROMIUM SOUNDBANK PASS: AMB-1/DUB-1/ZEN-1 selector; native PRESET encoder patch navigation; engine panels hidden.');
+  if(!(await patchOptions()).join('|').includes('Garden'))throw Error('AMB-1 bank did not restore its patch list');
+  console.log('CHROMIUM SOUNDBANK PASS: source-derived AMB-1 (8), DUB-1 (8), ZEN-1 FuMi voices (14); named PRESET navigation; engine panels hidden.');
   // Load four real WAV files into four independent sampler slots.
   for(let slot=0;slot<4;slot++){
    await page.locator('#sampleFile'+slot).setInputFiles({name:'sample-'+slot+'.wav',mimeType:'audio/wav',buffer:wavSine(150+slot*70)});
