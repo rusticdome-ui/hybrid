@@ -6,9 +6,7 @@
 (() => {
   'use strict';
   const SPECS = [
-    {id:0,name:'AMB-1',url:'./native/amb1.wasm',kind:'fm1-host'},
-    {id:1,name:'DUB-1',url:'./native/dub1.wasm',kind:'fm1-host'},
-    {id:2,name:'ZEN-1',url:'./native/zen1.wasm',kind:'zen-host'}
+    {id:1,name:'DUB-1',url:'./native/dub1.wasm',kind:'fm1-host'}
   ];
   const KEY_MIN = 53; // FM-1 keybed F3; plat.h documents F3..G5 (27 keys).
   const KEY_COUNT = 27;
@@ -72,7 +70,6 @@
           if(!(e.memory instanceof WebAssembly.Memory))throw new Error('memória WASM não exportada');
           if(e._initialize)e._initialize();
           e.web_boot();
-          if(spec.id===2 && typeof e.web_mode==='function')e.web_mode(0);
           e.web_master(Math.round(this.master/100*4096));
           const engine={...spec,instance,exports:e,notes:new Set(),buttons:0,encoders:new Map()};
           this.engines.set(spec.id,engine);this.status[spec.id]='ready';loaded.push(spec.name);
@@ -93,8 +90,7 @@
       const n=clamp(note|0,0,127);
       for(const e of this.engines.values()){
         e.notes.add(n);
-        if(e.id===2 && typeof e.exports.web_key==='function')e.exports.web_key(n-KEY_MIN,1);
-        else e.exports.web_keys(this._mask(e));
+        e.exports.web_keys(this._mask(e));
       }
     }
     noteOff(note,channel=0){
@@ -102,30 +98,26 @@
       const n=note|0;
       for(const e of this.engines.values()){
         e.notes.delete(n);
-        if(e.id===2 && typeof e.exports.web_key==='function')e.exports.web_key(n-KEY_MIN,0);
-        else e.exports.web_keys(this._mask(e));
+        e.exports.web_keys(this._mask(e));
       }
     }
     noteOnEngine(id,note,velocity=100,channel=0){
       if(channel&&this.channel&&channel!==this.channel)return;
       const e=this.engines.get(id);if(!e)return false;
       const n=clamp(note|0,0,127);e.notes.add(n);
-      if(e.id===2&&typeof e.exports.web_key==='function')e.exports.web_key(n-KEY_MIN,1);
-      else e.exports.web_keys(this._mask(e));
+      e.exports.web_keys(this._mask(e));
       return true;
     }
     noteOffEngine(id,note,channel=0){
       if(channel&&this.channel&&channel!==this.channel)return;
       const e=this.engines.get(id);if(!e)return false;
       const n=note|0;e.notes.delete(n);
-      if(e.id===2&&typeof e.exports.web_key==='function')e.exports.web_key(n-KEY_MIN,0);
-      else e.exports.web_keys(this._mask(e));
+      e.exports.web_keys(this._mask(e));
       return true;
     }
     allNotesOff(){
-      for(const e of this.engines.values()){e.notes.clear();if(e.id===2&&typeof e.exports.web_panic==='function')e.exports.web_panic();else e.exports.web_keys(0);}
+      for(const e of this.engines.values()){e.notes.clear();e.exports.web_keys(0);}
       this.held.clear();
-      const z=this.engines.get(2);if(z&&typeof z.exports.web_panic==='function')z.exports.web_panic();
     }
     setMaster(percent){
       this.master=clamp(+percent||0,0,100);
@@ -138,18 +130,6 @@
     }
     encoder(id,role,delta){
       const e=this.engines.get(id);if(e)e.exports.web_enc(role|0,delta|0);
-    }
-    setZenParameter(param,value){
-      const z=this.engines.get(2);
-      if(!z||typeof z.exports.web_param!=='function')return false;
-      z.exports.web_param(param|0,value|0);return true;
-    }
-    setZenPatch(bytes){
-      const z=this.engines.get(2);
-      if(!z||typeof z.exports.web_patch!=='function'||typeof z.exports.web_patch_set!=='function')return false;
-      const ptr=z.exports.web_patch()>>>0;
-      new Uint8Array(z.exports.memory.buffer,ptr,128).set(bytes.subarray(0,128));
-      z.exports.web_patch_set();return true;
     }
     renderToCore(coreExports,frames=128,capturePcm=true){
       const transferred=capturePcm?[]:null;
