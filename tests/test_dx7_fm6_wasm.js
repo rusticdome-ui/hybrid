@@ -29,7 +29,7 @@ const wasmBytes=fs.readFileSync(path.join(__dirname,'../simulator/dx7_fm6.wasm')
       fn('dx7_panic')();
       fn('dx7_midi')(0x90,60,110);
       let peak=0;
-      for(let block=0;block<32;block++){
+      for(let block=0;block<176;block++){
         if(fn('dx7_render')(128)!==0)throw Error('DX7 render failed');
         const pcm=new Int16Array(e.memory.buffer,outputPtr,128);
         for(let i=0;i<pcm.length;i++)peak=Math.max(peak,Math.abs(pcm[i]));
