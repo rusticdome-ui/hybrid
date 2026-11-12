@@ -62,6 +62,7 @@ const server=http.createServer((req,res)=>{
   await page.locator('#chordType').selectOption('dim7');
   await page.locator('#chord').click();
   await page.waitForFunction(()=>document.querySelector('#log')?.textContent.includes('Acorde C · Diminuto 7'),null,{timeout:5000});
+  await page.waitForFunction(()=>JSON.stringify([...(window.__hybridDx7Notes||[])].sort((a,b)=>a-b))===JSON.stringify([60,63,66,69]),null,{timeout:5000});
   await page.waitForFunction(()=>window.__hybridDx7Notes?.length===0,null,{timeout:5000});
   await page.locator('#chordMode').uncheck();
   await key.hover();await page.mouse.down();
