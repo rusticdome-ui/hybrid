@@ -12,6 +12,7 @@ const wasmBytes=fs.readFileSync(path.join(__dirname,'../simulator/dx7_fm6.wasm')
   if(imports.length)throw Error('DX7 standalone WASM must have no host imports: '+JSON.stringify(imports));
   const {instance}=await WebAssembly.instantiate(mod,{});
   const e=instance.exports;
+  const ctors=e.__wasm_call_ctors||e._initialize;if(typeof ctors==='function')ctors();
   const fn=n=>{const f=e[n]||e['_'+n];if(typeof f!=='function')throw Error('Missing DX7 export '+n);return f};
   if(!(e.memory instanceof WebAssembly.Memory))throw Error('DX7 WASM memory export missing');
   if(fn('dx7_init')(44100)!==0)throw Error('DX7 init failed');
