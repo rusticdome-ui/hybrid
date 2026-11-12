@@ -12,7 +12,7 @@ Use HTTP/HTTPS rather than `file://` so WebAssembly modules can be fetched.
 
 ## DAW workstation
 
-The interface includes an arrangement overview, shared family chain, BPM/transport, A/B variations, fills, track mute/solo, phrase preview, mixer and an eight-slot sample browser.
+The interface uses an FL Studio-inspired workstation layout (original styling): project/browser sidebar, transport and tempo strip, playlist/arrangement, piano roll, soundbank patch browser and eight-slot sample browser. AMB-1 and ZEN-1 are not shown as separate engine panels; their original DSP renderers remain internal so their named soundbanks can still be selected. DUB-1 is also available through the same bank selector.
 
 The arrangement edits a shared chain of Bass, Keys, Drum, FM and Sample phrases. Independent per-track clips, editable piano-roll notes, automation, project save/load and recording are not yet implemented.
 
@@ -38,4 +38,4 @@ Browser tests do not certify target CPU, stack, POOL, NOINIT, DMA underruns or h
 
 ## Soundbank patch selection
 
-The independent AMB-1/DUB-1/ZEN-1 engine panels are hidden from the user interface. Select a soundbank in **SOUNDBANK SELECT** and choose a named preset/voice or use Previous/Next. The list is bank-specific and bounded to the source-defined count: 8 AMB-1 presets, 8 DUB-1 presets and 14 ZEN-1 FuMi voices. The ZEN-1 scene-only layer bank contains 9 additional patch definitions, documented above but not mixed into the main instrument selector. Selection is sent as relative detents to the original DSP PRESET encoder; it does not replace or emulate the DSP.
+The legacy independent engine panels (including AMB-1 and ZEN-1) are hidden from the user interface. The **Browser · Instrumentos** area in the DAW sidebar is the soundbank/patch selector: choose AMB-1, DUB-1 or ZEN-1 and choose a named preset/voice or use Previous/Next. The list is bank-specific and bounded to the source-defined count: 8 AMB-1 presets, 8 DUB-1 presets and 14 ZEN-1 FuMi voices. The ZEN-1 scene-only layer bank contains 9 additional patch definitions, documented above but not mixed into the main instrument selector. Selection is sent as relative detents to the original DSP PRESET encoder; it does not replace or emulate the DSP.
