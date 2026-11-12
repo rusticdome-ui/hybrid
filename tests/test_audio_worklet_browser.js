@@ -33,6 +33,14 @@ function wavSine(freq=220,duration=.5,rate=44100){
   let log=await page.locator('#log').textContent();
   if(!log.includes('AudioWorklet activo:'))throw Error('AudioWorklet failed: '+log+' | '+errors.join(' | '));
   await page.waitForFunction(()=>document.querySelector('#log')?.textContent.includes('DSP originais WASM activos'),null,{timeout:30000});
+  if(await page.locator('#soundbankPanel').count()!==1||await page.locator('#engines').isVisible())throw Error('Independent engine panels are still visible or soundbank UI is missing');
+  await page.locator('#patchBank').selectOption('1');
+  await page.locator('#patchSelect').selectOption('1');
+  await page.locator('#patchNext').click();
+  await page.waitForFunction(()=>document.querySelector('#log')?.textContent.includes('DUB-1 · seleção PRESET enviada: posição 3'),null,{timeout:5000});
+  if((await page.locator('#patchState').textContent()).trim()!=='DUB-1 · Patch 03')throw Error('Soundbank patch selector did not update');
+  await page.locator('#patchBank').selectOption('0');
+  console.log('CHROMIUM SOUNDBANK PASS: AMB-1/DUB-1/ZEN-1 selector; native PRESET encoder patch navigation; engine panels hidden.');
   // Load four real WAV files into four independent sampler slots.
   for(let slot=0;slot<4;slot++){
    await page.locator('#sampleFile'+slot).setInputFiles({name:'sample-'+slot+'.wav',mimeType:'audio/wav',buffer:wavSine(150+slot*70)});
