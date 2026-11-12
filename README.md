@@ -4,7 +4,8 @@ The `hybrid-memory-reduction` branch contains the SMK-37 AC79 integration work a
 
 ## Current product architecture
 
-- Three original DSPs: AMB-1, DUB-1 and ZEN-1, compiled independently and preserved.
+- Three original DSPs: AMB-1, DUB-1 and ZEN-1, compiled independently and preserved internally as selectable soundbanks; they are no longer presented as independent instrument panels.
+- Soundbank UI: select AMB-1, DUB-1 or ZEN-1 and choose numbered patches; selection is sent to each original DSP's PRESET encoder. Official patch names/counts are not yet exported, so the UI uses neutral numbered positions.
 - Fourth HYBRID mixer slot is now **PCM Sample Player**, not a GHOULBOX instrument.
 - Browser sampler: eight stereo one-shot slots; imports audio files supported by Web Audio (WAV/AIFF/OGG/MP3 in Chromium), resampled by the browser to the active session rate; 20-second limit per slot.
 - DAW-style UI: arrangement view, 8-bar clip overview, shared family chain, transport, BPM, variation A/B, fill, track mute/solo, piano-roll phrase preview, mixer and sample browser.
