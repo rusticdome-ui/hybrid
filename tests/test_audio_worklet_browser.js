@@ -51,6 +51,28 @@ function wavSine(freq=220,duration=.5,rate=44100){
   if(await page.locator('#patchBank').inputValue()!=='0'||await page.locator('#patchCount').textContent()!=='8 presets/vozes')throw Error('AMB-1 patch count mismatch');
   if(await page.locator('#patchGrid [data-patch]').count()!==8||!await page.locator('#patchGrid [data-patch="0"]').evaluate(el=>el.classList.contains('selected')))throw Error('AMB-1 quick patch grid missing or not highlighted');
   if(await page.locator('#keys [data-n]').count()!==37)throw Error('SMK-37 keybed must expose exactly 37 keys');
+  // Chord mode must stack the selected source intervals on the pressed root and release every voice.
+  await page.locator('#patchBank').selectOption('1');
+  await page.locator('#chordMode').check();
+  await page.locator('#chordType').selectOption('maj');
+  await key.hover();await page.mouse.down();
+  let chordNotes=await page.evaluate(()=>[...window.__hybridNativeRack.engines.get(1).notes].sort((a,b)=>a-b));
+  await page.mouse.up();
+  if(JSON.stringify(chordNotes)!=='[60,64,67]')throw Error('Major chord mode intervals incorrect: '+JSON.stringify(chordNotes));
+  let released=await page.evaluate(()=>window.__hybridNativeRack.engines.get(1).notes.size);
+  if(released!==0)throw Error('Chord mode did not release every held note');
+  await page.locator('#chordType').selectOption('m7');
+  await key.hover();await page.mouse.down();
+  chordNotes=await page.evaluate(()=>[...window.__hybridNativeRack.engines.get(1).notes].sort((a,b)=>a-b));
+  await page.mouse.up();
+  if(JSON.stringify(chordNotes)!=='[60,63,67,70]')throw Error('Minor seventh chord mode intervals incorrect: '+JSON.stringify(chordNotes));
+  await page.locator('#chordMode').uncheck();
+  await key.hover();await page.mouse.down();
+  chordNotes=await page.evaluate(()=>[...window.__hybridNativeRack.engines.get(1).notes].sort((a,b)=>a-b));
+  await page.mouse.up();
+  if(JSON.stringify(chordNotes)!=='[60]')throw Error('Single-note keyboard mode failed to restore: '+JSON.stringify(chordNotes));
+  await page.locator('#patchBank').selectOption('0');
+
   if(!await page.locator('#volcaMute0').isChecked()||!await page.locator('#volcaMute2').isChecked())throw Error('AMB-1 and ZEN-1 automatic lanes must be muted by default');
   if(!(await patchOptions()).join('|').includes('Garden')||!(await patchOptions()).join('|').includes('Tides'))throw Error('AMB-1 source patch names missing');
   await page.locator('#patchGrid [data-patch="2"]').click();
