@@ -37,18 +37,20 @@ const server=http.createServer((req,res)=>{
   if(JSON.stringify(rack.ids)!=='[1]'||JSON.stringify(rack.names)!=='["DUB-1"]')throw Error('Only DUB-1 should load: '+JSON.stringify(rack));
   const key=page.locator('#keys [data-n="60"]');
   await page.locator('#chordMode').check();
-  await page.locator('#chordType').selectOption('maj');
-  await key.hover();await page.mouse.down();
-  let notes=await page.evaluate(()=>[...window.__hybridNativeRack.engines.get(1).notes].sort((a,b)=>a-b));
-  if(JSON.stringify(notes)!=='[60,64,67]')throw Error('Major chord notes incorrect: '+JSON.stringify(notes));
-  await page.mouse.up();
-  let held=await page.evaluate(()=>window.__hybridNativeRack.engines.get(1).notes.size);
-  if(held!==0)throw Error('Major chord did not release every note');
-  await page.locator('#chordType').selectOption('m7');
-  await key.hover();await page.mouse.down();
-  notes=await page.evaluate(()=>[...window.__hybridNativeRack.engines.get(1).notes].sort((a,b)=>a-b));
-  if(JSON.stringify(notes)!=='[60,63,67,70]')throw Error('Minor seventh chord notes incorrect: '+JSON.stringify(notes));
-  await page.mouse.up();
+  const chordCases={maj:[0,4,7],min:[0,3,7],'7':[0,4,7,10],maj7:[0,4,7,11],m7:[0,3,7,10],sus2:[0,2,7],sus4:[0,5,7],dim:[0,3,6],dim7:[0,3,6,9],aug:[0,4,8],'6':[0,4,7,9],m6:[0,3,7,9],m7b5:[0,3,6,10],'9':[0,4,7,10,14]};
+  for(const [type,intervals] of Object.entries(chordCases)){
+    await page.locator('#chordType').selectOption(type);
+    await key.hover();await page.mouse.down();
+    const notes=await page.evaluate(()=>[...window.__hybridNativeRack.engines.get(1).notes].sort((a,b)=>a-b));
+    const expected=intervals.map(n=>60+n);
+    if(JSON.stringify(notes)!==JSON.stringify(expected))throw Error(type+' chord notes incorrect: '+JSON.stringify(notes)+' expected '+JSON.stringify(expected));
+    await page.mouse.up();
+    const held=await page.evaluate(()=>window.__hybridNativeRack.engines.get(1).notes.size);
+    if(held!==0)throw Error(type+' chord did not release every note');
+  }
+  await page.locator('#chordType').selectOption('dim7');
+  await page.locator('#chord').click();
+  await page.waitForFunction(()=>document.querySelector('#log')?.textContent.includes('Acorde C · Diminuto 7 · notas 60,63,66,69'),null,{timeout:5000});
   await page.locator('#chordMode').uncheck();
   await key.hover();await page.mouse.down();
   notes=await page.evaluate(()=>[...window.__hybridNativeRack.engines.get(1).notes].sort((a,b)=>a-b));
@@ -62,7 +64,7 @@ const server=http.createServer((req,res)=>{
   if(metrics.underruns!==0)throw Error('AudioWorklet underruns: '+JSON.stringify(metrics));
   if(errors.length)throw Error('Browser errors: '+errors.join(' | '));
   console.log('CHROMIUM DUB-1 PASS: one original DSP loaded, 37-key routing, source patches and no AMB-1/ZEN-1.');
-  console.log('CHROMIUM CHORD PASS: major, minor seventh, note release and single-note restore.');
+  console.log('CHROMIUM CHORD PASS: all 14 chord types, complete note release, selected chord trigger and single-note restore.');
   console.log('CHROMIUM CLEANUP PASS: AMB-1, ZEN-1 and Sample Browser absent from visible UI; audio underruns=0.');
   console.log('CHROMIUM METRICS: '+JSON.stringify(metrics));
  }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
