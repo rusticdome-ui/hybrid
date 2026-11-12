@@ -39,3 +39,10 @@ To complete the original-bank integration, export the four factory DX7 voice gro
 ## Validation limits
 
 The browser CI validates the original DUB-1 WASM renderer, note dispatch, PCM transfer, Q15 mixing, chord voicings and AudioWorklet operation. It does not certify physical AC79 CPU/RAM/POOL/DMA behaviour or operation on the physical keyboard.
+
+
+## DX7 voice library (online source)
+
+The simulator includes a separate four-bank DX7 voice library (128 voices, 32 per bank) sourced from the public M-VAVE `smk37_open` repository, file `app/factory_dx7.inc`. The source identifies the voices as extracted from **FM-1_015.fwsc**, not the SMK-37 Pro V016 package. Source attribution and SPDX Apache-2.0 notice are retained in `dx7-factory-banks.js`.
+
+The DX7 browser lists all 128 voice names and exports each 32-voice bank as a standard 4,104-byte DX7 bulk SysEx file. This is a voice-data library/export function only: the current browser audio renderer is DUB-1 and does not synthesize DX7 voices. These are not verified V016 factory banks.
