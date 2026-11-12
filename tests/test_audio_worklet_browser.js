@@ -65,6 +65,11 @@ const server=http.createServer((req,res)=>{
   const metrics=await page.evaluate(()=>window.__hybridAudioMetrics);
   if(metrics.underruns!==0)throw Error('AudioWorklet underruns: '+JSON.stringify(metrics));
   if(errors.length)throw Error('Browser errors: '+errors.join(' | '));
+  if(await page.locator('#dx7Library').count()!==1)throw Error('DX7 library UI missing');
+  if(await page.locator('#dx7BankSelect option').count()!==4)throw Error('DX7 library must expose four banks');
+  for(let bank=0;bank<4;bank++){await page.locator('#dx7BankSelect').selectOption(String(bank));if(await page.locator('#dx7VoiceSelect option').count()!==32)throw Error('DX7 bank '+bank+' must contain 32 voices');const voices=await page.locator('#dx7VoiceSelect option').allTextContents();if(voices.some(x=>!x.trim()))throw Error('DX7 voice name missing')}
+  if(!/FM-1_015/.test(await page.locator('#dx7SourceTag').textContent()))throw Error('DX7 provenance missing');
+  if(!/não sintetiza/i.test(await page.locator('#dx7Library').innerText()))throw Error('DX7 audio limitation missing');
   console.log('CHROMIUM DUB-1 PASS: one original DSP loaded, 37-key routing, source patches and no AMB-1/ZEN-1.');
   console.log('CHROMIUM CHORD PASS: all 14 chord types, complete note release, selected chord trigger and single-note restore.');
   console.log('CHROMIUM CLEANUP PASS: AMB-1, ZEN-1 and Sample Browser absent from visible UI; audio underruns=0.');
