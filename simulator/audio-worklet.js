@@ -1,4 +1,4 @@
-/* AudioWorklet: original AMB/DUB/ZEN WASM renderers + 8-slot PCM sampler + HYBRID C mixer. */
+/* AudioWorklet: original DUB-1 WASM renderer + PCM ingress + HYBRID C mixer. */
 const hasHighResClock=typeof globalThis.performance?.now==='function';
 const timingSource=hasHighResClock?'performance.now':'Date.now (coarse, 1 ms granularity)';
 const timingResolutionMs=hasHighResClock?0:1;
@@ -22,24 +22,24 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     super();
     this.ready=false;this.failed=false;this.rack=null;this.core=null;this.pendingMessages=[];this.sampleSlots=Array(8).fill(null);this.sampleVoices=Array(8).fill(null);this.sampleTriggers=0;
     this.count=0;this.underruns=0;this.lateCallbacks=0;this.renderOverrunCandidates=0;this.lastTime=0;this.maxJitter=0;this.jitter=[];
-    this.maxRender=0;this.rackMax=0;this.mixerMax=0;this.rackTotal=0;this.mixerTotal=0;this.seqMax=0;this.seqTotal=0;this.seqSteps=0;this.seqClockTicks=0;this.seqLaneEvents=[0,0,0,0];this.period=128/sampleRate*1000;this.outputViews=new Map();this.volca={running:false,bpm:120,clockPhase:0,clockDivider:0,step:0,chain:[0],chainPosition:0,variation:0,fill:false,externalClock:false,muteMask:5,soloMask:0,active:[0,0,0,0]};
+    this.maxRender=0;this.rackMax=0;this.mixerMax=0;this.rackTotal=0;this.mixerTotal=0;this.seqMax=0;this.seqTotal=0;this.seqSteps=0;this.seqClockTicks=0;this.seqLaneEvents=[0,0,0,0];this.period=128/sampleRate*1000;this.outputViews=new Map();this.volca={running:false,bpm:120,clockPhase:0,clockDivider:0,step:0,chain:[0],chainPosition:0,variation:0,fill:false,externalClock:false,muteMask:0,soloMask:0,active:[0,0,0,0]};
     this.port.onmessage=e=>this.message(e.data);
     this.initialize(options.processorOptions?.wasmBytes).catch(err=>{
       this.failed=true;this.port.postMessage({type:'error',message:err.message});
     });
   }
   async initialize(wasmBytes) {
-    if(!wasmBytes?.core||!Array.isArray(wasmBytes?.engines)||wasmBytes.engines.length!==3)
-      throw Error('Missing preloaded WASM buffers from main thread');
+    if(!wasmBytes?.core||!Array.isArray(wasmBytes?.engines)||wasmBytes.engines.length!==2||!wasmBytes.engines[1])
+      throw Error('Missing DUB-1 WASM buffer from main thread');
     const instance=await WebAssembly.instantiate(wasmBytes.core,{});
     this.core=instance.instance?.exports||instance.exports;
     if(this.core.hybrid_wasm_init()!==0)throw Error('HYBRID core init failed in AudioWorklet');
     this.core.hybrid_wasm_set_mix(3,0,0,0,0);
     this.rack=new globalThis.HYBRIDNativeEngines.NativeEngineRack();
     const loaded=await this.rack.loadAll(wasmBytes.engines);
-    if(loaded.length!==3)throw Error('Expected original AMB/DUB/ZEN DSPs');
+    if(loaded.length!==1||loaded[0]!=='DUB-1')throw Error('Expected only the original DUB-1 DSP');
     this.rack.setMaster(100);
-    // Warm the three original DSPs + sample PCM ingress + Q15 mixer before exposing the node.
+    // Warm the original DUB-1 DSP + PCM ingress + Q15 mixer before exposing the node.
     // This keeps first-call WASM/JIT work out of the live render deadline.
     for(let warm=0;warm<8;warm++){
       this.rack.renderToCore(this.core,128,false);
@@ -49,7 +49,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     this.rack.allNotesOff();this.core.hybrid_wasm_panic();
     this.ready=true;
     for(const message of this.pendingMessages.splice(0))this.message(message);
-    this.port.postMessage({type:'ready',engines:[...loaded,'HYBRID Sample Player · 8 slots']});
+    this.port.postMessage({type:'ready',engines:[...loaded,'PCM ingress · 8 slots']});
   }
   volcaConfigure(m) {
     const s=this.volca;
@@ -62,7 +62,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     if(Number.isInteger(m.soloMask))s.soloMask=m.soloMask&15;
   }
   volcaNote(track,note,velocity,on) {
-    if(track<3&&this.rack){
+    if(track===1&&this.rack){
       return on?this.rack.noteOnEngine(track,note,velocity):this.rack.noteOffEngine(track,note);
     } else if(track===3) {
       if(on){const map={36:0,38:1,42:2,46:3,48:4,50:5,54:6,56:7};const slot=map[note]??(note>=36&&note<44?note-36:-1);return slot>=0&&this.sampleTrigger(slot,velocity);}
@@ -80,7 +80,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
       if(s.variation){if(step%4===2)note=0;else if(note&&family!==2&&family!==4)note=Math.min(127,note+12);}
       if(s.fill&&step>=12&&((step+track)&1)===0){note=family===2?38:(note||48);velocity=120;}
       if(note){
-        if(track<3&&family!==2&&family!==4)note=Math.min(127,note+track*12);
+        if(track===1&&family!==2&&family!==4)note=Math.min(127,note+12);
         if(this.volcaNote(track,note,velocity,true)){this.seqLaneEvents[track]++;s.active[track]=note;}
       }
     }
