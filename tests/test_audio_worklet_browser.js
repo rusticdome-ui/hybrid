@@ -45,6 +45,7 @@ function wavSine(freq=220,duration=.5,rate=44100){
   const zenRoute=await page.evaluate(()=>[...window.__hybridNativeRack.engines.values()].map(e=>e.notes.has(60)));
   await page.mouse.up();
   if(JSON.stringify(zenRoute)!=='[false,false,true]')throw Error('Manual ZEN-1 keyboard routing leaked to another DSP: '+JSON.stringify(zenRoute));
+  await page.locator('#patchBank').selectOption('0');
   if(await page.locator('#soundbankPanel').count()!==1||!await page.locator('#soundbankPanel').isVisible()||await page.locator('#soundbankPanel').evaluate(el=>!el.closest('.daw-left'))||await page.locator('#engines').isVisible())throw Error('FL-style soundbank browser is missing or legacy engine panels are visible');
   const patchOptions=bank=>page.locator('#patchSelect option').allTextContents();
   if(await page.locator('#patchBank').inputValue()!=='0'||await page.locator('#patchCount').textContent()!=='8 presets/vozes')throw Error('AMB-1 patch count mismatch');
