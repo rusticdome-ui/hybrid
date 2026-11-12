@@ -1,6 +1,6 @@
 # SMK-37 HYBRID Virtual Lab
 
-The browser workstation uses the HYBRID C Q15 mixer as WebAssembly and the original DUB-1 host renderer as its only remaining legacy DSP. AMB-1, ZEN-1 and the Sample Browser have been removed from the simulator interface and browser audio-loading path.
+The browser workstation combines the HYBRID C Q15 mixer with a real six-operator FM6/DX7 synthesizer based on Google's MSFA engine, compiled to WebAssembly and rendered inside an AudioWorklet. DUB-1, AMB-1, ZEN-1 and the Sample Browser have been removed from the simulator audio path and deployment workflow.
 
 ## Run locally
 
@@ -14,35 +14,25 @@ Use HTTP/HTTPS rather than `file://` so WebAssembly modules can be fetched.
 
 - Hardware-inspired SMK-37 workstation layout, transport, tempo and arrangement.
 - 37-key virtual keyboard with mouse, touch and computer-keyboard input.
-- Selectable DUB-1 source presets, with the eight names defined in the original DUB-1 source tree: Basic, Chamber, Steppers, Fog, Concrete, Night Drive, Pressure and Haze.
+- Real DX7-compatible FM synthesis: six operators, 32 algorithms, per-operator envelopes, velocity response, LFO, pitch envelope and 16-note polyphony.
+- Four online DX7 voice banks A–D (128 voices, 32 per bank), loaded into the FM6/DX7 engine and selectable while audio is running.
+- Web MIDI note input, program selection, sustain, modulation wheel, aftertouch and pitch bend.
 - Chord mode with selectable voicings: major, minor, dominant 7, major 7, minor 7, sus2, sus4, diminished, diminished 7, augmented, major 6, minor 6, half-diminished and dominant 9.
 - Note-off releases every note in a chord; switching chord mode off restores single-note playing.
-- Shared C Q15 mixer, Web Audio AudioWorklet and MIDI input/clock support.
+- Shared C Q15 mixer, Web Audio AudioWorklet and MIDI clock support.
 
-DUB-1's eight source-defined preset names are not represented as M-VAVE factory presets. The SMK-37 Pro V016 factory bank is a separate resource and is not yet installed in the simulator.
+## DX7 voice banks and provenance
 
-## SMK-37 Pro V016 firmware audit
+The included 128 voices come from the public M-VAVE SMK37 OPEN repository, `app/factory_dx7.inc`, documented upstream as extracted from **FM-1_015.fwsc**. They are compatible DX7 VMEM voices, but are **not verified SMK-37 Pro V016 factory banks**. Each 32-voice bank can be exported as a 4,104-byte DX7 bulk SysEx file.
 
-The supplied file was identified as the Pro V016 package. The offline FWSC extraction recovered and decoded the application image:
+The supplied Pro V016 update package was audited separately. Its JLFS map declares a separate `VM` region at flash address `0x9D000` with size 143,360 bytes, but that region is outside the extracted `flash.bin` image. The package therefore does not contain the device's VM contents needed to recover and verify its factory voice bank. The application image itself does not expose a directly readable DX7 SysEx bank or factory patch-name table. The four online banks are deliberately not labelled as V016 factory banks.
 
-- Package SHA-256: `2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0`
-- Decoded application image: 619,704 bytes
-- Decoded application SHA-256: `0f64fbf6ffc454eea686d78cf89f35e593229765bdcf166f10a8bd714abcb09a`
-- Extracted `flash.bin`: 638,976 bytes; SHA-256: `6f44146bb5efeefef537e1355f4e7c671fae396b18ef10c6ac74ac49d89068fd`
+## FM6/DX7 synthesis engine
 
-The package's JLFS map declares a separate `VM` region at flash address `0x9D000` with size 143,360 bytes, but that region is outside the extracted `flash.bin` image. The package therefore does not contain the device's VM contents needed to recover and verify the factory voice bank. The application image itself does not expose a directly readable DX7 SysEx bank or factory patch-name table.
+The simulator vendors the Google MSFA synthesis core from `webaudiomodules/webdx7` (`src/c/msfa`), also used by Dexed. The engine runs in its own WebAssembly module inside the AudioWorklet. Its rendered mono PCM is transferred into mixer channel B as stereo Q15 samples. MIDI and bank/program changes are dispatched directly to the synth without a blocking ring-buffer write on the real-time thread.
 
-**No factory soundbank has been fabricated or substituted.** The 128-voice resource in the public SMK37 Open source is documented as having been extracted from the FM-1 V015 recovery package, not this SMK-37 Pro V016 package; it is therefore not labelled as the Pro V016 factory bank here.
-
-To complete the original-bank integration, export the four factory DX7 voice groups A–D from the physical SMK-37 Pro as standard 32-voice SysEx files (`.syx`) using the device's voice/library export function, then provide those four files. They can then be checked for SysEx structure, voice count, names, checksum and duplicates before being added as the genuine factory soundbank.
+The MSFA source retains its original per-file copyright and license headers. The Apache-2.0 license and HYBRID integration changes are documented in `dx7/LICENSE` and `dx7/NOTICE`. This browser build uses standard equal temperament; non-standard tuning features from the full Dexed application are not included.
 
 ## Validation limits
 
-The browser CI validates the original DUB-1 WASM renderer, note dispatch, PCM transfer, Q15 mixing, chord voicings and AudioWorklet operation. It does not certify physical AC79 CPU/RAM/POOL/DMA behaviour or operation on the physical keyboard.
-
-
-## DX7 voice library (online source)
-
-The simulator includes a separate four-bank DX7 voice library (128 voices, 32 per bank) sourced from the public M-VAVE `smk37_open` repository, file `app/factory_dx7.inc`. The source identifies the voices as extracted from **FM-1_015.fwsc**, not the SMK-37 Pro V016 package. Source attribution and SPDX Apache-2.0 notice are retained in `dx7-factory-banks.js`.
-
-The DX7 browser lists all 128 voice names and exports each 32-voice bank as a standard 4,104-byte DX7 bulk SysEx file. This is a voice-data library/export function only: the current browser audio renderer is DUB-1 and does not synthesize DX7 voices. These are not verified V016 factory banks.
+CI compiles the MSFA DX7 core to WebAssembly, renders all 128 voices and checks non-zero PCM, bank/program loading, MIDI note dispatch, Q15 mixing, chord voicings and AudioWorklet operation. It does not certify physical AC79 CPU/RAM/POOL/DMA behaviour or operation on the physical keyboard.
