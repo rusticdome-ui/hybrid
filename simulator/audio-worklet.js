@@ -136,7 +136,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
   message(m) {
     if(!m)return;
     if(!this.ready){if(['presetStep','volcaConfigure','volcaStart','volcaStop','volcaExternalStart','volcaExternalStop','volcaExternalClock','sampleLoad','sampleTrigger','sampleStop'].includes(m.type))this.pendingMessages.push(m);return;}
-    if(m.type==='sampleLoad'){const pcm=new Float32Array(m.pcm);if(pcm.length<2||pcm.length%2)throw Error('Sample PCM must be stereo interleaved');if(!Number.isInteger(m.slot)||m.slot<0||m.slot>=8)throw Error('Sample slot must be 0..7');this.sampleSlots[m.slot]={pcm,frames:pcm.length/2,name:m.name||('Sample '+(m.slot+1))};this.port.postMessage({type:'sampleLoaded',slot:m.slot,name:this.sampleSlots[m.slot].name,frames:pcm.length/2});return;}
+    if(m.type==='sampleLoad'){const pcm=new Float32Array(m.pcm);if(pcm.length<2||pcm.length%2)throw Error('Sample PCM must be stereo interleaved');if(!Number.isInteger(m.slot)||m.slot<0||m.slot>=8)throw Error('Sample slot must be 0..7');this.sampleSlots[m.slot]={pcm,frames:pcm.length/2,name:m.name||('Sample '+(m.slot+1))};this.port.postMessage({type:'sampleLoaded',slot:m.slot,name:this.sampleSlots[m.slot].name,frames:pcm.length/2,samplesLoaded:this.sampleSlots.filter(Boolean).length});return;}
     if(m.type==='sampleTrigger'){this.sampleTrigger(m.slot,m.velocity);return;}
     if(m.type==='sampleStop'){this.sampleVoices.fill(null);return;}
     if(m.type==='volcaConfigure'){this.volcaConfigure(m);return;}
