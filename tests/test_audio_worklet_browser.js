@@ -95,7 +95,7 @@ function wavSine(freq=220,duration=.5,rate=44100){
   await page.locator('#dawPlay').click();
   await page.waitForFunction(({steps,lanes,triggers})=>{
    const m=window.__hybridAudioMetrics;
-   return m&&m.seqSteps>=steps+50&&m.seqLaneEvents[0]>lanes[0]&&m.seqLaneEvents[1]>lanes[1]&&m.seqLaneEvents[2]>lanes[2]&&m.seqLaneEvents[3]>lanes[3]&&m.sampleTriggers>triggers;
+   return m&&m.seqSteps>=steps+50&&m.seqLaneEvents[0]===lanes[0]&&m.seqLaneEvents[1]>lanes[1]&&m.seqLaneEvents[2]===lanes[2]&&m.seqLaneEvents[3]>lanes[3]&&m.sampleTriggers>triggers;
   },base,{timeout:15000});
   await page.locator('#dawStop').click();
   await page.locator('#dawVariation').selectOption('1');await page.locator('#dawFill').check();
@@ -113,7 +113,7 @@ function wavSine(freq=220,duration=.5,rate=44100){
   if(log.includes('AudioWorklet:'))throw Error('AudioWorklet runtime error: '+log);
   if(errors.length)throw Error('Browser errors: '+errors.join(' | '));
   metrics=await page.evaluate(()=>window.__hybridAudioMetrics);
-  console.log('CHROMIUM DAW PASS: arrangement, shared pattern chain, variation B, fill, mute/solo, MIDI 24-PPQN transport.');
+  console.log('CHROMIUM DAW PASS: arrangement, shared pattern chain, AMB-1/ZEN-1 auto-muted, DUB-1/sample sequencing, variation B, fill, mute/solo, MIDI 24-PPQN transport.');
   console.log('CHROMIUM DAW METRICS: '+JSON.stringify(metrics));
  }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(e=>{console.error(e);process.exit(1);});
