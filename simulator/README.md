@@ -28,7 +28,7 @@ The supplied file was identified as the Pro V016 package. The offline FWSC extra
 - Package SHA-256: `2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0`
 - Decoded application image: 619,704 bytes
 - Decoded application SHA-256: `0f64fbf6ffc454eea686d78cf89f35e593229765bdcf166f10a8bd714abcb09a`
-- Extracted `flash.bin`: 638,976 bytes
+- Extracted `flash.bin`: 638,976 bytes; SHA-256: `6f44146bb5efeefef537e1355f4e7c671fae396b18ef10c6ac74ac49d89068fd`
 
 The package's JLFS map declares a separate `VM` region at flash address `0x9D000` with size 143,360 bytes, but that region is outside the extracted `flash.bin` image. The package therefore does not contain the device's VM contents needed to recover and verify the factory voice bank. The application image itself does not expose a directly readable DX7 SysEx bank or factory patch-name table.
 
