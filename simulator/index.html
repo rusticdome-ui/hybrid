@@ -1,46 +1,266 @@
 <!doctype html>
-<html lang="pt-PT">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SMK-37 HYBRID — Simulador virtual</title>
+<html lang="pt-PT"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SMK-37 HYBRID Virtual Lab</title>
 <style>
-:root{color-scheme:dark;--bg:#101216;--panel:#1a1e25;--edge:#343b46;--muted:#9ba6b5;--accent:#70d6c2;--warn:#f1c36b}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% -20%,#27313b,#101216 55%);color:#edf2f7;font:14px/1.45 system-ui,Segoe UI,sans-serif}
-main{max-width:1180px;margin:auto;padding:24px}h1{font-size:clamp(24px,4vw,38px);margin:0}h2{font-size:16px;margin:0 0 14px}p{color:var(--muted)}.top{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:20px}.tag{border:1px solid #52606d;border-radius:99px;padding:5px 10px;color:var(--accent);font-size:12px}
-.panel{background:linear-gradient(145deg,#202630,#171b21);border:1px solid var(--edge);border-radius:14px;padding:16px;margin:12px 0;box-shadow:0 12px 28px #0004}
-.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.engine{border:1px solid var(--edge);border-radius:10px;padding:12px;background:#13171d}.engine.active{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}.engine strong{display:block;font-size:16px}.engine small{color:var(--muted)}
-.controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.control{display:flex;flex-direction:column;gap:6px;color:var(--muted)}input[type=range]{width:100%;accent-color:var(--accent)}select,button{background:#242c36;color:#edf2f7;border:1px solid #485463;border-radius:8px;padding:8px}button{cursor:pointer}button:hover{border-color:var(--accent)}button.on{background:#17443d;border-color:var(--accent);color:#baf6e9}
-.pads{display:grid;grid-template-columns:repeat(8,1fr);gap:8px}.pad{min-height:55px;font-weight:650}.pad.sel{background:#17443d;border-color:var(--accent)}.keyboard{display:flex;gap:2px;height:150px;overflow-x:auto;padding:8px;background:#0d1014;border-radius:10px}.key{position:relative;flex:1 0 25px;min-width:25px;border-radius:0 0 5px 5px;background:#e8edf2;border:1px solid #8e99a6;color:#202630;display:flex;align-items:end;justify-content:center;padding-bottom:7px;font-size:10px;cursor:pointer}.key.black{background:#29313d;color:#fff;height:66%;margin:0 -9px;z-index:2;flex:0 0 18px;min-width:18px;border-color:#0a0c10}.key.down{background:var(--accent);color:#071310}.meters{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.meter{height:8px;background:#0b0e12;border-radius:8px;overflow:hidden}.meter i{display:block;height:100%;background:linear-gradient(90deg,#45b69d,#e4c16e);width:0}
-.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.row .control{min-width:150px;flex:1}.muted{color:var(--muted)}.notice{font-size:12px;color:var(--warn)}footer{color:var(--muted);font-size:12px;margin:18px 0}
-@media(max-width:720px){main{padding:14px}.grid,.controls{grid-template-columns:repeat(2,minmax(0,1fr))}.pads{grid-template-columns:repeat(4,1fr)}.top{align-items:flex-start;flex-direction:column}.meters{grid-template-columns:repeat(2,1fr)}}
+:root{color-scheme:dark;--bg:#0b1018;--p:#151e2a;--p2:#1d2a39;--line:#304155;--txt:#edf4fc;--muted:#9cacc0;--cyan:#62d9df;--amber:#ffc477;--green:#80e0b0}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(900px 450px at 80% -10%,#18364b,transparent 65%),var(--bg);color:var(--txt);font:14px/1.45 system-ui,Segoe UI,sans-serif}header{padding:22px clamp(14px,4vw,44px);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}h1{margin:0;font-size:clamp(24px,3vw,34px)}h1 em{font-style:normal;color:var(--cyan)}.muted,small{color:var(--muted)}main{max-width:1450px;margin:auto;padding:20px clamp(12px,3vw,36px) 48px}.notice{background:#2a2115;border:1px solid #70532d;color:#f3d9ad;padding:11px 14px;border-radius:10px;margin-bottom:14px}.toolbar,.panel,.engine{background:linear-gradient(155deg,var(--p),#101721);border:1px solid var(--line);border-radius:13px;padding:15px}.toolbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:14px}.grow{flex:1}button,select{font:inherit;color:var(--txt);background:#202e3e;border:1px solid #40546b;border-radius:8px;padding:8px 11px;cursor:pointer}button:hover{border-color:var(--cyan)}button.primary{background:#174653;border-color:#287e8d}button.active{background:#3b2b1b;border-color:var(--amber)}input[type=range]{width:100%;accent-color:var(--cyan)}label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px}.grid{display:grid;grid-template-columns:repeat(4,minmax(210px,1fr));gap:11px}.engine{position:relative;border-left:4px solid var(--c)}.engine h2{font-size:17px;margin:0}.engine .kind{font-size:12px;color:var(--muted);margin-bottom:12px}.line{display:flex;align-items:center;gap:8px}.line>*{flex:1}.control{margin:10px 0}.value{float:right;color:var(--txt);font-variant-numeric:tabular-nums}.meter{height:8px;background:#080d13;border-radius:8px;overflow:hidden;margin-top:7px}.meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,#49c8ae,#c8df79,#ffc477)}.tag{font-size:11px;border:1px solid var(--line);border-radius:99px;padding:3px 7px;color:var(--muted)}.lower{display:grid;grid-template-columns:1.15fr 1fr;gap:12px;margin-top:14px}.panel h2{font-size:17px;margin:0 0 12px}.knobs{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.row>label{flex:1;min-width:110px}.keyboard{display:grid;grid-template-columns:repeat(13,minmax(22px,1fr));gap:3px;margin-top:10px}.key{height:78px;background:#e9eef5;color:#182331;border:1px solid #9daaba;border-radius:0 0 6px 6px;display:flex;align-items:end;justify-content:center;padding-bottom:7px;cursor:pointer;user-select:none;font-size:10px}.key.black{height:51px;background:#26374b;color:white;border-color:#111b29}.key.down{background:var(--cyan);color:#061419}.scenes{display:grid;grid-template-columns:repeat(8,1fr);gap:6px}.scenes button{padding:8px 2px}.scenes button.sel{border-color:var(--amber);background:#3b2b1b}.log{height:116px;overflow:auto;background:#080d13;border:1px solid var(--line);border-radius:8px;padding:8px;font:12px/1.5 ui-monospace,monospace;color:#adc1d5;white-space:pre-wrap}.led{display:inline-block;width:8px;height:8px;border-radius:50%;background:#62758b;margin-right:6px}.led.on{background:var(--green);box-shadow:0 0 10px #80e0b088}
+@media(max-width:1050px){.grid{grid-template-columns:repeat(2,minmax(210px,1fr))}}@media(max-width:680px){.grid,.lower{grid-template-columns:1fr}.knobs{grid-template-columns:repeat(2,1fr)}.scenes{grid-template-columns:repeat(4,1fr)}.keyboard{grid-template-columns:repeat(7,1fr)}}
+/* DAW workstation layout */
+:root{--bg:#090d13;--p:#111923;--p2:#192431;--line:#29394b;--cyan:#66d9d0;--amber:#f1b86b;--purple:#a995f5}
+body{background:#080c12;font:13px/1.4 Inter,system-ui,Segoe UI,sans-serif}
+header{padding:12px 20px;background:#0d141d;border-bottom:1px solid #29394b}
+header h1{font-size:22px;letter-spacing:.04em}
+main{max-width:1800px;padding:12px 16px 36px}
+.notice{display:none}
+.daw{border:1px solid #2b3b4d;border-radius:10px;overflow:hidden;background:#0e151e;margin-bottom:14px;box-shadow:0 12px 38px #0005}
+.daw-top{display:flex;gap:10px;align-items:center;padding:10px 12px;background:#151f2b;border-bottom:1px solid #29394b;flex-wrap:wrap}
+.daw-brand{font-weight:800;letter-spacing:.1em;color:#e9f1fa}.daw-brand span{color:var(--cyan)}
+.daw-transport{display:flex;gap:6px;align-items:center}.daw-transport button{min-width:38px;padding:7px}.daw-transport .play{background:#17584f;border-color:#2b9a87}
+.daw-time{font:600 18px ui-monospace,monospace;color:#dce8f5;padding:0 12px}
+.daw-top .spacer{flex:1}
+.daw-main{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:580px}
+.daw-left,.daw-right{background:#111a24;padding:12px;border-right:1px solid #29394b}
+.daw-right{border-right:0;border-left:1px solid #29394b}
+.daw-section{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#8497ad;margin:8px 0}
+.daw-nav{display:grid;gap:5px}.daw-nav button{text-align:left;background:#182431;border-color:transparent}
+.daw-nav button.selected{border-color:#4a9f9a;background:#17383b}
+/* FL-inspired channel-workstation skin (original SMK-37 layout) */
+:root{--bg:#17191d;--p:#22252b;--p2:#2c3038;--line:#3a404a;--cyan:#72c7a5;--amber:#f3a64a;--purple:#a995f5}
+body{background:#17191d}
+.daw{border-color:#3b414b;border-radius:5px;background:#202329;box-shadow:0 8px 30px #0008}
+.daw-top{background:linear-gradient(#30343c,#252930);border-bottom-color:#11151b}
+.daw-brand span{color:#f3a64a}
+.daw-main{grid-template-columns:230px minmax(0,1fr);background:#202329}
+.daw-left,.daw-right{background:#1b1e23;border-color:#11151b;padding:10px}
+.daw-center{background:#24272d;padding:12px}
+.daw-section{color:#f3a64a;border-bottom:1px solid #3b414b;padding:5px 0 4px}
+.daw-nav button,.browser-link{background:#292e36;border:1px solid #3b424d;border-radius:3px}
+.daw-nav button.selected{background:#3a443f;border-color:#72c7a5}
+.bank-browser{margin:8px 0 12px;padding:9px;background:#252a31;border:1px solid #414853;border-radius:4px}
+.bank-browser h2{font-size:12px;letter-spacing:.12em;margin:0 0 6px;color:#f3a64a}
+.bank-browser .muted{font-size:10px;line-height:1.35;margin:0 0 8px}
+.bank-browser .row{display:grid;grid-template-columns:1fr;gap:5px;margin-top:6px!important}
+.bank-browser label{margin:0}
+.bank-browser select{width:100%;padding:6px 7px;border-radius:3px;background:#171a1f}
+.bank-browser button{padding:5px 8px;border-radius:3px}
+.bank-browser .tag{font-size:9px;white-space:normal}
+
+.browser-link{width:100%;text-align:left;padding:8px}
+.arrangement,.piano{border-color:#3c424c;border-radius:4px;background:#181b20}
+.arr-head{background:#30343c}
+.track-row{min-height:52px}
+.track-label{background:#292e36}
+.clip{border-radius:3px;font-weight:700}
+.clip.active{filter:saturate(1.2)}
+.daw-title h2{letter-spacing:.08em;color:#e4e8ed}
+.daw-bottom{background:#1a1d22;border-color:#3b414b}
+.toolbar{background:#20242a;border-color:#3b414b;border-radius:4px}
+@media(max-width:1100px){.daw-main{grid-template-columns:210px minmax(0,1fr)}}
+
+.daw-center{min-width:0;padding:12px;background:linear-gradient(#101923,#0d141d)}
+.daw-title{display:flex;align-items:center;gap:8px;margin:2px 0 10px}.daw-title h2{font-size:14px;margin:0}.daw-title small{margin-left:auto}
+.arrangement{border:1px solid #29394b;border-radius:7px;overflow:hidden;background:#0b1119}
+.arr-head,.track-row{display:grid;grid-template-columns:125px minmax(0,1fr)}
+.arr-head{background:#192533;border-bottom:1px solid #29394b}
+.arr-ruler{display:grid;grid-template-columns:repeat(8,minmax(40px,1fr));}
+.arr-ruler span{padding:6px 4px;text-align:center;font:10px ui-monospace,monospace;color:#9eafc2;border-left:1px solid #29394b}
+.track-label{display:flex;align-items:center;gap:6px;padding:8px;font-size:11px;border-right:1px solid #29394b;color:#dce6f1}
+.track-label i{width:7px;height:26px;border-radius:3px;background:var(--track)}
+.track-row{min-height:48px;border-bottom:1px solid #202d3b}
+.track-lanes{display:grid;grid-template-columns:repeat(8,minmax(40px,1fr));gap:3px;padding:4px;background:repeating-linear-gradient(90deg,#0d151e 0,#0d151e calc(12.5% - 1px),#182431 calc(12.5% - 1px),#182431 12.5%)}
+.clip{border:1px solid color-mix(in srgb,var(--track) 55%,#29394b);background:color-mix(in srgb,var(--track) 17%,#111a24);color:#dce8f4;border-radius:4px;padding:5px 3px;font-size:10px;min-width:0;overflow:hidden}
+.clip.active{background:color-mix(in srgb,var(--track) 36%,#14202a);box-shadow:inset 0 0 0 1px var(--track)}
+.clip.off{opacity:.28}
+.daw-lane-controls{display:flex;gap:4px;margin-left:auto}.daw-lane-controls button{padding:2px 6px;font-size:9px}
+.daw-lane-controls button.on{background:#6a3a2c;border-color:#cf8861}
+.piano{margin-top:14px;border:1px solid #29394b;border-radius:7px;overflow:hidden;background:#0b1119}
+.piano-grid{display:grid;grid-template-columns:36px repeat(16,minmax(16px,1fr));}
+.piano-grid>span{height:22px;border-right:1px solid #1e2c3a;border-bottom:1px solid #1e2c3a}
+.piano-grid .pitch{font:9px ui-monospace,monospace;color:#8194a8;padding:4px}
+.piano-grid .note{background:#162532}.piano-grid .note.on{background:#2b9a87;box-shadow:inset 0 0 0 1px #7de2d4}
+.daw-bottom{display:flex;gap:10px;align-items:center;padding:8px 12px;border-top:1px solid #29394b;background:#111a24;color:#8fa2b8;font-size:10px}
+.daw-bottom span{color:#c5d3e1}
+#volcaPanel{display:none}
+#engines{grid-template-columns:repeat(4,minmax(180px,1fr));margin-top:12px}#engines[hidden]{display:none!important}
+.engine{background:#111a24;border-radius:8px}
+.lower{grid-template-columns:1fr 1fr}
+@media(max-width:1100px){.daw-main{grid-template-columns:145px minmax(0,1fr)}.daw-right{grid-column:1/-1;border:0;border-top:1px solid #29394b}}
+@media(max-width:700px){.daw-main{grid-template-columns:1fr}.daw-left{display:none}.daw-center{overflow-x:auto}.arrangement,.piano{min-width:520px}#engines,.lower{grid-template-columns:1fr}}
+
+.hardware-screen{display:grid;gap:2px;min-width:210px;padding:7px 12px;background:linear-gradient(#172b27,#0d1b18);border:2px solid #080d0c;border-radius:4px;box-shadow:inset 0 0 12px #000b;color:#9be4b8;font:11px/1.25 ui-monospace,monospace;text-shadow:0 0 8px #65c98b66}
+.hardware-screen span{font-size:9px;letter-spacing:.15em;color:#6da98a}.hardware-screen strong{font-size:14px;color:#c5f5d2}.hardware-screen small{font-size:9px;color:#83b99a}
+.daw-brand{padding:0 8px 0 2px;font-size:15px}.daw-top{gap:12px}
+.patch-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-top:8px;max-height:230px;overflow:auto;padding-right:2px}
+.patch-grid button{display:flex;align-items:center;gap:7px;text-align:left;padding:6px 7px;background:#191e24;border:1px solid #414853;border-radius:3px;font-size:10px;min-width:0}
+.patch-grid button span:first-child{color:#9aa7b4;font:10px ui-monospace,monospace}.patch-grid button span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.patch-grid button.selected{background:#34453c;border-color:#72c7a5;color:#e5fff0;box-shadow:inset 0 0 0 1px #72c7a566}.patch-grid button:hover{border-color:#f3a64a}
+.keybed-shell{overflow-x:auto;padding:8px;background:linear-gradient(#3b4148,#1b2026);border:1px solid #080b0e;border-radius:5px;box-shadow:inset 0 2px 9px #0009}
+.keyboard{position:relative;display:flex;gap:0;min-width:850px;height:148px;margin:0;padding:0 5px 5px;background:#171a1e;touch-action:none}
+.key{position:relative;flex:1;min-width:0;height:135px;margin:0 1px 0 0;padding:0 0 8px;border:1px solid #8f969d;border-top:0;border-radius:0 0 4px 4px;background:linear-gradient(90deg,#d8dce0,#fff 18%,#f5f6f7 78%,#cbd0d5);color:#333b43;display:flex;align-items:flex-end;justify-content:center;font:10px ui-monospace,monospace;z-index:1;box-shadow:0 3px 2px #0007}
+.key.white{flex:1}.key.black{position:absolute;top:0;height:84px;width:2.85%;min-width:0;flex:none;transform:translateX(-50%);z-index:3;border:1px solid #050709;border-top:0;border-radius:0 0 4px 4px;background:linear-gradient(90deg,#101318,#343a42 45%,#11151a);color:#e8edf2;padding-bottom:6px;box-shadow:0 5px 5px #000b}
+.key.down,.key.black.down{background:linear-gradient(#6ac9a3,#31896d);color:#07150f;border-color:#b5f2d6}.key.white.down{height:137px;box-shadow:inset 0 0 0 2px #55b58d,0 2px 2px #0007}.key.black.down{height:86px}
+.instrument-label{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:12px 0 6px;color:#b9c5d1;font-size:10px;letter-spacing:.1em;text-transform:uppercase}
+@media(max-width:700px){.hardware-screen{min-width:160px}.daw-top{align-items:stretch}.patch-grid{grid-template-columns:1fr}}
 </style></head>
-<body><main>
-<div class="top"><div><div class="tag">PROTÓTIPO INTERACTIVO · NÃO É FIRMWARE</div><h1>SMK-37 HYBRID</h1><p>Superfície virtual para explorar canais, pads, cenas, mixer e teclado.</p></div><div class="tag" id="status">Áudio desligado</div></div>
-<section class="panel"><h2>Quatro motores / canais</h2><div class="grid" id="engines">
-<div class="engine active" data-engine="0"><strong>A · AMB-1</strong><small>Motor generativo</small></div><div class="engine" data-engine="1"><strong>B · DUB-1</strong><small>Camadas rítmicas e harmónicas</small></div><div class="engine" data-engine="2"><strong>C · ZEN-1</strong><small>FM · 8 partes</small></div><div class="engine" data-engine="3"><strong>D · GHOULBOX</strong><small>Motor interno completo</small></div></div></section>
-<section class="panel"><h2>Mixer HYBRID</h2><div class="controls" id="mix"></div><div class="row" style="margin-top:14px"><label class="control">Transição<select id="fade"><option value="1">Rápida · 1 s</option><option value="4" selected>Padrão · 4 s</option><option value="8">Lenta · 8 s</option></select></label><label class="control">Routing<select id="routing"><option>GLOBAL</option><option>ZONE</option><option>OFF</option></select></label><label class="control">Master<input id="master" type="range" min="0" max="100" value="80"></label><button id="audio">Ligar áudio de demonstração</button></div><div class="meters" id="meters"></div></section>
-<section class="panel"><h2>Encoders e faders</h2><div class="controls" id="encoders"></div><p class="muted">Encoders 1–4: volumes A–D · Encoders 5–8: parâmetros demonstrativos do motor selecionado.</p></section>
-<section class="panel"><h2>Pads 1–16</h2><div class="pads" id="pads"></div><p class="muted">1–4 seleção de motor · 5–8 mute · 9–12 solo · 13–16 cenas 1–4. As cenas 5–16 são selecionadas pela paginação.</p><div class="row"><button id="prev">◀ Página</button><span id="page">Cenas 1–4</span><button id="next">Página ▶</button></div></section>
-<section class="panel"><h2>Teclado virtual · 37 teclas</h2><div class="row"><label class="control">Oitava<select id="octave"><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select></label><label class="control">Velocity<input id="velocity" type="range" min="1" max="127" value="100"></label><span class="muted" id="note">Nenhuma nota</span></div><div class="keyboard" id="keys"></div></section>
-<section class="panel"><h2>Estado em tempo real (simulado)</h2><div class="row"><span>CPU estimada</span><strong id="cpu">—</strong><span>Vozes demonstrativas</span><strong id="voices">0</strong><span>Cena</span><strong id="scene">1</strong></div><p class="notice">CPU, vozes e medidores são valores ilustrativos; não representam medições do AC79 nem executam os DSPs originais.</p></section>
-<footer>Simulador de interface e fluxo de controlo. O áudio usa osciladores WebAudio simples; AMB-1, DUB-1, ZEN-1 e GHOULBOX reais não estão em execução. Estado não persiste ao recarregar.</footer>
+<body><header><div><h1>SMK-37 <em>HYBRID</em></h1><div class="muted">Instrumento virtual · 37 teclas · FM6/DX7 · MIDI</div></div><div><span class="led" id="led"></span><span id="audioState">Áudio desligado</span> <span id="audioMetrics" class="tag">callback: — · underruns: — · jitter: —</span> <span class="tag">SIMULAÇÃO WEB AUDIO</span></div></header>
+<main><section class="daw" id="dawWorkspace">
+ <div class="daw-top">
+  <div class="daw-brand">SMK-37 <span>HYBRID</span></div><div class="hardware-screen"><span>INSTRUMENT / PATCH DISPLAY</span><strong id="hardwarePatch">DX7 · Voice 01</strong><small id="hardwareVoice">BANK A · VOICE 01 / 32 · MSFA FM6</small></div>
+  <div class="daw-transport"><button id="dawStop" title="Stop">■</button><button class="play" id="dawPlay" title="Play">▶</button><button id="dawRecord" title="Record / overdub">●</button></div>
+  <div class="daw-time" id="dawPosition">01:01:000</div>
+  <label style="margin:0">BPM <input id="dawBpm" type="number" min="40" max="220" value="120" style="width:58px"></label>
+  <label style="margin:0">Swing <input id="dawSwing" type="range" min="0" max="60" value="0" style="width:75px"></label>
+  <span class="spacer"></span><span class="tag" id="dawAudioStatus">AUDIO OFF</span><button id="dawAudio" class="primary">Ligar áudio</button>
+ </div>
+ <div class="daw-main">
+  <aside class="daw-left">
+   <div class="daw-section">Project</div><div class="daw-nav"><button class="selected">Arrangement</button><button id="dawShowMixer">Mixer</button></div>
+   <div class="daw-section">Browser · Instrumentos</div><section id="soundbankPanel" class="bank-browser"><h2>FM6 / DX7 ENGINE</h2><p class="muted">Síntese FM de seis operadores, 32 algoritmos e envelopes DX7 reais, processada pelo núcleo MSFA em WebAssembly. As vozes dos bancos A–D são carregadas diretamente no motor.</p><div class="row" style="margin-top:10px"><button id="midiConnect">Ligar MIDI físico</button><span class="muted" id="midiState">MIDI não ligado</span></div></section>
+<section class="bank-browser" id="dx7Library" aria-label="Biblioteca DX7">
+<h2>DX7 FACTORY LIBRARY · 128 VOICES</h2>
+<p class="muted">Biblioteca pública compatível com DX7, proveniente de M-VAVE SMK37 OPEN / FM-1_015.fwsc (V015). Não é uma extração confirmada dos bancos SMK-37 Pro V016. Os dados são exportáveis em SysEx; o renderer de áudio FM6/DX7 não sintetiza estas vozes DX7.</p>
+<div class="row" style="margin-top:10px"><label>Banco DX7<select id="dx7BankSelect"><option value="0">A · 01–32</option><option value="1">B · 33–64</option><option value="2">C · 65–96</option><option value="3">D · 97–128</option></select></label><label>Voz<select id="dx7VoiceSelect"></select></label><button id="dx7DownloadBank" type="button" class="primary">Exportar banco .SYX</button></div>
+<div class="row" style="margin-top:8px"><span class="tag" id="dx7VoiceCount">32 vozes</span><span class="tag" id="dx7SourceTag">Fonte: FM-1 V015</span></div>
+<div id="dx7VoiceGrid" class="patch-grid" aria-label="Vozes DX7 do banco selecionado"></div>
+<p class="muted" id="dx7VoiceInfo" style="font-size:11px;margin-top:8px">Seleciona uma voz para a carregar no motor FM6/DX7. Exporta também o banco completo para um ficheiro SysEx compatível com DX7.</p>
+</section>
+<div class="daw-section">Pattern</div><label>Family<select id="dawFamily"><option value="0">Bass</option><option value="1">Keys</option><option value="2">Drum</option><option value="3">FM</option></select></label>
+   <label>Variation<select id="dawVariation"><option value="0">A</option><option value="1">B</option></select></label>
+   <label>Fill<input id="dawFill" type="checkbox"></label>
+   <label>Clock<select id="dawClock"><option value="internal">Internal</option><option value="midi">MIDI IN · 24 PPQN</option></select></label>
+   <button id="dawApply" class="primary" style="width:100%;margin-top:8px">Apply pattern</button>
+  </aside>
+  <div class="daw-center">
+   <div class="daw-title"><h2>PLAYLIST / ARRANGEMENT</h2><small>Playlist · 8 bars · pattern clips</small></div>
+   <div class="arrangement" id="dawArrangement">
+    <div class="arr-head"><div class="track-label">TRACK / CLIPS</div><div class="arr-ruler"><span>01</span><span>02</span><span>03</span><span>04</span><span>05</span><span>06</span><span>07</span><span>08</span></div></div><div class="track-row" data-track="1"><div class="track-label" style="--track:#ffc477"><i></i>FM6/DX7</div><div class="track-lanes"><button class="clip active" data-bar="0" data-track="1" style="--track:#ffc477">BASS</button><button class="clip active" data-bar="1" data-track="1" style="--track:#ffc477">KEYS</button><button class="clip active" data-bar="2" data-track="1" style="--track:#ffc477">DRUM</button><button class="clip active" data-bar="3" data-track="1" style="--track:#ffc477">FM</button><button class="clip active" data-bar="4" data-track="1" style="--track:#ffc477">BASS</button><button class="clip active" data-bar="5" data-track="1" style="--track:#ffc477">KEYS</button><button class="clip active" data-bar="6" data-track="1" style="--track:#ffc477">DRUM</button><button class="clip active" data-bar="7" data-track="1" style="--track:#ffc477">FM</button></div></div>
+   </div>
+   <div class="daw-title" style="margin-top:14px"><h2>PIANO ROLL</h2><small>Phrase preview · 16-step grid</small></div>
+   <div class="piano"><div class="piano-grid" id="dawPiano"><span class="pitch">C5</span><span class="note " data-step="0" data-note="72"></span><span class="note " data-step="1" data-note="72"></span><span class="note " data-step="2" data-note="72"></span><span class="note " data-step="3" data-note="72"></span><span class="note " data-step="4" data-note="72"></span><span class="note " data-step="5" data-note="72"></span><span class="note " data-step="6" data-note="72"></span><span class="note " data-step="7" data-note="72"></span><span class="note " data-step="8" data-note="72"></span><span class="note " data-step="9" data-note="72"></span><span class="note " data-step="10" data-note="72"></span><span class="note " data-step="11" data-note="72"></span><span class="note " data-step="12" data-note="72"></span><span class="note " data-step="13" data-note="72"></span><span class="note " data-step="14" data-note="72"></span><span class="note " data-step="15" data-note="72"></span><span class="pitch">G4</span><span class="note " data-step="0" data-note="67"></span><span class="note " data-step="1" data-note="67"></span><span class="note " data-step="2" data-note="67"></span><span class="note " data-step="3" data-note="67"></span><span class="note " data-step="4" data-note="67"></span><span class="note " data-step="5" data-note="67"></span><span class="note " data-step="6" data-note="67"></span><span class="note " data-step="7" data-note="67"></span><span class="note " data-step="8" data-note="67"></span><span class="note " data-step="9" data-note="67"></span><span class="note " data-step="10" data-note="67"></span><span class="note " data-step="11" data-note="67"></span><span class="note " data-step="12" data-note="67"></span><span class="note " data-step="13" data-note="67"></span><span class="note " data-step="14" data-note="67"></span><span class="note " data-step="15" data-note="67"></span><span class="pitch">E4</span><span class="note " data-step="0" data-note="64"></span><span class="note " data-step="1" data-note="64"></span><span class="note " data-step="2" data-note="64"></span><span class="note " data-step="3" data-note="64"></span><span class="note " data-step="4" data-note="64"></span><span class="note " data-step="5" data-note="64"></span><span class="note " data-step="6" data-note="64"></span><span class="note " data-step="7" data-note="64"></span><span class="note " data-step="8" data-note="64"></span><span class="note " data-step="9" data-note="64"></span><span class="note " data-step="10" data-note="64"></span><span class="note " data-step="11" data-note="64"></span><span class="note " data-step="12" data-note="64"></span><span class="note " data-step="13" data-note="64"></span><span class="note " data-step="14" data-note="64"></span><span class="note " data-step="15" data-note="64"></span><span class="pitch">C4</span><span class="note on" data-step="0" data-note="60"></span><span class="note " data-step="1" data-note="60"></span><span class="note " data-step="2" data-note="60"></span><span class="note on" data-step="3" data-note="60"></span><span class="note " data-step="4" data-note="60"></span><span class="note " data-step="5" data-note="60"></span><span class="note " data-step="6" data-note="60"></span><span class="note on" data-step="7" data-note="60"></span><span class="note " data-step="8" data-note="60"></span><span class="note " data-step="9" data-note="60"></span><span class="note " data-step="10" data-note="60"></span><span class="note on" data-step="11" data-note="60"></span><span class="note " data-step="12" data-note="60"></span><span class="note " data-step="13" data-note="60"></span><span class="note " data-step="14" data-note="60"></span><span class="note on" data-step="15" data-note="60"></span><span class="pitch">G3</span><span class="note " data-step="0" data-note="55"></span><span class="note " data-step="1" data-note="55"></span><span class="note " data-step="2" data-note="55"></span><span class="note " data-step="3" data-note="55"></span><span class="note " data-step="4" data-note="55"></span><span class="note " data-step="5" data-note="55"></span><span class="note " data-step="6" data-note="55"></span><span class="note " data-step="7" data-note="55"></span><span class="note " data-step="8" data-note="55"></span><span class="note " data-step="9" data-note="55"></span><span class="note " data-step="10" data-note="55"></span><span class="note " data-step="11" data-note="55"></span><span class="note " data-step="12" data-note="55"></span><span class="note " data-step="13" data-note="55"></span><span class="note " data-step="14" data-note="55"></span><span class="note " data-step="15" data-note="55"></span><span class="pitch">C3</span><span class="note " data-step="0" data-note="48"></span><span class="note " data-step="1" data-note="48"></span><span class="note " data-step="2" data-note="48"></span><span class="note " data-step="3" data-note="48"></span><span class="note " data-step="4" data-note="48"></span><span class="note " data-step="5" data-note="48"></span><span class="note " data-step="6" data-note="48"></span><span class="note " data-step="7" data-note="48"></span><span class="note " data-step="8" data-note="48"></span><span class="note " data-step="9" data-note="48"></span><span class="note " data-step="10" data-note="48"></span><span class="note " data-step="11" data-note="48"></span><span class="note " data-step="12" data-note="48"></span><span class="note " data-step="13" data-note="48"></span><span class="note " data-step="14" data-note="48"></span><span class="note " data-step="15" data-note="48"></span></div></div>
+  </div>
+  
+ </div>
+ <div class="daw-bottom"><span id="dawTransportState">STOPPED</span> · FM6/DX7 original · mixer Q15 · MIDI Clock 24 PPQN</div>
+</section><div class="notice"><b>Referência AC79 ligada:</b> ELF validado no GitHub Actions #188 (commit db102907ec515d6e0cb6d2654b02aba0d845d3c2). O ELF pi32v2 não é executável dentro do browser/WASM; esta ligação associa a sessão de simulação à compilação AC79 validada e disponibiliza os seus artefactos. <a href="https://github.com/rusticdome-ui/hybrid/actions/runs/42801765070" target="_blank" rel="noopener">Ver execução AC79</a> · <a href="https://github.com/rusticdome-ui/hybrid/actions/runs/42801765070/artifacts/13756462548" target="_blank" rel="noopener">Descarregar ELF/BIN/mapa/relatório</a>.</div><div class="notice"><b>Motor no browser:</b> apenas o renderer original FM6/DX7 é carregado e envia PCM ao mixer C HYBRID. Os bancos de fábrica do SMK-37 Pro V016 ainda dependem de exportação SysEx do dispositivo.</div>
+<div class="toolbar"><button class="primary" id="audio">Ligar áudio</button><button id="chord">Testar acorde</button><label style="margin:0;min-width:110px">Tipo de acorde <select id="chordType"><option value="maj">Maior</option><option value="min">Menor</option><option value="7">Dominante 7</option><option value="maj7">Maior 7</option><option value="m7">Menor 7</option><option value="sus2">Sus2</option><option value="sus4">Sus4</option><option value="dim">Diminuto</option><option value="dim7">Diminuto 7</option><option value="aug">Aumentado</option><option value="6">Maior 6</option><option value="m6">Menor 6</option><option value="m7b5">Meio-diminuto</option><option value="9">Dominante 9</option></select></label><label style="margin:0"><input id="chordMode" type="checkbox"> Modo de acordes no teclado</label><button id="stress">Stress 32 notas</button><button id="off">All Notes Off</button><span class="grow"></span><label style="margin:0">Master <b id="masterV">80%</b><input id="master" type="range" min="0" max="100" value="80" style="width:125px"></label><label style="margin:0">Teste <select id="pattern"><option value="chord">Acorde</option><option value="arp">Arpejo</option><option value="bass">Baixo</option><option value="pulse">Pulso rítmico</option></select></label></div>
+<div class="grid" id="engines" hidden></div>
+<section class="panel" id="volcaPanel" style="display:none"><select id="volcaFamily"><option value="0">Bass</option><option value="1">Keys</option><option value="2">Drum</option><option value="3">FM</option></select><input id="volcaChain" value="1,2,3,4"><select id="volcaClock"><option value="internal">Internal</option><option value="midi">MIDI</option></select><select id="volcaVariation"><option value="0">A</option><option value="1">B</option></select><input id="volcaFill" type="checkbox"><button id="volcaPlay">Start</button><button id="volcaStop">Stop</button><button id="volcaApply">Apply</button><p id="volcaState"></p></section>
+<div class="lower"><section class="panel" id="globalControls"><h2>Mixer / Controlos globais</h2><div class="knobs">
+<div><label>Tempo <b class="value" id="bpmV">120 BPM</b></label><input id="bpm" type="range" min="40" max="220" value="120"></div>
+<div><label>Transposição <b class="value" id="transV">0 st</b></label><input id="trans" type="range" min="-24" max="24" value="0"></div>
+<div><label>Velocity <b class="value" id="velV">100</b></label><input id="vel" type="range" min="1" max="127" value="100"></div>
+<div><label>Crossfade <b class="value" id="fadeV">0%</b></label><input id="fade" type="range" min="0" max="100" value="0"></div></div>
+<div class="row" style="margin-top:12px"><label>Canal MIDI<select id="channel"><option>Omni</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option><option>13</option><option>14</option><option>15</option><option>16</option></select></label><label>Zona<select id="zone"><option value="all">Todas</option><option value="upper">Upper (C4+)</option><option value="lower">Lower (abaixo de C4)</option></select></label><label>Par crossfade<select id="fadePair"><option value="AB">A ↔ B</option><option value="CD">C ↔ D</option><option value="ABCD">A+B ↔ C+D</option></select></label></div>
+<div class="instrument-label"><span>Teclado SMK-37 · 3 oitavas</span><span>Notas manuais · MIDI 48–84</span></div><div class="keybed-shell"><div class="keyboard" id="keys"></div></div><div class="muted" style="margin-top:6px">Toca apenas o soundbank seleccionado. Ativa «Modo de acordes» para tocar o tipo escolhido a partir de cada tecla. Rato, toque ou teclas A–K / W-E-T-Y-U.</div></section>
+<section class="panel"><h2>16 cenas</h2><div class="scenes" id="scenes"></div><div class="row" style="margin-top:10px"><button id="save">Guardar</button><button id="load">Carregar</button><button id="reset">Reset mixer</button></div><p class="muted">As cenas ficam na memória desta sessão e não são gravadas no firmware.</p><h2 style="margin-top:16px">Eventos / diagnóstico</h2><div class="log" id="log">[HYBRID] Simulador pronto. Áudio desligado.</div></section></div>
 </main>
-<script>
-const names=['AMB-1','DUB-1','ZEN-1','GHOULBOX'],colors=['#70d6c2','#83a9ed','#c49af0','#e3b56d'];
-let selected=0,page=0,scene=1,muted=[false,false,false,false],solo=[false,false,false,false],vol=[80,75,70,80],voices=0,ctx=null,master=80,osc=[];
-const $=id=>document.getElementById(id);
-function el(tag,cls,txt){let n=document.createElement(tag);if(cls)n.className=cls;if(txt!==undefined)n.textContent=txt;return n}
-function renderMix(){ $('mix').innerHTML='';$('meters').innerHTML='';names.forEach((n,i)=>{let c=el('div','control');c.innerHTML='<b>'+String.fromCharCode(65+i)+' · '+n+'</b>';let r=el('input');r.type='range';r.min=0;r.max=100;r.value=vol[i];r.oninput=()=>{vol[i]=+r.value;};c.append(r);let row=el('div','row');let m=el('button',muted[i]?'on':'','Mute');m.onclick=()=>{muted[i]=!muted[i];renderMix()};let s=el('button',solo[i]?'on':'','Solo');s.onclick=()=>{solo[i]=!solo[i];renderMix()};row.append(m,s);c.append(row);$('mix').append(c);let meter=el('div','meter');meter.append(el('i'));$('meters').append(meter)})}
-function renderEngines(){document.querySelectorAll('.engine').forEach((x,i)=>x.classList.toggle('active',i===selected))}
-function renderPads(){let p=$('pads');p.innerHTML='';for(let i=0;i<16;i++){let num=page*4+i+1,b=el('button','pad',i<4?names[i]:i<8?'MUTE '+names[i-4]:i<12?'SOLO '+names[i-8]:'CENA '+num);if(i<4&&selected===i)b.classList.add('sel');if(i>=4&&i<8&&muted[i-4])b.classList.add('sel');if(i>=8&&i<12&&solo[i-8])b.classList.add('sel');if(i>=12&&scene===num)b.classList.add('sel');b.onclick=()=>{if(i<4){selected=i;renderEngines();renderEncoders()}else if(i<8)muted[i-4]=!muted[i-4];else if(i<12)solo[i-8]=!solo[i-8];else scene=num;renderPads();renderMix();$('scene').textContent=scene};p.append(b)}$('page').textContent='Cenas '+(page*4+1)+'–'+(page*4+4)}
-function renderEncoders(){let root=$('encoders');root.innerHTML='';for(let i=0;i<8;i++){let c=el('label','control',(i<4?'Encoder '+(i+1)+' · Volume '+names[i]:'Encoder '+(i+1)+' · FX '+names[selected]));let r=el('input');r.type='range';r.min=0;r.max=100;r.value=i<4?vol[i]:50;r.oninput=()=>{if(i<4){vol[i]=+r.value;renderMix()}};c.append(r);root.append(c)}}
-function midiName(m){return ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'][m%12]+(Math.floor(m/12)-1)}
-function noteOn(m){voices++;$('voices').textContent=voices;$('note').textContent='Nota '+midiName(m)+' · MIDI '+m;if(ctx){let o=ctx.createOscillator(),g=ctx.createGain();o.type=['sawtooth','square','triangle','sine'][selected];o.frequency.value=440*Math.pow(2,(m-69)/12);g.gain.value=(+$('velocity').value/127)*.035*(vol[selected]/100)*(master/100);o.connect(g).connect(ctx.destination);o.start();osc.push({o,g,m});}}
-function noteOff(m){let i=osc.findIndex(x=>x.m===m);if(i>=0){let x=osc.splice(i,1)[0];x.g.gain.setTargetAtTime(0,ctx.currentTime,.04);x.o.stop(ctx.currentTime+.2)}voices=Math.max(0,voices-1);$('voices').textContent=voices}
-function renderKeys(){let root=$('keys');root.innerHTML='';let start=12+(+$('octave').value)*12;for(let i=0;i<37;i++){let m=start+i,black=[1,3,6,8,10].includes(m%12),k=el('div','key'+(black?' black':''),midiName(m));k.onpointerdown=e=>{e.preventDefault();k.classList.add('down');noteOn(m)};['pointerup','pointerleave','pointercancel'].forEach(ev=>k.addEventListener(ev,()=>{k.classList.remove('down');noteOff(m)}));root.append(k)}}
-document.querySelectorAll('.engine').forEach((x,i)=>x.onclick=()=>{selected=i;renderEngines();renderPads();renderEncoders()});
-$('audio').onclick=async()=>{if(!ctx)ctx=new(window.AudioContext||window.webkitAudioContext)();await ctx.resume();$('status').textContent='Áudio de demonstração activo';$('audio').textContent='Áudio ligado'};
-$('master').oninput=e=>master=+e.target.value;$('octave').onchange=renderKeys;$('prev').onclick=()=>{page=Math.max(0,page-1);renderPads()};$('next').onclick=()=>{page=Math.min(3,page+1);renderPads()};$('routing').onchange=()=>{};$('fade').onchange=()=>{};
-renderMix();renderEngines();renderPads();renderEncoders();renderKeys();
-setInterval(()=>{let base=12+vol.reduce((a,b)=>a+b,0)/25+voices*2;$('cpu').textContent=Math.min(99,Math.round(base))+'%*';document.querySelectorAll('.meter i').forEach((x,i)=>x.style.width=(muted[i]?0:Math.min(100,vol[i]*(.25+Math.random()*.55)))+'%')},600);
-</script></body></html>
+
+<script src="dx7-factory-banks.js"></script>
+<script>(()=> {
+const defs=[['A','RESERVED','unused','#344155'],['B','FM6/DX7','MSFA six-operator synthesis · mixer C','#ffc477'],['C','RESERVED','unused','#344155'],['D','PCM','PCM ingress','#80e0b0']];
+const S=defs.map(()=>({gain:.72,pan:0,mute:false,solo:false,route:'GLOBAL',mode:'NORMAL',voices:0,peak:0}));
+let ctx=null,master=null,processor=null,wasm=null,wasmReady=false,midiAccess=null,midiCC=new Map(),scene=0,scenes=Array(16).fill(false),seq=null,held=new Set(),heldPitch=new Map(),keyboardChords=new Map();
+let audioLastCallback=0,audioCallbackCount=0,audioUnderruns=0,audioMaxJitterMs=0,audioMaxRenderMs=0,audioJitterWindow=[];
+const $=id=>document.getElementById(id),log=x=>{let e=$('log');e.textContent+='\n'+new Date().toLocaleTimeString()+' '+x;e.scrollTop=e.scrollHeight},clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const ex=()=>wasm&&wasm.instance.exports;
+function syncEngine(i){if(!wasmReady)return;const e=ex(),s=S[i],pair=$('fadePair').value,f=+$('fade').value/100,xf=pair==='AB'?(i===0?1-f:i===1?f:1):pair==='CD'?(i===2?1-f:i===3?f:1):(i<2?1-f:f),gain=Math.round(s.gain*xf*32767),pan=Math.round(s.pan*100),zone=$('zone').value,mode=s.route==='OFF'?0:(s.route==='ZONE'||zone!=='all')?2:1,lo=zone==='upper'?60:0,hi=zone==='lower'?59:127;
+e.hybrid_wasm_set_mix(i,gain,pan,+s.mute,+s.solo);e.hybrid_wasm_set_route(i,mode,lo,hi);const ch=$('channel').value==='Omni'?0:+$('channel').value;e.hybrid_wasm_set_midi(i,ch,1,127,+$('trans').value);if(processor&&processor.port)processor.port.postMessage({type:'mix',id:i,volume:gain,pan, mute:s.mute,solo:s.solo,mode,low:lo,high:hi,channel:ch,transpose:+$('trans').value})}
+function syncAll(){S.forEach((_,i)=>syncEngine(i))}
+async function initCore(){if(wasmReady)return;const res=await fetch('./hybrid_core.wasm');if(!res.ok)throw Error('Não foi possível obter hybrid_core.wasm (HTTP '+res.status+')');wasm=await WebAssembly.instantiate(await res.arrayBuffer(),{});if(ex().hybrid_wasm_init()!==0)throw Error('hybrid_wasm_init falhou');wasmReady=true;syncAll();log('Núcleo C HYBRID carregado via WebAssembly; mixer Q15 activo.');}
+function dx7BankBytes(bank){const raw=atob(bank.data),bytes=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);return bytes;}
+async function audio(){if(!ctx){ctx=new(window.AudioContext||window.webkitAudioContext)({sampleRate:44100});master=ctx.createGain();master.gain.value=+$('master').value/100;if(!ctx.audioWorklet)throw Error('Este browser não suporta AudioWorklet');await ctx.audioWorklet.addModule('./audio-worklet.js');const paths=['./hybrid_core.wasm','./dx7_fm6.wasm'];const responses=await Promise.all(paths.map(p=>fetch(p)));for(let i=0;i<2;i++)if(!responses[i].ok)throw Error('Não foi possível obter '+paths[i]+' (HTTP '+responses[i].status+')');const [coreBytes,dx7Bytes]=await Promise.all(responses.map(r=>r.arrayBuffer()));const bank=dx7CurrentBank(),wasmBytes={core:coreBytes,dx7:dx7Bytes,bankData:dx7BankBytes(bank),program:+dx7VoiceEl.value};processor=new AudioWorkletNode(ctx,'smk37-hybrid-audio',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[2],processorOptions:{wasmBytes}});processor.port.onmessage=e=>{const m=e.data;if(m.type==='ready'){$('dawAudioStatus').textContent='AUDIO ON';log('AudioWorklet activo: '+m.engines.join(', ')+' + mixer C');syncAll();}else if(m.type==='dx7BankLoaded'||m.type==='dx7ProgramSelected'){window.__hybridDx7Status={bank:+dx7BankEl.value,program:m.program};}else if(m.type==='dx7Notes'){window.__hybridDx7Notes=m.notes;}else if(m.type==='metrics'){window.__hybridAudioMetrics=m;const d=n=>m.timingSource.startsWith('Date.now')?(n===0?'≤1':n.toFixed(0)):n.toFixed(4);$('audioMetrics').textContent='AudioWorklet '+m.callbacks+' · underruns '+m.underruns+' · DX7 render '+d(m.dx7Max)+' ms · jitter p95/max '+d(m.jitterP95)+'/'+d(m.jitterMax)+' ms · mixer '+d(m.mixerMax)+' ms · '+m.timingSource;}else if(m.type==='error'){$('dawAudioStatus').textContent='AUDIO ERROR';log('AudioWorklet: '+m.message)}};processor.connect(master);const probe=ctx.createAnalyser();probe.fftSize=2048;master.connect(probe);probe.connect(ctx.destination);window.__hybridAudioProbe=probe;window.__hybridAudioNode=processor;}await ctx.resume();$('led').classList.add('on');$('audioState').textContent='AudioWorklet · FM6/DX7 MSFA + sequencer + mixer C';$('audio').textContent='Áudio ligado'}
+function noteOn(n,v=+$('vel').value,chOverride=null){if(!wasmReady)return log('Núcleo C ainda não carregado');const ch=chOverride===null?($('channel').value==='Omni'?0:+$('channel').value):chOverride,filter=$('channel').value,zone=$('zone').value,route=S[1].route;if(route==='OFF'||(filter!=='Omni'&&ch!==+filter))return;if((route==='ZONE'||zone!=='all')&&((zone==='upper'&&n<60)||(zone==='lower'&&n>59)))return;const played=clamp(n+(+$('trans').value),0,127);if(processor?.port)processor.port.postMessage({type:'noteOn',note:played,velocity:v,channel:ch,engine:1});held.add(n);heldPitch.set(n,played);S.forEach((s,i)=>{if(i===1&&!s.mute&&(!S.some(x=>x.solo)||s.solo))s.voices++;if(i===1)s.peak=Math.max(s.peak,v/127*s.gain)});}
+function noteOff(n,chOverride=null){if(wasmReady&&heldPitch.has(n)){const ch=chOverride===null?($('channel').value==='Omni'?0:+$('channel').value):chOverride,played=heldPitch.get(n);if(processor?.port)processor.port.postMessage({type:'noteOff',note:played,channel:ch,engine:1});held.delete(n);heldPitch.delete(n);S.forEach((s,i)=>{if(i===1)s.voices=Math.max(0,s.voices-1)})}}
+function noteAll(n,v=+$('vel').value,d=.8){noteOn(n,v);setTimeout(()=>noteOff(n),d*1000)}
+const CHORD_INTERVALS={maj:[0,4,7],min:[0,3,7],"7":[0,4,7,10],maj7:[0,4,7,11],m7:[0,3,7,10],sus2:[0,2,7],sus4:[0,5,7],dim:[0,3,6],dim7:[0,3,6,9],aug:[0,4,8],"6":[0,4,7,9],m6:[0,3,7,9],m7b5:[0,3,6,10],"9":[0,4,7,10,14]};
+function chordNotes(root,type=$('chordType').value){return (CHORD_INTERVALS[type]||CHORD_INTERVALS.maj).map(i=>root+i).filter(n=>n<=127)}
+function keyboardNoteOn(root){const notes=$('chordMode').checked?chordNotes(root):[root];keyboardChords.set(root,notes);notes.forEach(n=>noteOn(n))}
+function keyboardNoteOff(root){const notes=keyboardChords.get(root)||[root];notes.forEach(n=>noteOff(n));keyboardChords.delete(root)}
+function triggerEngine(i){if(i!==1)return;const n=60+Math.floor(Math.random()*12);noteOn(n,112);setTimeout(()=>noteOff(n),500)}
+function render(){ $('engines').innerHTML=S.map((s,i)=>'<article class="engine" style="--c:'+defs[i][3]+'"><div class="line"><div><h2>'+defs[i][0]+' · '+defs[i][1]+'</h2><div class="kind">'+defs[i][2]+'</div></div><span class="tag" id="v'+i+'">0 vozes</span></div><div class="control"><label>Volume <b class="value" id="gv'+i+'">'+Math.round(s.gain*100)+'%</b></label><input data-i="'+i+'" data-k="gain" type="range" min="0" max="100" value="'+s.gain*100+'"></div><div class="control"><label>Pan <b class="value" id="pv'+i+'">0.00</b></label><input data-i="'+i+'" data-k="pan" type="range" min="-100" max="100" value="0"></div><div class="line"><label>Routing<select data-i="'+i+'" data-k="route"><option>GLOBAL</option><option>ZONE</option><option>OFF</option></select></label><label>Modo (UI)<select data-i="'+i+'" data-k="mode"><option>NORMAL</option><option>PAD</option><option>BASS</option><option>DRUM</option></select></label></div><div class="line"><label><input data-i="'+i+'" data-k="mute" type="checkbox"> Mute</label><label><input data-i="'+i+'" data-k="solo" type="checkbox"> Solo</label><button data-hit="'+i+'">Trigger</button></div><div class="meter"><i id="m'+i+'"></i></div></article>').join('');
+$('engines').querySelectorAll('[data-i]').forEach(e=>{let i=+e.dataset.i,k=e.dataset.k;e.value=k==='gain'?S[i][k]*100:k==='pan'?S[i][k]*100:S[i][k];e.checked=!!S[i][k];e.addEventListener('input',()=>{let v=e.type==='checkbox'?e.checked:e.type==='range'?+e.value/100:e.value;S[i][k]=v;if(k==='gain')$('gv'+i).textContent=e.value+'%';if(k==='pan')$('pv'+i).textContent=v.toFixed(2);syncEngine(i);log(defs[i][1]+' '+k+' = '+v)})});
+$('engines').querySelectorAll('[data-hit]').forEach(b=>b.onclick=()=>triggerEngine(+b.dataset.hit));
+$('scenes').innerHTML=scenes.map((x,i)=>'<button data-sc="'+i+'" class="'+(scene===i?'sel':'')+'">S'+String(i+1).padStart(2,'0')+(x?' ●':'')+'</button>').join('');$('scenes').querySelectorAll('[data-sc]').forEach(b=>b.onclick=()=>{scene=+b.dataset.sc;renderScenes()});}
+function renderScenes(){$('scenes').querySelectorAll('[data-sc]').forEach(b=>b.classList.toggle('sel',+b.dataset.sc===scene))}
+function keys(){const root=$('keys'),names=['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'],blackSet=new Set([1,3,6,8,10]);let whites=[],blacks=[],whiteIndex=0;for(let note=48;note<=84;note++){const semitone=note%12,isBlack=blackSet.has(semitone),octave=Math.floor(note/12)-1,label=names[semitone]+(semitone===0?octave:'');if(isBlack){const left=((whiteIndex+1)/22*100).toFixed(4);blacks.push('<button type="button" class="key black" style="left:'+left+'%" data-n="'+note+'" aria-label="'+names[semitone]+octave+'">'+names[semitone]+'</button>');}else{whites.push('<button type="button" class="key white" data-n="'+note+'" aria-label="'+label+'">'+(semitone===0?label:'')+'</button>');whiteIndex++;}}root.innerHTML=whites.join('')+blacks.join('');root.querySelectorAll('[data-n]').forEach(b=>{const n=+b.dataset.n;b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);b.classList.add('down');keyboardNoteOn(n)});['pointerup','pointercancel','lostpointercapture'].forEach(k=>b.addEventListener(k,()=>{if(b.classList.contains('down')){b.classList.remove('down');keyboardNoteOff(n)}}));});}
+$('audio').onclick=async()=>{try{await initCore();await audio();log('Áudio sintetizado pelo motor FM6/DX7 MSFA e misturado no núcleo C HYBRID.')}catch(e){log('ERRO WASM: '+e.message);$('audioState').textContent='Falha ao carregar núcleo C'}};
+$('master').oninput=e=>{let v=+e.target.value;$('masterV').textContent=v+'%';if(master&&ctx)master.gain.setTargetAtTime(v/100,ctx.currentTime,.03)};
+[['bpm','bpmV',v=>v+' BPM'],['trans','transV',v=>v+' st'],['vel','velV',v=>v],['fade','fadeV',v=>v+'%']].forEach(([id,out,fmt])=>$(id).oninput=e=>$(out).textContent=fmt(e.target.value));
+$('chord').onclick=()=>{const type=$('chordType').value,notes=chordNotes(60,type);notes.forEach(n=>noteAll(n,108,.8));log('Acorde C · '+$('chordType').selectedOptions[0].textContent+' · notas '+notes.join(', ')+' enviado ao core C')};
+$('stress').onclick=()=>{if(!wasmReady)return log('Liga primeiro o áudio para carregar WASM');for(let j=0;j<8;j++)for(let i=0;i<4;i++)noteAll(48+j*3,65+j*7,1.1);log('Stress: 32 notas enviadas aos quatro slots C')};
+$('off').onclick=()=>{if(seq){clearInterval(seq);seq=null}if(processor&&processor.port)processor.port.postMessage({type:'panic'});held.forEach(n=>noteOff(n));held.clear();S.forEach(s=>s.voices=0);log('Panic enviado ao motor FM6/DX7')};
+$('save').onclick=()=>{if(!wasmReady)return log('Núcleo C não carregado');const f=$('fade').value;$('fade').value=0;syncAll();const ok=ex().hybrid_wasm_scene_capture(scene);$('fade').value=f;syncAll();scenes[scene]=ok===0;render();log('Cena '+(scene+1)+' capturada pelo core C')};
+$('load').onclick=()=>{if(!wasmReady||!scenes[scene])return log('Cena vazia ou core não carregado');const ok=ex().hybrid_wasm_scene_recall(scene,0);if(ok===0){S.forEach((s,i)=>{const e=ex();s.gain=e.hybrid_wasm_get_volume(i)/32767;s.pan=e.hybrid_wasm_get_pan(i)/100;s.mute=!!e.hybrid_wasm_get_mute(i);s.solo=!!e.hybrid_wasm_get_solo(i);s.route=['OFF','GLOBAL','ZONE'][e.hybrid_wasm_get_route(i)]});render();syncAll();log('Cena '+(scene+1)+' chamada no core C (sem crossfade)')}};
+$('reset').onclick=()=>{S.forEach(s=>Object.assign(s,{gain:.72,pan:0,mute:false,solo:false,route:'GLOBAL',mode:'NORMAL'}));render();syncAll();log('Mixer C reposto na interface; defaults do core reaplicados')};
+$('pattern').onchange=()=>{let p=$('pattern').value;if(seq){clearInterval(seq);seq=null}if(p==='arp'){let a=[60,64,67,72],i=0;seq=setInterval(()=>noteAll(a[i++%a.length],100,.3),30000/+$('bpm').value)}else if(p==='pulse'){seq=setInterval(()=>noteAll(36,110,.18),60000/+$('bpm').value)}else if(p==='bass')noteAll(36,112,.8);log('Padrão de teste: '+p)};
+$('zone').onchange=()=>{syncAll();log('Zona aplicada às janelas de teclas no core C: '+$('zone').value)};$('channel').onchange=()=>{syncAll();log('Filtro MIDI actualizado no core C e nos adaptadores WASM')};$('fadePair').onchange=()=>{syncAll();log('Crossfade aplicado como ganho por canal antes do mixer Q15 C')};$('fade').addEventListener('input',syncAll);$('trans').addEventListener('input',syncAll);
+function volcaConfig(){
+ const chainText=$('volcaChain').value.trim(),chain=chainText?chainText.split(',').map(x=>Number(x.trim())-1):[+$('volcaFamily').value];
+ if(!chain.length||chain.length>16||chain.some(x=>!Number.isInteger(x)||x<0||x>3)){log('Pattern chain inválida: usa até 16 IDs entre 1 e 4');return null}
+ const muteMask=0;
+ const soloMask=0;
+ return {type:'volcaConfigure',bpm:+$('bpm').value,chain,externalClock:$('volcaClock').value==='midi',variation:+$('volcaVariation').value,fill:$('volcaFill').checked,muteMask,soloMask};
+}
+function volcaApply(){
+ const cfg=volcaConfig();if(!cfg)return;
+ if(processor&&processor.port)processor.port.postMessage(cfg);
+ $('volcaState').textContent='Configuração aplicada · chain '+cfg.chain.map(x=>x+1).join(' → ')+' · '+cfg.bpm+' BPM · variação '+(cfg.variation?'B':'A');
+}
+$('volcaFamily').onchange=()=>{$('volcaChain').value=String(+$('volcaFamily').value+1);volcaApply()};
+$('volcaApply').onclick=volcaApply;
+$('volcaPlay').onclick=()=>{if(!processor||!ctx)return log('Liga primeiro o áudio para iniciar o sequenciador');const cfg=volcaConfig();if(!cfg)return;cfg.type='volcaStart';processor.port.postMessage(cfg);$('volcaState').textContent='A tocar · FM6/DX7 · relógio partilhado a '+cfg.bpm+' BPM';log('VOLCA transport START · 24 PPQN · chain '+cfg.chain.map(x=>x+1).join(' → '))};
+$('volcaStop').onclick=()=>{if(processor&&processor.port)processor.port.postMessage({type:'volcaStop'});$('volcaState').textContent='Sequenciador parado';log('VOLCA transport STOP · notas libertadas')};
+['volcaChain','volcaClock','volcaVariation','volcaFill'].forEach(id=>$(id).addEventListener('change',volcaApply));
+$('bpm').addEventListener('input',()=>{const cfg=volcaConfig();if(cfg&&processor&&processor.port)processor.port.postMessage(cfg)});
+$('midiConnect').onclick=async()=>{if(!navigator.requestMIDIAccess)return $('midiState').textContent='Web MIDI não suportado neste browser';try{midiAccess=await navigator.requestMIDIAccess();for(const input of midiAccess.inputs.values())input.onmidimessage=ev=>{const [status,d1,d2]=ev.data,kind=status&0xf0,ch=(status&15)+1;if(status===0xF8){if($('volcaClock').value==='midi'&&processor?.port)processor.port.postMessage({type:'volcaExternalClock'});return;}if(status===0xFA||status===0xFB){if($('volcaClock').value==='midi'&&processor?.port)processor.port.postMessage({type:'volcaExternalStart'});return;}if(status===0xFC){if($('volcaClock').value==='midi'&&processor?.port)processor.port.postMessage({type:'volcaExternalStop'});return;}if(kind===0x90&&d2)noteOn(d1,d2,ch);else if(kind===0x80||(kind===0x90&&!d2))noteOff(d1,ch);else if(processor?.port)processor.port.postMessage({type:'midi',status,data1:d1,data2:d2});};$('midiState').textContent=midiAccess.inputs.size+' entrada(s) MIDI';log('Web MIDI ligado; notas, sustain, mod wheel, aftertouch e pitch bend enviados ao motor DX7.');}catch(err){$('midiState').textContent='MIDI: '+err.message}};
+// DAW transport and arrangement controls share the existing VOLCA transport.
+let dawChain=[0,1,2,3,0,1,2,3];
+const dawFamilyNames=['BASS','KEYS','DRUM','FM'];
+function syncDawChain(){
+  const active=dawChain.filter(x=>x!==null);
+  const chain=active.length?active:[0];
+  $('volcaChain').value=chain.map(x=>x+1).join(',');
+  document.querySelectorAll('.clip[data-bar]').forEach(el=>{
+    const b=+el.dataset.bar,v=dawChain[b],on=v!==null;
+    el.classList.toggle('active',on);el.classList.toggle('off',!on);
+    el.textContent=on?dawFamilyNames[v]:'—';
+  });
+  volcaApply();
+}
+document.querySelectorAll('.clip[data-bar]').forEach(el=>el.addEventListener('click',()=>{
+  const b=+el.dataset.bar;dawChain[b]=dawChain[b]===null?(b%4):null;syncDawChain();
+}));
+document.querySelectorAll('[data-mute]').forEach(el=>el.addEventListener('click',()=>{
+  const i=+el.dataset.mute,c=$('volcaMute'+i);c.checked=!c.checked;el.classList.toggle('on',c.checked);volcaApply();
+}));
+document.querySelectorAll('[data-solo]').forEach(el=>el.addEventListener('click',()=>{
+  const i=+el.dataset.solo,c=$('volcaSolo'+i);c.checked=!c.checked;el.classList.toggle('on',c.checked);volcaApply();
+}));
+$('dawAudio').onclick=()=>$('audio').click();
+$('dawPlay').onclick=()=>$('volcaPlay').click();
+$('dawStop').onclick=()=>$('volcaStop').click();
+$('dawBpm').onchange=e=>{$('bpm').value=clamp(+e.target.value,40,220);$('bpm').dispatchEvent(new Event('input'));volcaApply()};
+$('dawFamily').onchange=e=>{$('volcaFamily').value=e.target.value;dawChain=[+e.target.value,...dawChain.slice(1)];syncDawChain()};
+$('dawVariation').onchange=e=>{$('volcaVariation').value=e.target.value;volcaApply()};
+$('dawFill').onchange=e=>{$('volcaFill').checked=e.target.checked;volcaApply()};
+$('dawClock').onchange=e=>{$('volcaClock').value=e.target.value;volcaApply()};
+$('dawApply').onclick=syncDawChain;
+$('dawShowMixer').onclick=()=>$('globalControls').scrollIntoView({behavior:'smooth',block:'start'});
+
+$('audio').addEventListener('click',()=>{const f=()=>{$('dawAudioStatus').textContent=processor?'AUDIO ON':'AUDIO ERROR'};setTimeout(f,500)});
+$('volcaPlay').addEventListener('click',()=>{$('dawTransportState').textContent='PLAYING';$('dawPosition').textContent='01:01:000'});
+$('volcaStop').addEventListener('click',()=>{$('dawTransportState').textContent='STOPPED'});
+$('dawRecord').remove();
+
+document.addEventListener('keydown',e=>{if(e.repeat||['INPUT','SELECT'].includes(e.target.tagName))return;let map={a:60,w:61,s:62,e:63,d:64,f:65,t:66,g:67,y:68,h:69,u:70,j:71,k:72};if(map[e.key.toLowerCase()]!==undefined)noteOn(map[e.key.toLowerCase()])});
+document.addEventListener('keyup',e=>{let map={a:60,w:61,s:62,e:63,d:64,f:65,t:66,g:67,y:68,h:69,u:70,j:71,k:72};if(map[e.key.toLowerCase()]!==undefined)noteOff(map[e.key.toLowerCase()])});
+setInterval(()=>S.forEach((s,i)=>{let v=$('v'+i),m=$('m'+i);if(v)v.textContent=s.voices+' eventos';if(m){m.style.width=clamp(s.peak*100,0,100)+'%';s.peak*=.76}}),100);
+render();keys();
+
+const dx7BankEl=$('dx7BankSelect'),dx7VoiceEl=$('dx7VoiceSelect'),dx7Grid=$('dx7VoiceGrid');
+function dx7CurrentBank(){return window.SMK37_DX7_FACTORY.banks[+dx7BankEl.value]}
+function dx7Render(){const bank=dx7CurrentBank();dx7VoiceEl.innerHTML=bank.voices.map((n,i)=>'<option value="'+i+'">'+String(i+1).padStart(2,'0')+' · '+n+'</option>').join('');dx7Grid.innerHTML=bank.voices.map((n,i)=>'<button type="button" data-dx7-voice="'+i+'" class="'+(i===0?'selected':'')+'"><span>'+String(i+1).padStart(2,'0')+'</span><span>'+n+'</span></button>').join('');dx7Grid.querySelectorAll('[data-dx7-voice]').forEach(b=>b.onclick=()=>{dx7VoiceEl.value=b.dataset.dx7Voice;dx7ShowVoice()});$('dx7VoiceCount').textContent=bank.voices.length+' vozes · '+bank.name;$('dx7SourceTag').textContent=window.SMK37_DX7_FACTORY.source;dx7ShowVoice();if(processor?.port)processor.port.postMessage({type:'dx7Bank',data:dx7BankBytes(bank),program:+dx7VoiceEl.value});}
+function dx7ShowVoice(){const bank=dx7CurrentBank(),i=+dx7VoiceEl.value;dx7Grid.querySelectorAll('[data-dx7-voice]').forEach(b=>b.classList.toggle('selected',+b.dataset.dx7Voice===i));$('dx7VoiceInfo').textContent='Voz '+(i+1)+' / 32 · '+bank.voices[i]+' · carregada no sintetizador FM6/DX7 MSFA.';$('hardwarePatch').textContent='DX7 · '+bank.voices[i];$('hardwareVoice').textContent='BANK '+String.fromCharCode(65+(+dx7BankEl.value))+' · VOICE '+String(i+1).padStart(2,'0')+' / 32 · MSFA FM6';if(processor?.port)processor.port.postMessage({type:'dx7Program',program:i});}
+function dx7DownloadBank(){const bank=dx7CurrentBank(),raw=atob(bank.data),data=new Uint8Array(raw.length);let sum=0;for(let i=0;i<raw.length;i++){data[i]=raw.charCodeAt(i);sum+=data[i]}const sysex=new Uint8Array(6+data.length+2);sysex.set([0xF0,0x43,0x00,0x09,0x20,0x00]);sysex.set(data,6);sysex[sysex.length-2]=(128-(sum&127))&127;sysex[sysex.length-1]=0xF7;const blob=new Blob([sysex],{type:'application/octet-stream'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='SMK37_DX7_'+bank.name.replace(' ','_')+'_FM1_V015.syx';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);log('Exportado '+bank.name+' · 32 vozes · DX7 SysEx 4104 bytes')}
+dx7BankEl.onchange=dx7Render;dx7VoiceEl.onchange=dx7ShowVoice;$('dx7DownloadBank').onclick=dx7DownloadBank;dx7Render();
+
+})();</script></body></html>

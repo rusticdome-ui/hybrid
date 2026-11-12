@@ -3,7 +3,7 @@ name: AC79 isolated DSP linker check
 on:
   workflow_dispatch:
   push:
-    branches: [ac79-hybrid-linker, hybrid-audio-mixer-integration, hybrid-ac79-profiler]
+    branches: [ac79-hybrid-linker, hybrid-audio-mixer-integration, hybrid-ac79-profiler, hybrid-memory-reduction]
     paths:
       - "tools/ac79_link_engines.py"
       - "src/**"
@@ -46,6 +46,8 @@ jobs:
           "$RUNNER_TEMP/test_hybrid_stress"
           cc -std=c99 -O2 -Wall -Wextra -Werror -Itests/fakes -Iinclude src/hybrid_profile.c tests/test_hybrid_profile.c -o "$RUNNER_TEMP/test_hybrid_profile"
           "$RUNNER_TEMP/test_hybrid_profile"
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_sequencer.c tests/test_hybrid_sequencer.c -o "$RUNNER_TEMP/test_hybrid_sequencer"
+          "$RUNNER_TEMP/test_hybrid_sequencer"
       - name: Install JieLi pi32v2 toolchain
         shell: bash
         run: |
@@ -58,10 +60,48 @@ jobs:
           find "$tc_dir" -type f -name "*nm*" -o -name "*objcopy*" -print
           ln -sfn "$tc_dir" "$HOME/.jieli/toolchain"
           echo "JIELI_TOOLCHAIN=$HOME/.jieli/toolchain" >> "$GITHUB_ENV"
-      - name: Checkout AC79 SDK
+      - name: Checkout AC79 SDK (sparse, pinned)
+        timeout-minutes: 20
+        shell: bash
         run: |
-          git clone --depth 1 --branch AC79NN_SDK_V1.2.1_2023-12-13 https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git "$RUNNER_TEMP/sdk"
-          echo "AC79_SDK=$RUNNER_TEMP/sdk" >> "$GITHUB_ENV"
+          set -euo pipefail
+          sdk="$RUNNER_TEMP/sdk"
+          mkdir -p "$sdk"
+          git -C "$sdk" init
+          git -C "$sdk" remote add origin https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git
+          # The package builder consumes only these three vendor binaries. Avoid
+          # cloning hundreds of MB of unrelated SDK sources and prebuilt libraries.
+          git -C "$sdk" config core.sparseCheckout true
+          git -C "$sdk" config core.sparseCheckoutCone false
+          cat > "$sdk/.git/info/sparse-checkout" <<'EOF'
+          /cpu/wl82/tools/uboot.boot
+          /cpu/wl82/tools/cfg_tool.bin
+          /cpu/wl82/tools/cfg/eq_cfg_hw.bin
+          EOF
+          branch="AC79NN_SDK_V1.2.1_2023-12-13"
+          for attempt in 1 2 3; do
+            echo "Fetching AC79 SDK $branch (attempt $attempt/3)"
+            if git -C "$sdk" -c http.version=HTTP/1.1 -c http.lowSpeedLimit=1024 -c http.lowSpeedTime=90 \
+                fetch --depth=1 --filter=blob:none origin "$branch"; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::Unable to fetch pinned AC79 SDK branch after 3 attempts"
+              exit 1
+            fi
+            sleep $((attempt * 10))
+          done
+          git -C "$sdk" checkout --detach FETCH_HEAD
+          for rel in uboot.boot cfg_tool.bin cfg/eq_cfg_hw.bin; do
+            test -s "$sdk/cpu/wl82/tools/$rel" || { echo "::error::Missing SDK file: $rel"; exit 1; }
+          done
+          echo "AC79 sparse checkout:"
+          du -sh "$sdk"
+          printf '%s  %s\n' \
+            4e3b4c220dc96641cb5a723f41e68ce41d5261ae9434bb33fbd7f2c59976ded4 "$sdk/cpu/wl82/tools/uboot.boot" \
+            276579954f076886a6a7694f65dc71c034a63a2c204b76749065c0ac7b010d1b "$sdk/cpu/wl82/tools/cfg_tool.bin" \
+            41167491bffed4651750719c973d2758adeb9021a5670d02d6a53c85ed80ea7d "$sdk/cpu/wl82/tools/cfg/eq_cfg_hw.bin" | sha256sum --check
+          echo "AC79_SDK=$sdk" >> "$GITHUB_ENV"
       - name: Build GHOULBOX-only AC79 baseline
         shell: bash
         run: |
@@ -82,12 +122,65 @@ jobs:
           python3 tools/build.py --board smk37 --model pro --sdk "$AC79_SDK"
           "$JIELI_TOOLCHAIN/common/bin/objdump" -h build/felucca.elf > "$RUNNER_TEMP/ghoulbox-baseline-sections.txt"
           "$JIELI_TOOLCHAIN/common/bin/objdump" -t build/felucca.elf > "$RUNNER_TEMP/ghoulbox-baseline-symbols.txt"
+      - name: Run GHOULBOX reference audio, MIDI panic, stability and buffer regressions
+        working-directory: ${{ runner.temp }}/Felucca-baseline
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          # Host-only: AC79 csync/ssync instructions become compiler memory barriers.
+          # The separate target clone is untouched and keeps the real JieLi instructions.
+          # Compact target may compile out keyboard/encoder frame helpers.
+          # Preserve historical limits when emitted, but do not fail the audio
+          # budget solely because these optional symbols are absent.
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("tests/target_budget.py")
+          s = p.read_text()
+          old = 'OPTIONAL = {"digital_render": 12, "digital_render_legacy": 333, "digital_render_custom": 558,\n            "uac_tap48": 504}'
+          new = 'OPTIONAL = {"digital_render": 12, "digital_render_legacy": 333, "digital_render_custom": 558,\n            "uac_tap48": 504, "fm1__frame": 134, "fm1__keys": 204}'
+          if old not in s and new not in s:
+              raise SystemExit("target_budget.py OPTIONAL anchor changed; refusing patch")
+          if old in s:
+              p.write_text(s.replace(old, new))
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
+          for name in ("firmware/hal/fm1_usb.h", "firmware/hal/fm1_uart.h"):
+              p = Path(name)
+              s = p.read_text()
+              s = s.replace('__asm__ volatile("csync" ::: "memory");', '__asm__ volatile("" ::: "memory");')
+              s = s.replace('__asm__ volatile("ssync" ::: "memory");', '__asm__ volatile("" ::: "memory");')
+              p.write_text(s)
+          PY
+          out=build/hybrid-audio-tests
+          mkdir -p "$out" build/fx_demo
+          cc -DFM_HOST -O2 -w -Ibuild/gen -Ifirmware/src -o "$out/hostsim" tests/hostsim.c -lm
+          "$out/hostsim" 0 0 1 "$out/render.wav"
+          cc -DFM_HOST -O1 -w -Ibuild/gen -Ifirmware/src -o "$out/midi_control_test" tests/midi_control_test.c -lm
+          "$out/midi_control_test"
+          cc -DFM_HOST -w -Ibuild/gen -Ifirmware/src -o "$out/audio_test" tests/audio_test.c -lm
+          "$out/audio_test"
+          cc -DFM_HOST -O2 -w -Ibuild/gen -Ifirmware/src -o "$out/regress" tests/regress.c -lm
+          "$out/regress" tests/golden.txt tests/cpu_baseline.txt
+
+          cc -DFM_HOST -O2 -w -Ibuild/gen -Ifirmware/src -o "$out/reverb_test" tests/reverb_test.c -lm
+          "$out/reverb_test" build/fx_demo
+          cc -DFM_HOST -O2 -w -Ibuild/gen -Ifirmware/src -o "$out/tape_test" tests/tape_test.c -lm
+          "$out/tape_test"
+          python3 tests/target_budget.py build/felucca.dis tests/target_budget.txt
       - name: Checkout upstream sources
         run: |
           git clone --depth 1 --branch smk37 https://github.com/genkigenki/fm1-amb.git "$RUNNER_TEMP/amb"
           git clone --depth 1 --branch smk37 https://github.com/genkigenki/fm1-dub.git "$RUNNER_TEMP/dub"
           git clone --depth 1 --branch smk37 https://github.com/genkigenki/zen-1.git "$RUNNER_TEMP/zen"
           git clone --depth 1 --branch ghoulbox-smk37 https://github.com/genkigenki/Felucca.git "$RUNNER_TEMP/Felucca"
+      - name: Test original AMB, DUB and ZEN DSP render and note paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd "$RUNNER_TEMP/amb" && cc -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wdouble-promotion -Werror -DEN_HOST -DBOARD_SMK37=1 -Ifirmware/src/dsp -o "$RUNNER_TEMP/amb-dsp-test" tests/host/amb_test.c firmware/src/dsp/amb.c -lm && "$RUNNER_TEMP/amb-dsp-test")
+          (cd "$RUNNER_TEMP/dub" && cc -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wdouble-promotion -Werror -DEN_HOST -DBOARD_SMK37=1 -Ifirmware/src/dsp -o "$RUNNER_TEMP/dub-dsp-test" tests/host/amb_test.c firmware/src/dsp/amb.c -lm && "$RUNNER_TEMP/dub-dsp-test")
+          (cd "$RUNNER_TEMP/zen" && cc -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Werror -Wno-unused-function -DFM_HOST -Ifirmware/src/dsp -o "$RUNNER_TEMP/zen-dsp-test" tests/host/zen_test.c -lm && "$RUNNER_TEMP/zen-dsp-test")
       - name: Compile DSP objects and patch final AC79 link
         run: |
           python3 tools/ac79_link_engines.py \
@@ -96,13 +189,32 @@ jobs:
             --zen "$RUNNER_TEMP/zen/firmware/src/dsp" \
             --felucca "$RUNNER_TEMP/Felucca" \
             --toolchain "$JIELI_TOOLCHAIN"
+      - name: Exercise real DSP symbols through HYBRID adapters (no stubs)
+        run: python3 tools/test_native_adapters_host.py "$RUNNER_TEMP/amb" "$RUNNER_TEMP/dub" "$RUNNER_TEMP/zen"
       - name: Build SMK-37 package with DSP objects
         working-directory: ${{ runner.temp }}/Felucca
         env:
           BOARD: smk37
           MODEL: pro
           JIELI_TOOLCHAIN: ${{ env.JIELI_TOOLCHAIN }}
+          # Keep the four DSP engines; drop optional USB CDC/UAC peripherals to recover XIP.
+          FELUCCA_CDC: "0"
+          FELUCCA_UAC: "0"
+          FELUCCA_ICONS: "0"
         run: python3 tools/build.py --board smk37 --model pro --sdk "$AC79_SDK"
+      - name: Verify real AC79 DSP symbols and exclude host stubs
+        working-directory: ${{ runner.temp }}/Felucca
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$JIELI_TOOLCHAIN/common/bin/objdump" -t build/felucca.elf > "$RUNNER_TEMP/hybrid-linked-symbols.txt"
+          for symbol in amb_en_render dub_en_render zen_fm_render hybrid_audio_process hybrid_audio_panic hybrid_midi_out_event en_midi_out fm_midi_out; do
+            grep -Eq "[[:space:]]${symbol}$" "$RUNNER_TEMP/hybrid-linked-symbols.txt" || { echo "::error::Missing linked native symbol: $symbol"; exit 1; }
+          done
+          if grep -q 'native_port_stubs' build/felucca.map; then
+            echo '::error::Host native_port_stubs object leaked into AC79 target link'
+            exit 1
+          fi
       - name: Collect linker maps and section diagnostics
         if: always()
         shell: bash
@@ -112,6 +224,10 @@ jobs:
           cp "$RUNNER_TEMP/"*baseline* "$RUNNER_TEMP/ac79-diagnostics/" 2>/dev/null
           cp "$RUNNER_TEMP/hybrid-"* "$RUNNER_TEMP/ac79-diagnostics/" 2>/dev/null
           cp "$RUNNER_TEMP/Felucca/build/felucca.map" "$RUNNER_TEMP/ac79-diagnostics/" 2>/dev/null
+          if [ -f "$RUNNER_TEMP/Felucca/build/felucca.elf" ]; then
+            "$JIELI_TOOLCHAIN/common/bin/objdump" -h "$RUNNER_TEMP/Felucca/build/felucca.elf" > "$RUNNER_TEMP/ac79-diagnostics/hybrid-final-sections.txt"
+            "$JIELI_TOOLCHAIN/common/bin/objdump" -t "$RUNNER_TEMP/Felucca/build/felucca.elf" > "$RUNNER_TEMP/ac79-diagnostics/hybrid-final-symbols.txt"
+          fi
           cp "$RUNNER_TEMP/Felucca/build/hybrid/"*.map "$RUNNER_TEMP/ac79-diagnostics/" 2>/dev/null
           cd "$RUNNER_TEMP/Felucca"
           if [ -f build/felucca.o ] && [ -f build/hybrid/amb.o ]; then
@@ -192,15 +308,22 @@ jobs:
         working-directory: ${{ runner.temp }}/Felucca
         run: |
           set -euo pipefail
-          "$JIELI_TOOLCHAIN/common/bin/objdump" -t build/felucca.elf > "$RUNNER_TEMP/felucca-symbols.txt"
-          python3 "$GITHUB_WORKSPACE/tools/ac79_profile_report.py" --symbols "$RUNNER_TEMP/felucca-symbols.txt" --output build/hybrid/AC79-PROFILE-REPORT.md
-      - name: Upload linked AC79 package and profiling report
+          "$JIELI_TOOLCHAIN/common/bin/objdump" -h build/felucca.elf > "$RUNNER_TEMP/felucca-sections.txt"
+          python3 "$GITHUB_WORKSPACE/tools/ac79_profile_report.py" --sections "$RUNNER_TEMP/felucca-sections.txt" --output build/hybrid/AC79-PROFILE-REPORT.md
+      - name: Mark AC79 output as validation-only (GHOULBOX package identity)
+        working-directory: ${{ runner.temp }}/Felucca
+        run: |
+          printf '%s\n' 'VALIDATION ONLY: the build still uses the upstream SMK-37 Pro_900 GHOULBOX package identity. Do not flash this image as a HYBRID release.' > build/hybrid/FLASHING-WARNING.txt
+      - name: Upload integrated AC79 build, map and profiler report (validation only)
         uses: actions/upload-artifact@v4
         with:
-          name: smk37-ac79-dsp-linked-${{ github.sha }}
+          name: smk37-hybrid-ac79-validation-${{ github.sha }}
           path: |
-            ${{ runner.temp }}/Felucca/build/ghoulbox-smk37.fwsc
+            ${{ runner.temp }}/Felucca/build/felucca.elf
+            ${{ runner.temp }}/Felucca/build/felucca.bin
+            ${{ runner.temp }}/Felucca/build/felucca.map
             ${{ runner.temp }}/Felucca/build/hybrid/NAMESPACE-MANIFEST.txt
             ${{ runner.temp }}/Felucca/build/hybrid/AC79-PROFILE-REPORT.md
+            ${{ runner.temp }}/Felucca/build/hybrid/FLASHING-WARNING.txt
           if-no-files-found: error
           retention-days: 7

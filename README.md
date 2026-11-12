@@ -1,42 +1,35 @@
-# SMK-37 HYBRID — common core (integration scaffold)
+# SMK-37 HYBRID — DAW workstation and VOLCA sequencer
 
-Initial isolated common-core implementation for the M-VAVE SMK-37 Pro hybrid firmware.
+The `hybrid-memory-reduction` branch contains the SMK-37 AC79 integration work and a browser DAW-style workstation.
 
-## Included
-- Four engine slots: A=AMB-1, B=DUB-1, C=ZEN-1, D=GHOULBOX.
-- Engine callback contract (init/reset/note/control/render/panic).
-- MIDI routing GLOBAL / ZONE / OFF, channel filter, velocity window and transpose.
-- Per-channel volume, pan, mute and solo.
-- Four-way stereo summing in signed Q15 with output saturation.
-- Sixteen in-memory scenes and optional per-engine 64-byte scene-state hooks.
-- Linear volume/pan transition; discrete controls switch at fade completion.
-- Fixed render quantum up to 128 frames; no heap allocation in audio callback.
+## Current product architecture
 
-## Host test
-```sh
-cc -std=c99 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c tests/test_hybrid_core.c -o test_hybrid_core
-./test_hybrid_core
-```
+- Three original DSPs: AMB-1, DUB-1 and ZEN-1, compiled independently and preserved internally as selectable soundbanks; they are no longer presented as independent instrument panels.
+- Soundbank UI uses source-derived preset names/counts: AMB-1 (8: Garden, Departures, Voices, Afternoon, Night Bus, Shoreline, Glass, Tides), DUB-1 (8: Basic, Chamber, Steppers, Fog, Concrete, Night Drive, Pressure, Haze), ZEN-1 (14 selectable FuMi voices: Koto, Koto II, Sho, Shakuhachi, Dragon Flt, Bamboo Flt, Kokyu, Taiko, Hyoshigi, Mokugyo, Koto Pluck, Koto Ring, Koto Warm, Harp). ZEN-1 has 9 additional scene-layer patches, not part of its main instrument voice selector.
+- Fourth HYBRID mixer slot is now **PCM Sample Player**, not a GHOULBOX instrument.
+- Browser sampler: eight stereo one-shot slots; imports audio files supported by Web Audio (WAV/AIFF/OGG/MP3 in Chromium), resampled by the browser to the active session rate; 20-second limit per slot.
+- DAW-style UI: arrangement view, 8-bar clip overview, shared family chain, transport, BPM, variation A/B, fill, track mute/solo, piano-roll phrase preview, mixer and sample browser.
+- Bounded shared-clock sequencer: 16-step phrases, up to 16 family entries in the chain, internal BPM or external MIDI IN clock at 24 PPQN.
+- Q15 four-channel mixer with per-slot volume, pan, mute, solo and routing.
+- Original native DSP WASM renderers remain the audio sources for AMB/DUB/ZEN. Sample PCM is submitted to the fourth mixer slot before the Q15 mix.
 
-## Integration status and limitations
-This is a tested host-side scaffold, **not a complete firmware image**. It does not yet include or instantiate the AMB-1, DUB-1, ZEN-1 or GHOULBOX engine sources, and has not been built with the JieLi SDK or tested on an SMK-37 Pro.
+## Important limits
 
-Felucca's build compiles `firmware/src/felucca.c` as a single translation unit; integration must include the core in a deliberate location and connect MIDI/key events and the audio callback. Do not map HYBRID slots to GHOULBOX's four internal tracks: GHOULBOX is one engine in slot D, retaining its own internal engines and sequencer.
+The browser's eight sample slots are session-memory only. They are not stored in the SMK-37 flash and do not yet stream from an SD card or external storage. The DAW arrangement currently edits a shared family chain; independent per-track clip patterns, editable piano-roll notes, automation lanes, save/load projects and recording/overdub are future work. The piano roll is a phrase preview, not yet a note editor.
 
-Remaining work includes engine adapters, persistent scene storage/versioning/CRC, per-engine FX, equal-power pan, CPU/polyphony arbitration, audio HAL/DMA integration, and note ownership tracking so zone changes cannot strand sustained notes. Scene hooks currently hold at most 64 bytes per engine.
+The GHOULBOX renderer, program-change controls, GHOULBOX lane and GHOULBOX WASM build have been removed from the browser simulator and its deployment workflow. The AC79 reference build still uses the Felucca board startup/audio base because the current repository does not yet contain a replacement AC79 startup, codec and DMA transport implementation. This is a remaining hardware-firmware dependency, not a HYBRID instrument slot. A fully GHOULBOX-free installable AC79 image is **not** claimed.
 
-## Licensing
-SPDX-License-Identifier: GPL-3.0-only. When importing upstream engine code, retain all copyright, license and third-party notices and verify compatibility for every imported file.
+The AC79 sample slot is reserved in the mixer interface, but the on-device sample-bank loader/player is not implemented yet. Browser sample playback is real PCM through the WebAudio AudioWorklet and HYBRID Q15 mixer; it must not be confused with AC79 sample playback.
 
+## Build and validation
 
-## GitHub Actions: SMK-37 build pipeline
+- `src/hybrid_sequencer.c`: bounded shared-clock sequencer.
+- `src/hybrid_core.c`: Q15 mixer, routing and scenes.
+- `src/hybrid_native_adapters.c`: original AMB/DUB/ZEN AC79 adapters.
+- `simulator/audio-worklet.js`: original DSP WASM renderers and eight-slot PCM sampler.
+- `simulator/index.html`: DAW-style workstation.
+- `tests/test_audio_worklet_browser.js`: Chromium regression for sample imports, non-zero PCM, arrangement, transport, variation, fills and mute/solo.
 
-The workflow `.github/workflows/smk37-hybrid.yml` runs on pushes, pull requests and manual dispatch.
+The latest AC79 ELF baseline previously reported XIP 10,380 B free, RAM 15,056 B, POOL 8,768 B, RAMTEXT 21,540 B and NOINIT 132 B. Those are historical measurements from the earlier linked build; the current source/tool changes require a fresh AC79 run before treating them as current margins. NOINIT and POOL remain critical.
 
-- Compiles and runs the isolated HYBRID core host tests.
-- Downloads the Linux x86-64 JieLi pi32v2 toolchain.
-- Checks out JieLi AC79 SDK `AC79NN_SDK_V1.2.1_2023-12-13`.
-- Checks out the upstream `Felucca` `ghoulbox-smk37` branch and builds its SMK-37 Pro reference package with `tools/build.py --board smk37 --model pro`.
-- Uploads `ghoulbox-smk37.fwsc` as a 14-day Actions artifact, alongside the upstream source commit identifier.
-
-**Important:** this is currently a GHOULBOX reference package build, not an integrated SMK-37 HYBRID firmware. The hybrid core tests do not imply that AMB-1, DUB-1, ZEN-1 and GHOULBOX have been integrated into the device firmware. Do not flash the reference artifact as the HYBRID build.
+A passing browser test proves the browser path only. It does not certify physical-board sample playback, CPU, stack, DMA underruns or an installable GHOULBOX-free AC79 image.

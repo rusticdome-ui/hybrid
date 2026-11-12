@@ -4,8 +4,8 @@
 import argparse, os, re, shutil, subprocess
 from pathlib import Path
 
-CFLAGS = ["-target", "pi32v2", "-Os", "-ffunction-sections", "-fdata-sections",
-          "-fno-builtin", "-Wall", "-Wno-unused-function", "-DBOARD_SMK37=1"]
+CFLAGS = ["-target", "pi32v2", "-mcpu=r3", "-mfprev1", "-ffp-contract=off", "-Oz", "-fno-unroll-loops", "-ffunction-sections", "-fdata-sections",
+          "-fno-common", "-fno-builtin", "-Wall", "-Wno-unused-function", "-DBOARD_SMK37=1"]
 # fumi.c textually includes tuning.c, smooth.c, bend.c, fm6_core.c, fm6_patch.c, reverb.c and bed.c. Compile it once to avoid duplicate definitions.
 ZEN = ("fumi.c",)
 
@@ -38,6 +38,132 @@ def namespace(prefix, objects, nm, objcopy, out):
         tmp.replace(obj)
     return set(mapping.values())
 
+
+
+def replace_once(text, old, new, label):
+    count = text.count(old)
+    if count != 1:
+        raise SystemExit(f"{label}: expected one anchor, found {count}")
+    return text.replace(old, new)
+
+
+def apply_memory_profile(amb, dub, zen, felucca):
+    """Compact profile: preserve the upstream board audio base and three added DSPs."""
+    for root, label in ((amb, "AMB-1"), (dub, "DUB-1")):
+        path = root / "amb.c"
+        src = path.read_text()
+        start = src.find("#define DS(n) (((n) * 14818 + 5000) / 10000)")
+        end = src.find("/* ------------------------------------------------- echo: tape", start)
+        if start < 0 or end < 0:
+            raise SystemExit(f"{label}: Dattorro plate section anchors changed")
+        stubs = """/* HYBRID compact profile: plate reverb is omitted; upstream board audio effects remain available. */
+static float pl_decay = 0.5f, pl_decay_t = 0.5f, pl_dd2 = 0.5f;
+static void plate_init(void) {}
+static inline void reverb(float in, float *ol, float *or_)
+{
+    (void)in;
+    *ol = 0.0f;
+    *or_ = 0.0f;
+}
+
+"""
+        src = src[:start] + stubs + src[end:]
+        src = replace_once(src, "#define TAPE_N 62000", "#define TAPE_N 6200", f"{label} tape capacity")
+        src = replace_once(src, "#define PLEX_N 7100", "#define PLEX_N 4096", f"{label} Echoplex capacity")
+        if label == "DUB-1":
+            src = replace_once(src, "#define CL_LEN 8192", "#define CL_LEN 4096", "DUB cloud capacity")
+        path.write_text(src)
+
+    # ZEN keeps its FM instrument, patches, keyboard voices and its tape/depth tone shaping.
+    # Its optional nature-recording bed/sample bank and private plate are removed in compact mode.
+    fumi = zen / "fumi.c"
+    src = fumi.read_text()
+    src = replace_once(src, '#include "reverb.c"\n', "", "ZEN reverb include")
+    src = replace_once(src, '#include "bed.c"                                   /* (needs BLK) */',
+                       """/* HYBRID compact profile: omit the optional sample/ambience bed. */
+static void plate_init(void) {}
+static void plate_size(float v01) { (void)v01; }
+static inline void reverb(float in, float *ol, float *or_)
+{
+    (void)in;
+    *ol = 0.0f;
+    *or_ = 0.0f;
+}
+static void bed_init(void) {}
+static void bed_control(void) {}
+static void bed_render(float *ml, float *mr) { (void)ml; (void)mr; }
+static void bed_set(int which, int pct) { (void)which; (void)pct; }
+static void bed_mod(int which, int pct) { (void)which; (void)pct; }
+static void bed_style(int which, int style) { (void)which; (void)style; }
+static void shot_start(int i, int seg, int vel, int pan, float rate)
+{ (void)i; (void)seg; (void)vel; (void)pan; (void)rate; }
+static void bed_drop(int vel, int pan, int pad) { (void)vel; (void)pan; (void)pad; }""",
+                       "ZEN bed include")
+    src = replace_once(src, "    bed.drip = 0;                                 /* (and a shower's drips: silence is silence) */\n    for (i = 0; i < BED_DROPS; i++)\n        bed.d[i].left = 0;",
+                      "    /* Optional sample-bed state is absent in HYBRID compact profile. */",
+                      "ZEN quiet bed state")
+    src = replace_once(src, "            for (i = 0; i < FM_NSHOT; i++)              /* and the frogs' calls */\n                bed.shot[i].data = 0;\n            bed.drip = 0;                          /* and a shower's drips (the scene is left) */",
+                      "            /* Optional sample-bed voices are not part of the HYBRID compact profile. */",
+                      "ZEN voice-all-off bed state")
+    src = replace_once(src, "    bed_control();\n    bed_render(mix[0], mix[1]);",
+                      "    /* Optional sample-bed render omitted in HYBRID compact profile. */",
+                      "ZEN bed render")
+    src = replace_once(src, "        case C_BED: bed_set(c.a, c.b); break;\n        case C_BED_MOD: bed_mod(c.a, c.b); break;\n        case C_BED_STYLE: bed_style(c.a, c.b); break;\n        case C_FROG: shot_start(c.a, c.b, c.vel, c.pan, c.f); break;\n        case C_DROP: bed_drop(c.vel, c.pan, c.what); break;",
+                      "        case C_BED: case C_BED_MOD: case C_BED_STYLE: case C_FROG: case C_DROP: break;",
+                      "ZEN bed command dispatch")
+    fumi.write_text(src)
+
+    # Reduce GHOULBOX's shared delay/HALL ring to half size, scaling every HALL tap and base.
+    fx = felucca / "firmware/src/fx.c"
+    src = fx.read_text()
+    src = replace_once(src, "#define DLY_LEN 65536u", "#define DLY_LEN 32768u", "GHOULBOX delay capacity")
+    replacements = {
+        "static const uint16_t HL_D[H_N] = {2792, 189, 142, 504, 368, 917, 5922, 2394, 4948, 1231, 5609, 3532, 4207};":
+        "static const uint16_t HL_D[H_N] = {1368, 93, 70, 247, 180, 449, 2902, 1173, 2425, 603, 2748, 1731, 2061};",
+        "#define HL_B_I1 2793u": "#define HL_B_I1 1369u",
+        "#define HL_B_I2 2983u": "#define HL_B_I2 1463u",
+        "#define HL_B_I3 3126u": "#define HL_B_I3 1534u",
+        "#define HL_B_I4 3631u": "#define HL_B_I4 1782u",
+        "#define HL_B_AL 4000u": "#define HL_B_AL 1963u",
+        "#define HL_B_D1L 4918u": "#define HL_B_D1L 2413u",
+        "#define HL_B_APL 10841u": "#define HL_B_APL 5316u",
+        "#define HL_B_D2L 13236u": "#define HL_B_D2L 6490u",
+        "#define HL_B_AR 18185u": "#define HL_B_AR 8916u",
+        "#define HL_B_D1R 19417u": "#define HL_B_D1R 9520u",
+        "#define HL_B_APR 25027u": "#define HL_B_APR 12269u",
+        "#define HL_B_D2R 28560u": "#define HL_B_D2R 14001u",
+        "#define HL_AL 894u": "#define HL_AL 438u",
+        "#define HL_AR 1208u": "#define HL_AR 592u",
+        "#define HL_EXC 21": "#define HL_EXC 10",
+        "_Static_assert(HL_B_D2R + 4207u + 1u == DLY_LEN / 2u, \"HALL's lines fill the back half of dly_buf\");":
+        "_Static_assert(HL_B_D2R + 2061u + 1u <= DLY_LEN / 2u, \"HALL's compact lines fit the back half of dly_buf\");"
+    }
+    for old, new in replacements.items():
+        src = replace_once(src, old, new, "GHOULBOX HALL compact geometry")
+    fx.write_text(src)
+
+    # Place HYBRID object .bss in POOL, leaving the scarce 96 KiB RAM for Felucca itself.
+    ld = felucca / "firmware/app.ld"
+    src = ld.read_text()
+    old = """    .bss (NOLOAD) : { _bss_start = .; *(.bss*) *(.sbss*) *(COMMON) . = ALIGN(4); _bss_end = .; } > RAM
+    .pool (NOLOAD) : { _pool_start = .; *(.pool*) . = ALIGN(4); _pool_end = .; } > POOL"""
+    new = """    .pool (NOLOAD) : {
+        _pool_start = .;
+        *(.pool*)
+        build/hybrid/amb.o(.bss* COMMON)
+        build/hybrid/dub.o(.bss* COMMON)
+        build/hybrid/fumi.o(.bss* COMMON)
+        build/hybrid/hybrid_core.o(.bss* COMMON)
+        build/hybrid/hybrid_native_adapters.o(.bss* COMMON)
+        build/hybrid/hybrid_profile.o(.bss* COMMON)
+        build/hybrid/hybrid_sequencer.o(.bss* COMMON)
+        . = ALIGN(4); _pool_end = .;
+    } > POOL
+    .bss (NOLOAD) : { _bss_start = .; *(.bss*) *(.sbss*) *(COMMON) . = ALIGN(4); _bss_end = .; } > RAM"""
+    src = replace_once(src, old, new, "Felucca linker HYBRID BSS placement")
+    ld.write_text(src)
+
+
 def main():
     p=argparse.ArgumentParser()
     p.add_argument("--amb",type=Path,required=True)
@@ -68,6 +194,16 @@ def main():
         [tc/"pi32v2/bin/llvm-objcopy",*tc.rglob("llvm-objcopy")],"llvm-objcopy")
     if not clang.is_file(): raise SystemExit(f"missing JieLi compiler: {clang}")
     out=a.felucca/"build/hybrid"; out.mkdir(parents=True,exist_ok=True)
+    apply_memory_profile(a.amb, a.dub, a.zen, a.felucca)
+    # Compact the native GHOULBOX translation unit as well as the added DSPs.
+    build_py=a.felucca/"tools/build.py"
+    build_src=build_py.read_text()
+    build_src=replace_once(build_src,
+        'CFLAGS = ["-Os", "-ffunction-sections", "-fno-builtin", "-Wall", "-Wno-unused-function"]',
+        'CFLAGS = ["-mcpu=r3", "-mfprev1", "-ffp-contract=off", "-Oz", "-fno-unroll-loops", "-ffunction-sections", "-fdata-sections", "-fno-builtin", "-Wall", "-Wno-unused-function"]',
+        "Felucca size-optimized section flags")
+    build_py.write_text(build_src)
+
     fwsrc,hal=a.felucca/"firmware/src",a.felucca/"firmware/hal"
     amb_obj,dub_obj=out/"amb.o",out/"dub.o"
     compile_one(clang,a.amb/"amb.c",amb_obj,[a.amb,fwsrc,hal])
@@ -88,9 +224,11 @@ def main():
     hybrid_core_obj=out/"hybrid_core.o"
     hybrid_adapter_obj=out/"hybrid_native_adapters.o"
     hybrid_profile_obj=out/"hybrid_profile.o"
+    hybrid_seq_obj=out/"hybrid_sequencer.o"
     compile_one(clang,a.hybrid/"src/hybrid_core.c",hybrid_core_obj,[hybrid_inc,fwsrc,hal])
     compile_one(clang,a.hybrid/"src/hybrid_native_adapters.c",hybrid_adapter_obj,[hybrid_inc,fwsrc,hal])
     compile_one(clang,a.hybrid/"src/hybrid_profile.c",hybrid_profile_obj,[hybrid_inc,fwsrc,hal])
+    compile_one(clang,a.hybrid/"src/hybrid_sequencer.c",hybrid_seq_obj,[hybrid_inc,fwsrc,hal])
 
     required={"amb_en_init","amb_en_set","amb_en_play","amb_en_render","amb_en_panic",
               "dub_en_init","dub_en_set","dub_en_play","dub_en_render","dub_en_panic",
@@ -106,6 +244,7 @@ def main():
        OUT / "felucca.o", OUT / "hybrid" / "amb.o", OUT / "hybrid" / "dub.o",
        {zen_link_args}, OUT / "hybrid" / "hybrid_core.o",
        OUT / "hybrid" / "hybrid_native_adapters.o", OUT / "hybrid" / "hybrid_profile.o",
+       OUT / "hybrid" / "hybrid_sequencer.o",
        "-Map", OUT / "felucca.map", "-o", elf)"""
     if replacement not in src:
         if src.count(anchor)!=1:
@@ -122,11 +261,14 @@ def main():
 
     audio_c=a.felucca/"firmware/src/audio.c"
     patch_source(audio_c, "/* registers: hal/fm1_audio.h */",
-                 "/* registers: hal/fm1_audio.h */\nextern void hybrid_audio_process(int32_t *, uint32_t, int32_t);\nextern void hybrid_profile_begin(int);\nextern void hybrid_profile_end(int, uint32_t);\nextern void hybrid_profile_underrun(void);",
+                 "/* registers: hal/fm1_audio.h */\nextern void hybrid_audio_process(int32_t *, uint32_t, int32_t);\nextern void hybrid_profile_begin(int);\nextern void hybrid_profile_end(int, uint32_t);\nextern void hybrid_profile_underrun(void);\nextern void hybrid_audio_seq_process(uint32_t);",
                  "audio.c declaration")
     patch_source(audio_c, "    mix_block(out, n);",
-                 "    hybrid_profile_begin(3);\n    mix_block(out, n);\n    hybrid_profile_end(3, n);\n    hybrid_audio_process(out, n, fx_usb_fixed ? MASTER_FULL : (int32_t)song.master_q12);",
+                 "    hybrid_audio_seq_process(n);\n    hybrid_profile_begin(3);\n    mix_block(out, n);\n    hybrid_profile_end(3, n);\n    hybrid_audio_process(out, n, fx_usb_fixed ? MASTER_FULL : (int32_t)song.master_q12);",
                  "audio.c mixer hook")
+    patch_source(audio_c, "        if (fm1_audio_free_half() != half)\n            felucca_dbg.late++;",
+                 "        if (fm1_audio_free_half() != half) {\n            felucca_dbg.late++;\n            hybrid_profile_underrun();\n        }",
+                 "audio.c DMA underrun profiler hook")
 
     main_c=a.felucca/"firmware/src/main.c"
     patch_source(main_c, "static void felucca_init(void)",
@@ -136,10 +278,54 @@ def main():
                  "    gb_scene_load(ui_scene);\n    (void)hybrid_audio_init();",
                  "main.c engine init")
 
+    usb_c=a.felucca/"firmware/src/usb.c"
+    patch_source(usb_c, "    mo_w++;\n    }\n}\n\n/* ------------------------------------------------------- descriptors --- */",
+                 "    mo_w++;\n    }\n}\n\nvoid hybrid_midi_out_event(uint32_t pkt) { midi_out_event(pkt); }\n\n/* ------------------------------------------------------- descriptors --- */",
+                 "USB MIDI output bridge")
+
     seq_c=a.felucca/"firmware/src/seq.c"
     patch_source(seq_c, "static void keyboard_block(void)",
-                 "extern void hybrid_audio_note_on(uint8_t, uint8_t);\nextern void hybrid_audio_note_off(uint8_t);\n\nstatic void keyboard_block(void)",
+                 "extern void hybrid_audio_note_on(uint8_t, uint8_t);\nextern void hybrid_audio_note_off(uint8_t);\nextern void hybrid_audio_panic(void);\nextern void hybrid_audio_seq_sync(uint8_t, uint16_t, uint8_t);\n\nstatic void keyboard_block(void)",
                  "seq.c declarations")
+    patch_source(seq_c, "    if (midi_route != (uint8_t)song.g[G_ROUTE]) {",
+                 "    hybrid_audio_seq_sync((uint8_t)song.playing, (uint16_t)song.g[G_BPM], (uint8_t)song.g[G_CLOCK]);\n    if (midi_route != (uint8_t)song.g[G_ROUTE]) {",
+                 "seq.c shared transport and BPM sync")
+    midi_clock_c=a.felucca/"firmware/src/midi_clock.c"
+    patch_source(midi_clock_c, "static __attribute__((noinline)) void midi_clock_transport(uint32_t status, uint32_t ms)\n{",
+                 "extern void hybrid_audio_seq_clock_pulse(void);\nextern void hybrid_audio_seq_sync(uint8_t, uint16_t, uint8_t);\nstatic __attribute__((noinline)) void midi_clock_transport(uint32_t status, uint32_t ms)\n{",
+                 "midi_clock.c VOLCA clock and transport declarations")
+    patch_source(midi_clock_c, "        seq_start();\n    } else if (status == 0xFBu)",
+                 "        seq_start();\n        hybrid_audio_seq_sync((uint8_t)song.playing, (uint16_t)song.g[G_BPM], (uint8_t)song.g[G_CLOCK]);\n    } else if (status == 0xFBu)",
+                 "midi_clock.c external Start sync")
+    patch_source(midi_clock_c, "        song.playing = 1;\n    } else if (status == 0xFCu)",
+                 "        song.playing = 1;\n        hybrid_audio_seq_sync((uint8_t)song.playing, (uint16_t)song.g[G_BPM], (uint8_t)song.g[G_CLOCK]);\n    } else if (status == 0xFCu)",
+                 "midi_clock.c external Continue sync")
+    patch_source(midi_clock_c, "        seq_stop();\n    }\n}",
+                 "        seq_stop();\n        hybrid_audio_seq_sync((uint8_t)song.playing, (uint16_t)song.g[G_BPM], (uint8_t)song.g[G_CLOCK]);\n    }\n}",
+                 "midi_clock.c external Stop sync")
+    patch_source(midi_clock_c, "static __attribute__((noinline)) void midi_clock_pulse(uint32_t ms)\n{\n    uint32_t q;",
+                 "static __attribute__((noinline)) void midi_clock_pulse(uint32_t ms)\n{\n    uint32_t q;\n    hybrid_audio_seq_clock_pulse();",
+                 "midi_clock.c external clock forwarding")
+    patch_source(seq_c, "    for (i = 0; i < NTRK; i++) {\n        track_t *t = &trk[i];\n        if (((pr >> i) & 1u)",
+                 "    if (pr) hybrid_audio_panic();\n    for (i = 0; i < NTRK; i++) {\n        track_t *t = &trk[i];\n        if (((pr >> i) & 1u)",
+                 "seq.c panic propagation")
+
+    midi_control_c=a.felucca/"firmware/src/midi_control.c"
+    patch_source(midi_control_c, "typedef struct {",
+                 "extern void hybrid_audio_midi_note_on(uint8_t, uint8_t, uint8_t);\nextern void hybrid_audio_midi_note_off(uint8_t, uint8_t);\nextern void hybrid_audio_midi_panic(uint8_t);\n\ntypedef struct {",
+                 "midi_control.c native MIDI declarations")
+    patch_source(midi_control_c,
+                 "        if (!midi_local_held(&trk[id - 1u], nn[i]))\n                input_off(&trk[id - 1u], nn[i]);",
+                 "        if (!midi_local_held(&trk[id - 1u], nn[i])) {\n                input_off(&trk[id - 1u], nn[i]);\n                hybrid_audio_midi_note_off(nn[i], (uint8_t)ch);\n            }",
+                 "MIDI note-off propagation")
+    patch_source(midi_control_c,
+                 "        if (!midi_note_held(t, nn[i]) && !midi_local_held(t, nn[i]))\n            input_on(t, nn[i], vel);",
+                 "        if (!midi_note_held(t, nn[i]) && !midi_local_held(t, nn[i])) {\n            input_on(t, nn[i], vel);\n            hybrid_audio_midi_note_on(nn[i], (uint8_t)vel, (uint8_t)ch);\n        }",
+                 "MIDI note-on propagation")
+    patch_source(midi_control_c,
+                 "        for (i = 0; i < NTRK; i++)\n            if (mask & (1u << i))\n                midi_silence_track(i);\n        break;",
+                 "        for (i = 0; i < NTRK; i++)\n            if (mask & (1u << i))\n                midi_silence_track(i);\n        hybrid_audio_midi_panic((uint8_t)ch);\n        break;",
+                 "MIDI CC120 propagation")
     patch_source(seq_c, "            key_on(k, &trk[kb_trk[k]]);",
                  "            key_on(k, &trk[kb_trk[k]]);\n            hybrid_audio_note_on(kb_note[k], (uint8_t)key_on_v);",
                  "seq.c note-on")
@@ -148,9 +334,9 @@ def main():
                  "seq.c note-off")
 
     (out/"NAMESPACE-MANIFEST.txt").write_text(
-        "Exported DSP globals: "+str(len(exports))+"\nObjects: "+", ".join(x.name for x in [amb_obj,dub_obj,*zen_objs,hybrid_core_obj,hybrid_adapter_obj,hybrid_profile_obj])+"\n")
+        "Exported DSP globals: "+str(len(exports))+"\nObjects: "+", ".join(x.name for x in [amb_obj,dub_obj,*zen_objs,hybrid_core_obj,hybrid_adapter_obj,hybrid_profile_obj,hybrid_seq_obj])+"\n")
     print("DSP objects compiled, namespaced and added to Felucca's final AC79 link.")
-    print("HYBRID mixer hooks installed: GHOULBOX native mix plus AMB-1, DUB-1 and ZEN-1 overlays.")
-    print("AC79 runtime profiler linked: per-engine TIMER4 timing, stack samples, buffer registration and DMA underruns.")
+    print("HYBRID mixer hooks installed: AMB-1, DUB-1 and ZEN-1 overlays; fourth HYBRID slot reserved for sample PCM.")
+    print("AC79 runtime profiler linked: per-engine and sequencer TIMER4 timing, stack samples, buffer registration and DMA underruns.")
 
 if __name__=="__main__": main()

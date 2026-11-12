@@ -1,0 +1,171 @@
+name: Deploy SMK-37 HYBRID Virtual Lab
+on:
+  workflow_dispatch:
+  push:
+    branches: [hybrid-memory-reduction]
+    paths:
+      - "simulator/**"
+      - "src/hybrid_core.c"
+      - "include/hybrid_core.h"
+      - "tests/test_hybrid_wasm_bridge.c"
+      - "tests/test_audio_worklet_browser.js"
+      - "tests/test_dx7_fm6_wasm.js"
+      - ".github/workflows/deploy-simulator.yml"
+  pull_request:
+    paths:
+      - "simulator/**"
+      - "src/hybrid_core.c"
+      - "include/hybrid_core.h"
+      - "tests/test_hybrid_wasm_bridge.c"
+      - "tests/test_audio_worklet_browser.js"
+      - ".github/workflows/deploy-simulator.yml"
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  # A PR validation must not cancel the branch push that publishes Pages.
+  group: pages-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Emscripten for the MSFA FM6/DX7 renderer
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.64
+          actions-cache-folder: emsdk-cache
+      - name: Build the real MSFA six-operator DX7 WebAssembly engine
+        run: |
+          set -euxo pipefail
+          em++ -O3 -std=c++14 -fno-exceptions -fno-rtti \
+            -I simulator/dx7 -I simulator/dx7/msfa \
+            simulator/dx7/dx7_bridge.cpp \
+            simulator/dx7/msfa/synth_unit.cc simulator/dx7/msfa/ringbuffer.cc \
+            simulator/dx7/msfa/patch.cc simulator/dx7/msfa/lfo.cc \
+            simulator/dx7/msfa/dx7note.cc simulator/dx7/msfa/freqlut.cc \
+            simulator/dx7/msfa/sin.cc simulator/dx7/msfa/exp2.cc \
+            simulator/dx7/msfa/fm_core.cc simulator/dx7/msfa/pitchenv.cc \
+            simulator/dx7/msfa/env.cc simulator/dx7/msfa/fm_op_kernel.cc \
+            simulator/dx7/msfa/tuning.cc \
+            -s STANDALONE_WASM=1 -s ALLOW_MEMORY_GROWTH=1 \
+            -s INITIAL_MEMORY=33554432 -s STACK_SIZE=262144 -s FILESYSTEM=0 \
+            -Wl,--no-entry -Wl,--export=dx7_init -Wl,--export=dx7_bank_ptr \
+            -Wl,--export=dx7_load_bank -Wl,--export=dx7_select_program \
+            -Wl,--export=dx7_midi -Wl,--export=dx7_panic \
+            -Wl,--export=dx7_render -Wl,--export=dx7_output_ptr \
+            -Wl,--export-memory -o simulator/dx7_fm6.wasm
+          test -s simulator/dx7_fm6.wasm
+          node tests/test_dx7_fm6_wasm.js
+      - name: Install WebAssembly linker and verify toolchain
+        run: |
+          set -eux
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends lld zip
+          command -v cc
+          command -v clang
+          command -v wasm-ld
+          command -v node
+          command -v zip
+          cc --version
+          clang --version
+          wasm-ld --version
+          node --version
+      - name: Test real C mixer and bridge on host
+        run: |
+          set -eux
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c tests/test_hybrid_core.c -o /tmp/test_hybrid_core
+          /tmp/test_hybrid_core
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c tests/test_hybrid_stress.c -o /tmp/test_hybrid_stress
+          /tmp/test_hybrid_stress
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Itests/fakes -Iinclude src/hybrid_profile.c tests/test_hybrid_profile.c -o /tmp/test_hybrid_profile
+          /tmp/test_hybrid_profile
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c simulator/wasm_bridge.c tests/test_hybrid_wasm_bridge.c -o /tmp/test_hybrid_wasm_bridge
+          /tmp/test_hybrid_wasm_bridge
+      - name: Validate MSFA DX7 source and AudioWorklet JavaScript
+        run: |
+          set -euxo pipefail
+          node --check simulator/audio-worklet.js
+          node --check simulator/dx7-factory-banks.js
+          node tests/test_dx7_fm6_wasm.js
+      - name: Compile and execute browser WebAssembly core
+        run: |
+          set -eux
+          clang --target=wasm32 -O2 -std=c99 -nostdlib -fno-builtin -Iinclude src/hybrid_core.c simulator/wasm_bridge.c \
+            -Wl,--no-entry -Wl,--export-all -Wl,--export-memory \
+            -Wl,--initial-memory=2097152 -Wl,--max-memory=16777216 -Wl,-z,stack-size=65536 \
+            -o simulator/hybrid_core.wasm
+          node -e "const fs=require('fs');(async()=>{const r=await WebAssembly.instantiate(fs.readFileSync('simulator/hybrid_core.wasm'),{});const e=r.instance.exports;if(e.hybrid_wasm_init()!==0)throw Error('core init');e.hybrid_wasm_note_on(60,100,0);if(e.hybrid_wasm_process(64)!==0)throw Error('render');const p=e.hybrid_wasm_output_ptr()>>>2;const a=new Int32Array(e.memory.buffer,p,128);if(!a.some(x=>x!==0))throw Error('silent mixer output');console.log('WASM core smoke PASS; exports:',Object.keys(e).length)})().catch(e=>{console.error(e);process.exit(1)})"
+      - name: Install Playwright Chromium for real AudioWorklet browser test
+        run: |
+          set -eux
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Validate AudioWorklet in headless Chromium
+        run: node tests/test_audio_worklet_browser.js
+      - name: Package standalone virtual lab
+        run: |
+          set -eux
+          test -s simulator/index.html
+          test -s simulator/hybrid_core.wasm
+          test -s simulator/dx7_fm6.wasm
+          (cd simulator && zip -9 -r ../smk37-hybrid-virtual-lab.zip index.html audio-worklet.js dx7-factory-banks.js dx7_fm6.wasm hybrid_core.wasm README.md dx7)
+          test -s smk37-hybrid-virtual-lab.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: smk37-hybrid-virtual-lab
+          path: simulator/
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: smk37-hybrid-virtual-lab-zip
+          path: smk37-hybrid-virtual-lab.zip
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'pull_request'
+        with:
+          name: hybrid-wasm-pr-validation
+          path: simulator/hybrid_core.wasm
+      - uses: actions/upload-pages-artifact@v4
+        if: github.event_name != 'pull_request'
+        with:
+          path: simulator
+  deploy:
+    needs: build-test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Preflight GitHub Pages and deployment artifact
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pages = await github.rest.repos.getPages({ owner, repo });
+            core.info(`Pages API enabled; build_type=${pages.data.build_type || "unknown"}`);
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner, repo, run_id: context.runId
+            });
+            const artifact = artifacts.data.artifacts.find(a => a.name === "github-pages" && !a.expired);
+            if (!artifact) {
+              core.setFailed("Required github-pages artifact is missing or expired.");
+              return;
+            }
+            core.info(`Found github-pages artifact id=${artifact.id}, size=${artifact.size_in_bytes} bytes`);
+      - uses: actions/configure-pages@v5
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages
