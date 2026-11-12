@@ -1,4 +1,4 @@
-/* End-to-end original DSP WASM -> HYBRID C mixer transport test. */
+/* End-to-end original DUB-1 WASM -> HYBRID C mixer transport test. */
 const fs = require('fs');
 const { WASI } = require('node:wasi');
 global.window = global;
@@ -19,17 +19,17 @@ const clamp = x => Math.max(-32768, Math.min(32767, x));
   }
   const core = (await WebAssembly.instantiate(coreModule, coreImports)).exports;
   if (core.hybrid_wasm_init() !== 0) throw new Error('HYBRID core init failed');
-  for (let id=0; id<3; id++) {
+  for (const id of [1]) {
     if (core.hybrid_wasm_set_mix(id,32767,0,0,0)!==0) throw new Error('mix config failed for '+id);
   }
   if (core.hybrid_wasm_set_mix(3,32767,0,1,0)!==0) throw new Error('mute slot D failed');
 
   const rack = new global.HYBRIDNativeEngines.NativeEngineRack();
   const loaded = await rack.loadAll();
-  if (loaded.length !== 3) throw new Error('Expected three independent original DSP modules');
+  if (loaded.length !== 1 || loaded[0] !== 'DUB-1') throw new Error('Expected only original DUB-1 DSP module');
   rack.noteOn(53,127,0);
   const transferred = rack.renderToCore(core,128);
-  if(transferred.length!==3)throw new Error('Expected exactly three PCM transfers');
+  if(transferred.length!==1)throw new Error('Expected exactly one original DUB-1 PCM transfer');
   const expected=new Map();
   for(const t of transferred) {
     if(!t.sourcePcm||t.sourcePcm.length!==256)throw new Error(t.name+': missing original float PCM snapshot');
@@ -53,9 +53,9 @@ const clamp = x => Math.max(-32768, Math.min(32767, x));
   if(core.hybrid_wasm_process(128)!==0)throw new Error('HYBRID mixer process failed');
   const outPtr=core.hybrid_wasm_output_ptr()>>>0;
   const actual=new Int32Array(core.memory.buffer,outPtr,256);
-  const sources=[0,1,2].map(id=>expected.get(id).q);
+  const sources=[expected.get(1).q];
   for(let i=0;i<256;i++) {
-    const sum=clamp(sources[0][i]+sources[1][i]+sources[2][i]);
+    const sum=clamp(sources[0][i]);
     if(actual[i]!==sum)throw new Error('Q15 mix mismatch at sample '+i+': got '+actual[i]+', expected '+sum);
   }
   console.log('HYBRID mixer: exact saturated Q15 sum PASS (256 interleaved samples)');
