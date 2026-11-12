@@ -22,7 +22,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     super();
     this.ready=false;this.failed=false;this.rack=null;this.core=null;this.pendingMessages=[];this.sampleSlots=Array(8).fill(null);this.sampleVoices=Array(8).fill(null);this.sampleTriggers=0;
     this.count=0;this.underruns=0;this.lateCallbacks=0;this.renderOverrunCandidates=0;this.lastTime=0;this.maxJitter=0;this.jitter=[];
-    this.maxRender=0;this.rackMax=0;this.mixerMax=0;this.rackTotal=0;this.mixerTotal=0;this.seqMax=0;this.seqTotal=0;this.seqSteps=0;this.seqClockTicks=0;this.seqLaneEvents=[0,0,0,0];this.period=128/sampleRate*1000;this.outputViews=new Map();this.volca={running:false,bpm:120,clockPhase:0,clockDivider:0,step:0,chain:[0],chainPosition:0,variation:0,fill:false,externalClock:false,muteMask:0,soloMask:0,active:[0,0,0,0]};
+    this.maxRender=0;this.rackMax=0;this.mixerMax=0;this.rackTotal=0;this.mixerTotal=0;this.seqMax=0;this.seqTotal=0;this.seqSteps=0;this.seqClockTicks=0;this.seqLaneEvents=[0,0,0,0];this.period=128/sampleRate*1000;this.outputViews=new Map();this.volca={running:false,bpm:120,clockPhase:0,clockDivider:0,step:0,chain:[0],chainPosition:0,variation:0,fill:false,externalClock:false,muteMask:5,soloMask:0,active:[0,0,0,0]};
     this.port.onmessage=e=>this.message(e.data);
     this.initialize(options.processorOptions?.wasmBytes).catch(err=>{
       this.failed=true;this.port.postMessage({type:'error',message:err.message});
@@ -146,12 +146,12 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     if(m.type==='volcaExternalStop'){this.volcaStop();return;}
     if(m.type==='volcaExternalClock'){this.volcaClockPulse(true);return;}
     if(m.type==='noteOn'){
-      this.rack.noteOn(m.note,m.velocity,m.channel);
-      
+      if(Number.isInteger(m.engine)&&m.engine>=0&&m.engine<3)this.rack.noteOnEngine(m.engine,m.note,m.velocity,m.channel);
+      else this.rack.noteOn(m.note,m.velocity,m.channel);
     }
     else if(m.type==='noteOff'){
-      this.rack.noteOff(m.note,m.channel);
-      
+      if(Number.isInteger(m.engine)&&m.engine>=0&&m.engine<3)this.rack.noteOffEngine(m.engine,m.note,m.channel);
+      else this.rack.noteOff(m.note,m.channel);
     }
     else if(m.type==='panic'){
       this.rack.allNotesOff();
