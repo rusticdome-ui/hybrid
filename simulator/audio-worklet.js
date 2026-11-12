@@ -41,7 +41,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     if(!wasmBytes?.core||!wasmBytes?.dx7||!wasmBytes?.bankData||wasmBytes.bankData.length!==4096)
       throw Error('Missing HYBRID core, FM6/DX7 WASM or 4096-byte DX7 bank');
     const [coreInstance,dx7Instance]=await Promise.all([
-      WebAssembly.instantiate(wasmBytes.core,{}),WebAssembly.instantiate(wasmBytes.dx7,{})
+      WebAssembly.instantiate(wasmBytes.core,{}),WebAssembly.instantiate(wasmBytes.dx7,{env:{emscripten_notify_memory_growth:()=>{}}})
     ]);
     this.core=coreInstance.instance?.exports||coreInstance.exports;
     this.dx7=dx7Instance.instance?.exports||dx7Instance.exports;
