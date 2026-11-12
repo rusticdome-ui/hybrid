@@ -216,13 +216,6 @@ for(let i=0;i<8;i++){
     processor.port.postMessage({type:'sampleTrigger',slot:i,velocity:112});
   });
 }
-if(processor)processor.port.addEventListener('message',e=>{
-  const m=e.data;if(m.type==='sampleLoaded'){
-    $('sampleName'+m.slot).textContent='SAMPLE '+String(m.slot+1).padStart(2,'0')+' · '+m.name;
-    $('dawSampleCount').textContent=(m.samplesLoaded??'')+' / 8 samples carregados';
-  }
-});
-
 document.addEventListener('keydown',e=>{if(e.repeat||['INPUT','SELECT'].includes(e.target.tagName))return;let map={a:60,w:61,s:62,e:63,d:64,f:65,t:66,g:67,y:68,h:69,u:70,j:71,k:72};if(map[e.key.toLowerCase()]!==undefined)noteOn(map[e.key.toLowerCase()])});
 document.addEventListener('keyup',e=>{let map={a:60,w:61,s:62,e:63,d:64,f:65,t:66,g:67,y:68,h:69,u:70,j:71,k:72};if(map[e.key.toLowerCase()]!==undefined)noteOff(map[e.key.toLowerCase()])});
 setInterval(()=>S.forEach((s,i)=>{let v=$('v'+i),m=$('m'+i);if(v)v.textContent=s.voices+' eventos';if(m){m.style.width=clamp(s.peak*100,0,100)+'%';s.peak*=.76}}),100);
