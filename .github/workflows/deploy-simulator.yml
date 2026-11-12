@@ -33,24 +33,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Checkout original AMB-1 source
-        uses: actions/checkout@v4
-        with:
-          repository: genkigenki/fm1-amb
-          ref: smk37
-          path: engines/amb
       - name: Checkout original DUB-1 source
         uses: actions/checkout@v4
         with:
           repository: genkigenki/fm1-dub
           ref: smk37
           path: engines/dub
-      - name: Checkout original ZEN-1 source
-        uses: actions/checkout@v4
-        with:
-          repository: genkigenki/zen-1
-          ref: smk37
-          path: engines/zen
       - name: Install Emscripten for original native renderers
         uses: mymindstorm/setup-emsdk@v14
         with:
@@ -58,19 +46,13 @@ jobs:
           actions-cache-folder: emsdk-cache
       - name: Install original DSP host-renderer build dependencies
         run: python3 -m pip install --user Pillow
-      - name: Build original AMB-1, DUB-1 and ZEN-1 browser renderers
+      - name: Build the original DUB-1 browser renderer
         run: |
           set -euxo pipefail
-          (cd engines/amb && sh web/emu/build.sh)
           (cd engines/dub && sh web/emu/build.sh)
-          (cd engines/zen && sh web/emu/build.sh)
           mkdir -p simulator/native
-          cp engines/amb/build/emu/amb.wasm simulator/native/amb1.wasm
           cp engines/dub/build/emu/amb.wasm simulator/native/dub1.wasm
-          cp engines/zen/build/emu/zen1.wasm simulator/native/zen1.wasm
-          test -s simulator/native/amb1.wasm
           test -s simulator/native/dub1.wasm
-          test -s simulator/native/zen1.wasm
       - name: Install WebAssembly linker and verify toolchain
         run: |
           set -eux
@@ -96,7 +78,7 @@ jobs:
           /tmp/test_hybrid_profile
           cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c simulator/wasm_bridge.c tests/test_hybrid_wasm_bridge.c -o /tmp/test_hybrid_wasm_bridge
           /tmp/test_hybrid_wasm_bridge
-      - name: Validate original DSP renderers and browser adapter
+      - name: Validate original DUB-1 renderer and browser adapter
         run: |
           set -euxo pipefail
           node --check simulator/native-engines.js
@@ -118,8 +100,9 @@ jobs:
           (async()=>{
             const rack=new HYBRIDNativeEngines.NativeEngineRack();
             const loaded=await rack.loadAll();
+            if(loaded.length!==1||loaded[0]!=='DUB-1')throw new Error('Expected only DUB-1');
             for(const e of rack.engines.values()){
-              if(e.id===2)e.exports.web_key(0,1);else e.exports.web_keys(1);
+              e.exports.web_keys(1);
               e.exports.web_render(128);
               const l=new Float32Array(e.exports.memory.buffer,e.exports.web_out_l()>>>0,128);
               const r=new Float32Array(e.exports.memory.buffer,e.exports.web_out_r()>>>0,128);
@@ -130,7 +113,7 @@ jobs:
             console.log('Browser WASI adapter PASS:',loaded.join(', '));
           })().catch(err=>{console.error(err);process.exit(1);});
           NODE
-      - name: Validate MIDI note dispatch and measure original DSP WASM latency
+      - name: Validate DUB-1 MIDI note dispatch and WASM latency
         run: |
           set -euxo pipefail
           node tests/test_native_midi_latency.js
@@ -158,9 +141,7 @@ jobs:
           set -eux
           test -s simulator/index.html
           test -s simulator/hybrid_core.wasm
-          test -s simulator/native/amb1.wasm
           test -s simulator/native/dub1.wasm
-          test -s simulator/native/zen1.wasm
           (cd simulator && zip -9 -r ../smk37-hybrid-virtual-lab.zip index.html native-engines.js audio-worklet.js hybrid_core.wasm README.md native)
           test -s smk37-hybrid-virtual-lab.zip
       - uses: actions/upload-artifact@v4
