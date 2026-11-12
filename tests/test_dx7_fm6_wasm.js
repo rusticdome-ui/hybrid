@@ -10,7 +10,7 @@ const wasmBytes=fs.readFileSync(path.join(__dirname,'../simulator/dx7_fm6.wasm')
   const mod=new WebAssembly.Module(wasmBytes);
   const imports=WebAssembly.Module.imports(mod);
   if(imports.some(x=>x.module!=='env'||x.name!=='emscripten_notify_memory_growth'||x.kind!=='function'))throw Error('Unexpected DX7 WASM imports: '+JSON.stringify(imports));
-  const {instance}=await WebAssembly.instantiate(mod,{env:{emscripten_notify_memory_growth:()=>{}}});
+  const instance=await WebAssembly.instantiate(mod,{env:{emscripten_notify_memory_growth:()=>{}}});
   const e=instance.exports;
   const ctors=e.__wasm_call_ctors||e._initialize;if(typeof ctors==='function')ctors();
   const fn=n=>{const f=e[n]||e['_'+n];if(typeof f!=='function')throw Error('Missing DX7 export '+n);return f};
