@@ -33,6 +33,18 @@ function wavSine(freq=220,duration=.5,rate=44100){
   let log=await page.locator('#log').textContent();
   if(!log.includes('AudioWorklet activo:'))throw Error('AudioWorklet failed: '+log+' | '+errors.join(' | '));
   await page.waitForFunction(()=>document.querySelector('#log')?.textContent.includes('Soundbanks nativos carregados'),null,{timeout:30000});
+  // Manual keyboard notes must reach only the currently selected native DSP.
+  await page.locator('#patchBank').selectOption('0');
+  const key=page.locator('#keys [data-n="60"]');
+  await key.hover();await page.mouse.down();
+  const ambRoute=await page.evaluate(()=>[...window.__hybridNativeRack.engines.values()].map(e=>e.notes.has(60)));
+  await page.mouse.up();
+  if(JSON.stringify(ambRoute)!=='[true,false,false]')throw Error('Manual AMB-1 keyboard routing leaked to another DSP: '+JSON.stringify(ambRoute));
+  await page.locator('#patchBank').selectOption('2');
+  await key.hover();await page.mouse.down();
+  const zenRoute=await page.evaluate(()=>[...window.__hybridNativeRack.engines.values()].map(e=>e.notes.has(60)));
+  await page.mouse.up();
+  if(JSON.stringify(zenRoute)!=='[false,false,true]')throw Error('Manual ZEN-1 keyboard routing leaked to another DSP: '+JSON.stringify(zenRoute));
   if(await page.locator('#soundbankPanel').count()!==1||!await page.locator('#soundbankPanel').isVisible()||await page.locator('#soundbankPanel').evaluate(el=>!el.closest('.daw-left'))||await page.locator('#engines').isVisible())throw Error('FL-style soundbank browser is missing or legacy engine panels are visible');
   const patchOptions=bank=>page.locator('#patchSelect option').allTextContents();
   if(await page.locator('#patchBank').inputValue()!=='0'||await page.locator('#patchCount').textContent()!=='8 presets/vozes')throw Error('AMB-1 patch count mismatch');
