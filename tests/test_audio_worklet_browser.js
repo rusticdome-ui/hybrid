@@ -33,7 +33,7 @@ function wavSine(freq=220,duration=.5,rate=44100){
   let log=await page.locator('#log').textContent();
   if(!log.includes('AudioWorklet activo:'))throw Error('AudioWorklet failed: '+log+' | '+errors.join(' | '));
   await page.waitForFunction(()=>document.querySelector('#log')?.textContent.includes('Soundbanks nativos carregados'),null,{timeout:30000});
-  if(await page.locator('#soundbankPanel').count()!==1||await page.locator('#engines').isVisible())throw Error('Independent engine panels are still visible or soundbank UI is missing');
+  if(await page.locator('#soundbankPanel').count()!==1||!await page.locator('#soundbankPanel').isVisible()||await page.locator('#soundbankPanel').evaluate(el=>!el.closest('.daw-left'))||await page.locator('#engines').isVisible())throw Error('FL-style soundbank browser is missing or legacy engine panels are visible');
   const patchOptions=bank=>page.locator('#patchSelect option').allTextContents();
   if(await page.locator('#patchBank').inputValue()!=='0'||await page.locator('#patchCount').textContent()!=='8 presets/vozes')throw Error('AMB-1 patch count mismatch');
   if(!(await patchOptions()).join('|').includes('Garden')||!(await patchOptions()).join('|').includes('Tides'))throw Error('AMB-1 source patch names missing');
@@ -50,7 +50,7 @@ function wavSine(freq=220,duration=.5,rate=44100){
   if(!(await page.locator('#soundbankPanel').textContent()).includes('9 patches adicionais'))throw Error('ZEN-1 scene-layer patch disclosure missing');
   await page.locator('#patchBank').selectOption('0');
   if(!(await patchOptions()).join('|').includes('Garden'))throw Error('AMB-1 bank did not restore its patch list');
-  console.log('CHROMIUM SOUNDBANK PASS: source-derived AMB-1 (8), DUB-1 (8), ZEN-1 FuMi voices (14); named PRESET navigation; engine panels hidden.');
+  console.log('CHROMIUM SOUNDBANK PASS: source-derived AMB-1 (8), DUB-1 (8), ZEN-1 FuMi voices (14); soundbank browser in DAW sidebar; legacy engine panels hidden.');
   // Load four real WAV files into four independent sampler slots.
   for(let slot=0;slot<4;slot++){
    await page.locator('#sampleFile'+slot).setInputFiles({name:'sample-'+slot+'.wav',mimeType:'audio/wav',buffer:wavSine(150+slot*70)});
