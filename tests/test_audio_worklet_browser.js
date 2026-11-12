@@ -31,7 +31,7 @@ const server=http.createServer((req,res)=>{
     if(await page.locator('#dx7VoiceSelect option').count()!==32)throw Error('DX7 bank '+bank+' must contain 32 voices');
     const names=await page.locator('#dx7VoiceSelect option').allTextContents();
     if(names.some(x=>!x.trim()))throw Error('DX7 voice name missing');
-    await page.waitForFunction(expected=>window.__hybridDx7Status?.bank===expected,null,bank,{timeout:5000});
+    await page.waitForFunction(expected=>window.__hybridDx7Status?.bank===expected,bank,{timeout:5000});
   }
   if(!/FM-1_015/.test(await page.locator('#dx7SourceTag').textContent()))throw Error('DX7 bank provenance missing');
   await page.locator('#dx7VoiceSelect').selectOption('13');
