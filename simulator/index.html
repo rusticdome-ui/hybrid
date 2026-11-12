@@ -115,7 +115,15 @@ body{background:#17191d}
   <aside class="daw-left">
    <div class="daw-section">Project</div><div class="daw-nav"><button class="selected">Arrangement</button><button id="dawShowMixer">Mixer</button></div>
    <div class="daw-section">Browser · Instrumentos</div><section id="soundbankPanel" class="bank-browser"><h2>SOUNDBANKS</h2><p class="muted">Motor DUB-1 original, com os oito presets definidos no seu código-fonte. Os bancos de fábrica do SMK-37 Pro V016 serão adicionados após exportação SysEx do equipamento.</p><div class="row" style="margin-top:10px"><label>Soundbank<select id="patchBank"><option value="1">DUB-1 Soundbank</option></select></label><label>Patch<select id="patchSelect"></select></label></div><div class="row" style="margin-top:8px"><button id="patchPrev">◀ Anterior</button><button id="patchNext">Seguinte ▶</button><span class="tag" id="patchState">DUB-1 · Basic · 1/8</span><span class="tag" id="patchCount">8 presets/vozes</span></div><div id="patchGrid" class="patch-grid" aria-label="Seleção rápida de patches"></div><p class="muted" style="font-size:11px;margin-top:8px">Os oito nomes correspondem aos presets definidos no código-fonte original do DUB-1; não são apresentados como presets de fábrica M-VAVE.</p><div class="row" style="margin-top:10px"><label>Master <b id="nativeMasterV">100%</b><input id="nativeMaster" type="range" min="0" max="100" value="100"></label><button id="midiConnect">Ligar MIDI físico</button><span class="muted" id="midiState">MIDI não ligado</span></div></section>
-   <div class="daw-section">Pattern</div><label>Family<select id="dawFamily"><option value="0">Bass</option><option value="1">Keys</option><option value="2">Drum</option><option value="3">FM</option></select></label>
+<section class="bank-browser" id="dx7Library" aria-label="Biblioteca DX7">
+<h2>DX7 FACTORY LIBRARY · 128 VOICES</h2>
+<p class="muted">Biblioteca pública compatível com DX7, proveniente de M-VAVE SMK37 OPEN / FM-1_015.fwsc (V015). Não é uma extração confirmada dos bancos SMK-37 Pro V016. Os dados são exportáveis em SysEx; o renderer de áudio DUB-1 não sintetiza estas vozes DX7.</p>
+<div class="row" style="margin-top:10px"><label>Banco DX7<select id="dx7BankSelect"><option value="0">A · 01–32</option><option value="1">B · 33–64</option><option value="2">C · 65–96</option><option value="3">D · 97–128</option></select></label><label>Voz<select id="dx7VoiceSelect"></select></label><button id="dx7DownloadBank" type="button" class="primary">Exportar banco .SYX</button></div>
+<div class="row" style="margin-top:8px"><span class="tag" id="dx7VoiceCount">32 vozes</span><span class="tag" id="dx7SourceTag">Fonte: FM-1 V015</span></div>
+<div id="dx7VoiceGrid" class="patch-grid" aria-label="Vozes DX7 do banco selecionado"></div>
+<p class="muted" id="dx7VoiceInfo" style="font-size:11px;margin-top:8px">Seleciona uma voz para ver o nome e a posição. Exporta o banco para um ficheiro SysEx compatível com DX7.</p>
+</section>
+<div class="daw-section">Pattern</div><label>Family<select id="dawFamily"><option value="0">Bass</option><option value="1">Keys</option><option value="2">Drum</option><option value="3">FM</option></select></label>
    <label>Variation<select id="dawVariation"><option value="0">A</option><option value="1">B</option></select></label>
    <label>Fill<input id="dawFill" type="checkbox"></label>
    <label>Clock<select id="dawClock"><option value="internal">Internal</option><option value="midi">MIDI IN · 24 PPQN</option></select></label>
@@ -146,6 +154,7 @@ body{background:#17191d}
 <section class="panel"><h2>16 cenas</h2><div class="scenes" id="scenes"></div><div class="row" style="margin-top:10px"><button id="save">Guardar</button><button id="load">Carregar</button><button id="reset">Reset mixer</button></div><p class="muted">As cenas ficam na memória desta sessão e não são gravadas no firmware.</p><h2 style="margin-top:16px">Eventos / diagnóstico</h2><div class="log" id="log">[HYBRID] Simulador pronto. Áudio desligado.</div></section></div>
 </main>
 <script src="./native-engines.js"></script>
+<script src="dx7-factory-banks.js"></script>
 <script>(()=> {
 const defs=[['A','RESERVED','unused','#344155'],['B','DUB-1','DSP original WASM · mixer C','#ffc477'],['C','RESERVED','unused','#344155'],['D','PCM','PCM ingress','#80e0b0']];
 const S=defs.map(()=>({gain:.72,pan:0,mute:false,solo:false,route:'GLOBAL',mode:'NORMAL',voices:0,peak:0}));
@@ -246,4 +255,12 @@ document.addEventListener('keydown',e=>{if(e.repeat||['INPUT','SELECT'].includes
 document.addEventListener('keyup',e=>{let map={a:60,w:61,s:62,e:63,d:64,f:65,t:66,g:67,y:68,h:69,u:70,j:71,k:72};if(map[e.key.toLowerCase()]!==undefined)noteOff(map[e.key.toLowerCase()])});
 setInterval(()=>S.forEach((s,i)=>{let v=$('v'+i),m=$('m'+i);if(v)v.textContent=s.voices+' eventos';if(m){m.style.width=clamp(s.peak*100,0,100)+'%';s.peak*=.76}}),100);
 render();keys();
+
+const dx7BankEl=$('dx7BankSelect'),dx7VoiceEl=$('dx7VoiceSelect'),dx7Grid=$('dx7VoiceGrid');
+function dx7CurrentBank(){return window.SMK37_DX7_FACTORY.banks[+dx7BankEl.value]}
+function dx7Render(){const bank=dx7CurrentBank();dx7VoiceEl.innerHTML=bank.voices.map((n,i)=>'<option value="'+i+'">'+String(i+1).padStart(2,'0')+' · '+n+'</option>').join('');dx7Grid.innerHTML=bank.voices.map((n,i)=>'<button type="button" data-dx7-voice="'+i+'" class="'+(i===0?'selected':'')+'"><span>'+String(i+1).padStart(2,'0')+'</span><span>'+n+'</span></button>').join('');dx7Grid.querySelectorAll('[data-dx7-voice]').forEach(b=>b.onclick=()=>{dx7VoiceEl.value=b.dataset.dx7Voice;dx7ShowVoice()});$('dx7VoiceCount').textContent=bank.voices.length+' vozes · '+bank.name;$('dx7SourceTag').textContent=window.SMK37_DX7_FACTORY.source;dx7ShowVoice()}
+function dx7ShowVoice(){const bank=dx7CurrentBank(),i=+dx7VoiceEl.value;dx7Grid.querySelectorAll('[data-dx7-voice]').forEach(b=>b.classList.toggle('selected',+b.dataset.dx7Voice===i));$('dx7VoiceInfo').textContent='Voz '+(i+1)+' / 32 · '+bank.voices[i]+' · Biblioteca DX7 (sem reprodução pelo DUB-1).'}
+function dx7DownloadBank(){const bank=dx7CurrentBank(),raw=atob(bank.data),data=new Uint8Array(raw.length);let sum=0;for(let i=0;i<raw.length;i++){data[i]=raw.charCodeAt(i);sum+=data[i]}const sysex=new Uint8Array(6+data.length+2);sysex.set([0xF0,0x43,0x00,0x09,0x20,0x00]);sysex.set(data,6);sysex[sysex.length-2]=(128-(sum&127))&127;sysex[sysex.length-1]=0xF7;const blob=new Blob([sysex],{type:'application/octet-stream'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='SMK37_DX7_'+bank.name.replace(' ','_')+'_FM1_V015.syx';a.click();URL.revokeObjectURL(url);log('Exportado '+bank.name+' · 32 vozes · DX7 SysEx 4104 bytes')}
+dx7BankEl.onchange=dx7Render;dx7VoiceEl.onchange=dx7ShowVoice;$('dx7DownloadBank').onclick=dx7DownloadBank;dx7Render();
+
 })();</script></body></html>
