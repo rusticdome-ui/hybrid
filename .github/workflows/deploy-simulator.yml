@@ -8,8 +8,6 @@ on:
       - "src/hybrid_core.c"
       - "include/hybrid_core.h"
       - "tests/test_hybrid_wasm_bridge.c"
-      - "tests/test_native_wasm_pcm.js"
-      - "tests/test_native_midi_latency.js"
       - "tests/test_audio_worklet_browser.js"
       - ".github/workflows/deploy-simulator.yml"
   pull_request:
@@ -33,26 +31,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Checkout original DUB-1 source
-        uses: actions/checkout@v4
-        with:
-          repository: genkigenki/fm1-dub
-          ref: smk37
-          path: engines/dub
-      - name: Install Emscripten for original native renderers
+      - name: Install Emscripten for the MSFA FM6/DX7 renderer
         uses: mymindstorm/setup-emsdk@v14
         with:
           version: 3.1.64
           actions-cache-folder: emsdk-cache
-      - name: Install original DSP host-renderer build dependencies
-        run: python3 -m pip install --user Pillow
-      - name: Build the original DUB-1 browser renderer
+      - name: Build the real MSFA six-operator DX7 WebAssembly engine
         run: |
           set -euxo pipefail
-          (cd engines/dub && sh web/emu/build.sh)
-          mkdir -p simulator/native
-          cp engines/dub/build/emu/amb.wasm simulator/native/dub1.wasm
-          test -s simulator/native/dub1.wasm
+          em++ -O3 -std=c++14 -fno-exceptions -fno-rtti \
+            -I simulator/dx7 -I simulator/dx7/msfa \
+            simulator/dx7/dx7_bridge.cpp \
+            simulator/dx7/msfa/synth_unit.cc simulator/dx7/msfa/ringbuffer.cc \
+            simulator/dx7/msfa/patch.cc simulator/dx7/msfa/lfo.cc \
+            simulator/dx7/msfa/dx7note.cc simulator/dx7/msfa/freqlut.cc \
+            simulator/dx7/msfa/sin.cc simulator/dx7/msfa/exp2.cc \
+            simulator/dx7/msfa/fm_core.cc simulator/dx7/msfa/pitchenv.cc \
+            simulator/dx7/msfa/env.cc simulator/dx7/msfa/fm_op_kernel.cc \
+            simulator/dx7/msfa/tuning.cc \
+            -s STANDALONE_WASM=1 -s ALLOW_MEMORY_GROWTH=1 \
+            -s INITIAL_MEMORY=33554432 -s STACK_SIZE=262144 -s FILESYSTEM=0 \
+            -Wl,--no-entry -Wl,--export=dx7_init -Wl,--export=dx7_bank_ptr \
+            -Wl,--export=dx7_load_bank -Wl,--export=dx7_select_program \
+            -Wl,--export=dx7_midi -Wl,--export=dx7_panic \
+            -Wl,--export=dx7_render -Wl,--export=dx7_output_ptr \
+            -Wl,--export-memory -o simulator/dx7_fm6.wasm
+          test -s simulator/dx7_fm6.wasm
+          node tests/test_dx7_fm6_wasm.js
       - name: Install WebAssembly linker and verify toolchain
         run: |
           set -eux
@@ -78,45 +83,12 @@ jobs:
           /tmp/test_hybrid_profile
           cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c simulator/wasm_bridge.c tests/test_hybrid_wasm_bridge.c -o /tmp/test_hybrid_wasm_bridge
           /tmp/test_hybrid_wasm_bridge
-      - name: Validate original DUB-1 renderer and browser adapter
+      - name: Validate MSFA DX7 source and AudioWorklet JavaScript
         run: |
           set -euxo pipefail
-          node --check simulator/native-engines.js
-          python3 - <<'PY'
-          import re
-          from pathlib import Path
-          html = Path("simulator/index.html").read_text()
-          scripts = re.findall(r"<script(?:\s[^>]*)?>([\s\S]*?)</script>", html)
-          if not scripts:
-              raise SystemExit("No inline simulator script found")
-          Path("/tmp/hybrid-simulator-inline.js").write_text(scripts[-1])
-          PY
-          node --check /tmp/hybrid-simulator-inline.js
-          node <<'NODE'
-          const fs = require('fs');
-          global.window = global;
-          global.fetch = async url => ({ok:true,arrayBuffer:async()=>fs.readFileSync('simulator/'+url.replace(/^\.\//,''))});
-          require('./simulator/native-engines.js');
-          (async()=>{
-            const rack=new HYBRIDNativeEngines.NativeEngineRack();
-            const loaded=await rack.loadAll();
-            if(loaded.length!==1||loaded[0]!=='DUB-1')throw new Error('Expected only DUB-1');
-            for(const e of rack.engines.values()){
-              e.exports.web_keys(1);
-              e.exports.web_render(128);
-              const l=new Float32Array(e.exports.memory.buffer,e.exports.web_out_l()>>>0,128);
-              const r=new Float32Array(e.exports.memory.buffer,e.exports.web_out_r()>>>0,128);
-              if(![...l,...r].every(Number.isFinite)||![...l,...r].some(x=>x!==0))
-                throw new Error(e.name+': silent or invalid original DSP PCM');
-              console.log(e.name+': original DSP PCM PASS');
-            }
-            console.log('Browser WASI adapter PASS:',loaded.join(', '));
-          })().catch(err=>{console.error(err);process.exit(1);});
-          NODE
-      - name: Validate DUB-1 MIDI note dispatch and WASM latency
-        run: |
-          set -euxo pipefail
-          node tests/test_native_midi_latency.js
+          node --check simulator/audio-worklet.js
+          node --check simulator/dx7-factory-banks.js
+          node tests/test_dx7_fm6_wasm.js
       - name: Compile and execute browser WebAssembly core
         run: |
           set -eux
@@ -125,10 +97,6 @@ jobs:
             -Wl,--initial-memory=2097152 -Wl,--max-memory=16777216 -Wl,-z,stack-size=65536 \
             -o simulator/hybrid_core.wasm
           node -e "const fs=require('fs');(async()=>{const r=await WebAssembly.instantiate(fs.readFileSync('simulator/hybrid_core.wasm'),{});const e=r.instance.exports;if(e.hybrid_wasm_init()!==0)throw Error('core init');e.hybrid_wasm_note_on(60,100,0);if(e.hybrid_wasm_process(64)!==0)throw Error('render');const p=e.hybrid_wasm_output_ptr()>>>2;const a=new Int32Array(e.memory.buffer,p,128);if(!a.some(x=>x!==0))throw Error('silent mixer output');console.log('WASM core smoke PASS; exports:',Object.keys(e).length)})().catch(e=>{console.error(e);process.exit(1)})"
-      - name: Verify original DSP PCM identity through HYBRID mixer
-        run: |
-          set -euxo pipefail
-          node tests/test_native_wasm_pcm.js
       - name: Install Playwright Chromium for real AudioWorklet browser test
         run: |
           set -eux
@@ -141,8 +109,8 @@ jobs:
           set -eux
           test -s simulator/index.html
           test -s simulator/hybrid_core.wasm
-          test -s simulator/native/dub1.wasm
-          (cd simulator && zip -9 -r ../smk37-hybrid-virtual-lab.zip index.html native-engines.js audio-worklet.js hybrid_core.wasm README.md native)
+          test -s simulator/dx7_fm6.wasm
+          (cd simulator && zip -9 -r ../smk37-hybrid-virtual-lab.zip index.html audio-worklet.js dx7-factory-banks.js dx7_fm6.wasm hybrid_core.wasm README.md dx7)
           test -s smk37-hybrid-virtual-lab.zip
       - uses: actions/upload-artifact@v4
         with:
