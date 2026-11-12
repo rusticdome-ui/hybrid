@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only
- * Native AMB-1 / DUB-1 / ZEN-1 browser adapters.
- * Maps MIDI note events to the original host keyboard interfaces and forwards
- * native panel controls. Audio remains the original DSP's web_render PCM.
+ * Native DUB-1 browser adapter. Audio is rendered by the original DSP and transferred as PCM.
  */
 (() => {
   'use strict';
