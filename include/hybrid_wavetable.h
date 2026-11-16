@@ -20,6 +20,9 @@ typedef struct {
  uint8_t custom_valid_mask,sub_level,noise_level;
  uint16_t unison_detune;
  uint32_t noise_state;
+ /* Four compact native modulation routes: source, destination and Q15 depth. */
+ uint8_t mod_source[4],mod_destination[4];
+ int16_t mod_depth_q15[4];
 } hybrid_wavetable_t;
 void hybrid_wavetable_defaults(hybrid_wavetable_t *state);
 extern const hybrid_engine_ops_t hybrid_wavetable_ops;
