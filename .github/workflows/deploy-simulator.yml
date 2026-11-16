@@ -103,7 +103,7 @@ jobs:
             -Wl,--no-entry -Wl,--export-all -Wl,--export-memory \
             -Wl,--initial-memory=2097152 -Wl,--max-memory=16777216 -Wl,-z,stack-size=65536 \
             -o simulator/hybrid_core.wasm
-          node -e "const fs=require('fs');(async()=>{const r=await WebAssembly.instantiate(fs.readFileSync('simulator/hybrid_core.wasm'),{});const e=r.instance.exports;if(e.hybrid_wasm_init()!==0)throw Error('core init');e.hybrid_wasm_note_on(60,100,0);if(e.hybrid_wasm_process(64)!==0)throw Error('render');const p=e.hybrid_wasm_output_ptr()>>>2;const a=new Int32Array(e.memory.buffer,p,128);if(!a.some(x=>x!==0))throw Error('silent mixer output');console.log('WASM core smoke PASS; exports:',Object.keys(e).length)})().catch(e=>{console.error(e);process.exit(1)})"
+          node -e "const fs=require('fs');(async()=>{const r=await WebAssembly.instantiate(fs.readFileSync('simulator/hybrid_core.wasm'),{});const e=r.instance.exports;if(e.hybrid_wasm_init()!==0)throw Error('core init');e.hybrid_wasm_note_on(60,100,0);if(e.hybrid_wasm_process(128)!==0)throw Error('render');const p=e.hybrid_wasm_output_ptr()>>>2;const a=new Int32Array(e.memory.buffer,p,256);if(!a.some(x=>x!==0))throw Error('silent mixer output');console.log('WASM core smoke PASS; exports:',Object.keys(e).length)})().catch(e=>{console.error(e);process.exit(1)})"
       - name: Install Playwright Chromium for real AudioWorklet browser test
         run: |
           set -eux
