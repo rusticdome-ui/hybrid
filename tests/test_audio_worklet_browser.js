@@ -46,6 +46,19 @@ const server=http.createServer((req,res)=>{
   if(wt.peak<=0||wt.voices<1)throw Error('HYBRID Wavetable did not produce non-zero PCM: '+JSON.stringify(wt));
   await page.mouse.up();
   await page.waitForFunction(()=>window.__hybridAudioMetrics?.wavetableVoices===0,null,{timeout:5000});
+  // Exercise custom WAV import, four-voice unison, sub/noise, modulation and preset recall.
+  const wav=Buffer.alloc(44+2048*2);wav.write('RIFF',0);wav.writeUInt32LE(wav.length-8,4);wav.write('WAVE',8);wav.write('fmt ',12);wav.writeUInt32LE(16,16);wav.writeUInt16LE(1,20);wav.writeUInt16LE(1,22);wav.writeUInt32LE(22050,24);wav.writeUInt32LE(44100,28);wav.writeUInt16LE(2,32);wav.writeUInt16LE(16,34);wav.write('data',36);wav.writeUInt32LE(2048*2,40);for(let i=0;i<2048;i++)wav.writeInt16LE(Math.round(Math.sin(i*2*Math.PI/2048)*24000),44+i*2);
+  await page.locator('#wtFile').setInputFiles({name:'custom-wave.wav',mimeType:'audio/wav',buffer:wav});
+  await page.locator('#wtImport').click();
+  await page.waitForFunction(()=>document.querySelector('#wtImportStatus')?.textContent.includes('amostras importadas'),null,{timeout:10000});
+  await page.locator('#wtWaveA').selectOption('4');await page.locator('#wtUnison').selectOption('4');
+  await page.locator('#wtSub').fill('35');await page.locator('#wtNoise').fill('8');
+  await page.locator('#wtModSrc0').selectOption('lfo');await page.locator('#wtModDst0').selectOption('cutoff');await page.locator('#wtModDepth0').fill('45');
+  await page.locator('#wtPresetName').fill('CI PRO Test');await page.locator('#wtPresetSave').click();
+  await page.locator('#wtUnison').selectOption('1');await page.locator('#wtPresetLoad').click();
+  if(await page.locator('#wtUnison').inputValue()!=='4'||await page.locator('#wtWaveA').inputValue()!=='4')throw Error('Wavetable PRO preset did not restore controls');
+  await key.hover();await page.mouse.down();await page.waitForFunction(()=>window.__hybridAudioMetrics?.wavetablePeak>0,null,{timeout:10000});await page.mouse.up();
+  await page.waitForFunction(()=>window.__hybridAudioMetrics?.wavetableVoices===0,null,{timeout:5000});
   await page.locator('#activeEngine').selectOption('1');
   for(let bank=0;bank<4;bank++){await page.locator('#dx7BankSelect').selectOption(String(bank));await page.waitForFunction(expected=>window.__hybridDx7Status?.bank===expected,bank,{timeout:5000});}
   await page.locator('#dx7VoiceSelect').selectOption('13');await page.waitForFunction(()=>window.__hybridDx7Status?.program===13,null,{timeout:5000});
