@@ -20,7 +20,7 @@ const nowMs=()=>hasHighResClock?globalThis.performance.now():Date.now();
 class SMK37HybridProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
-    this.ready=false;this.failed=false;this.dx7=null;this.core=null;this.pendingMessages=[];this.wavetableVoices=new Map();this.wavetable={waveA:0,waveB:2,mix:.25,cutoff:.82,attack:.008,decay:.18,sustain:.72,release:.22,detune:7,lfoRate:2,lfoDepth:0,filterL:0,filterR:0};this.wavetableNoteOns=0;this.wavetablePeak=0;this.wavetableTables=Array.from({length:4},(_,shape)=>{const table=new Float32Array(2048);for(let i=0;i<table.length;i++){const p=i/table.length;table[i]=shape===0?Math.sin(2*Math.PI*p):shape===1?1-4*Math.abs(p-.5):shape===2?2*p-1:p<.5?1:-1;}return table;});this.sampleSlots=Array(8).fill(null);this.sampleVoices=Array(8).fill(null);this.sampleTriggers=0;
+    this.ready=false;this.failed=false;this.dx7=null;this.core=null;this.pendingMessages=[];this.wavetableVoices=new Map();this.wavetable={waveA:0,waveB:2,mix:.25,cutoff:.82,attack:.008,decay:.18,sustain:.72,release:.22,detune:7,lfoRate:2,lfoDepth:0,filterL:0,filterR:0,subLevel:0,noiseLevel:0,unison:1,unisonDetune:12,modRoutes:[]};this.customWaves=Array(4).fill(null);this.noiseSeed=0x6d2b79f5;this.wavetableNoteOns=0;this.wavetablePeak=0;this.wavetableTables=Array.from({length:4},(_,shape)=>{const table=new Float32Array(2048);for(let i=0;i<table.length;i++){const p=i/table.length;table[i]=shape===0?Math.sin(2*Math.PI*p):shape===1?1-4*Math.abs(p-.5):shape===2?2*p-1:p<.5?1:-1;}return table;});this.sampleSlots=Array(8).fill(null);this.sampleVoices=Array(8).fill(null);this.sampleTriggers=0;
     this.count=0;this.underruns=0;this.lateCallbacks=0;this.renderOverrunCandidates=0;this.lastTime=0;this.maxJitter=0;this.jitter=[];
     this.maxRender=0;this.dx7Max=0;this.dx7Total=0;this.dx7Peak=0;this.dx7NoteOns=0;this.dx7ActiveNotes=new Set();this.mixerMax=0;this.mixerTotal=0;this.seqMax=0;this.seqTotal=0;this.seqSteps=0;this.seqClockTicks=0;this.seqLaneEvents=[0,0,0,0];this.period=128/sampleRate*1000;this.outputViews=new Map();this.volca={running:false,bpm:120,clockPhase:0,clockDivider:0,step:0,chain:[0],chainPosition:0,variation:0,fill:false,externalClock:false,muteMask:0,soloMask:0,active:[0,0,0,0]};
     this.port.onmessage=e=>this.message(e.data);
@@ -63,7 +63,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
   wavetableNote(note,velocity,on){
     if(on){
       const frequency=440*Math.pow(2,(note-69)/12),p=this.wavetable;
-      this.wavetableVoices.set(note,{note,phaseA:0,phaseB:0,stepA:2*Math.PI*frequency/sampleRate,stepB:2*Math.PI*frequency*Math.pow(2,p.detune/1200)/sampleRate,env:0,stage:'attack',velocity:Math.max(1,Math.min(127,velocity|0)),filter:0,lfoPhase:0});
+      this.wavetableVoices.set(note,{note,phaseA:0,phaseB:0,stepA:2*Math.PI*frequency/sampleRate,stepB:2*Math.PI*frequency*Math.pow(2,p.detune/1200)/sampleRate,env:0,stage:'attack',velocity:Math.max(1,Math.min(127,velocity|0)),filter:0,lfoPhase:0,unisonPhaseA:new Float64Array(4),unisonPhaseB:new Float64Array(4)});
       this.wavetableNoteOns++;
     }else{
       const voice=this.wavetableVoices.get(note);
@@ -71,7 +71,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     }
   }
   waveSample(phase,shape){
-    const table=this.wavetableTables[shape&3],position=(((phase/(2*Math.PI))%1+1)%1)*table.length,index=Math.floor(position),fraction=position-index;
+    const custom=shape>=4?this.customWaves[(shape-4)&3]:null,table=custom||this.wavetableTables[shape&3],position=(((phase/(2*Math.PI))%1+1)%1)*table.length,index=Math.floor(position),fraction=position-index;
     const a=table[index],b=table[(index+1)&(table.length-1)];
     return a+(b-a)*fraction;
   }
@@ -97,13 +97,19 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
           voice.env=Math.max(0,voice.env-1/Math.max(1,p.release*sampleRate));
           if(voice.env<=0){this.wavetableVoices.delete(voice.note);break;}
         }
-        const oscA=this.waveSample(voice.phaseA,p.waveA);
-        const oscB=this.waveSample(voice.phaseB,p.waveB);
-        const lfo=Math.sin(voice.lfoPhase)*p.lfoDepth;
-        const raw=(oscA*(1-p.mix)+oscB*p.mix)*voice.env*velocity*(1+lfo);
+        const lfo=Math.sin(voice.lfoPhase),mod={pitch:0,cutoff:0,mix:0,amp:0};
+        for(const route of p.modRoutes){let src=route.source==='lfo'?lfo:route.source==='velocity'?velocity:route.source==='key'?(voice.note/127):route.source==='envelope'?voice.env:0;const amount=src*route.depth;if(route.destination==='pitch')mod.pitch+=amount;else if(route.destination==='cutoff')mod.cutoff+=amount;else if(route.destination==='mix')mod.mix+=amount;else if(route.destination==='amp')mod.amp+=amount;}
+        const count=Math.max(1,Math.min(4,p.unison|0));let unisonA=0,unisonB=0;
+        for(let u=0;u<count;u++){const spread=count===1?0:(u/(count-1)-.5)*p.unisonDetune;const ratio=Math.pow(2,(spread+mod.pitch*24)/1200);const pa=voice.unisonPhaseA[u],pb=voice.unisonPhaseB[u];unisonA+=this.waveSample(pa,p.waveA);unisonB+=this.waveSample(pb,p.waveB);voice.unisonPhaseA[u]=(pa+voice.stepA*ratio)%(2*Math.PI);voice.unisonPhaseB[u]=(pb+voice.stepB*ratio)%(2*Math.PI);}
+        const oscA=unisonA/count,oscB=unisonB/count;
+        const mix=Math.max(0,Math.min(1,p.mix+mod.mix));
+        let raw=(oscA*(1-mix)+oscB*mix)*voice.env*velocity*(1+lfo*p.lfoDepth+mod.amp);
+        if(p.subLevel>0)raw+=(Math.sin(voice.phaseA*.5)*p.subLevel*.35);
+        if(p.noiseLevel>0){let x=this.noiseSeed;x^=x<<13;x^=x>>>17;x^=x<<5;this.noiseSeed=x>>>0;raw+=((this.noiseSeed/4294967296)*2-1)*p.noiseLevel*.18;}
         voice.phaseA+=voice.stepA;voice.phaseB+=voice.stepB;
         voice.lfoPhase+=2*Math.PI*p.lfoRate/sampleRate;
-        voice.filter+=(raw-voice.filter)*Math.max(.002,Math.min(.98,p.cutoff));
+        const cutoff=Math.max(.002,Math.min(.98,p.cutoff+mod.cutoff*.45));
+        voice.filter+=(raw-voice.filter)*cutoff;
         const sample=Math.max(-1,Math.min(1,voice.filter*.22));
         const q15=Math.round(sample*32767);
         output[frame*2]+=q15;output[frame*2+1]+=q15;
@@ -214,7 +220,9 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     if(!this.ready){if(['noteOn','noteOff','wavetableNoteOn','wavetableNoteOff','wavetableControl','midi','dx7Bank','dx7Program','panic','volcaConfigure','volcaStart','volcaStop','volcaExternalStart','volcaExternalStop','volcaExternalClock','sampleLoad','sampleTrigger','sampleStop'].includes(m.type))this.pendingMessages.push(m);return;}
     if(m.type==='wavetableNoteOn'){this.wavetableNote(m.note,m.velocity,true);return;}
     if(m.type==='wavetableNoteOff'){this.wavetableNote(m.note,0,false);return;}
-    if(m.type==='wavetableControl'){const p=this.wavetable;if(Number.isFinite(m.waveA))p.waveA=m.waveA|0;if(Number.isFinite(m.waveB))p.waveB=m.waveB|0;if(Number.isFinite(m.mix))p.mix=Math.max(0,Math.min(1,m.mix));if(Number.isFinite(m.cutoff))p.cutoff=Math.max(.002,Math.min(.98,m.cutoff));if(Number.isFinite(m.attack))p.attack=Math.max(.001,m.attack);if(Number.isFinite(m.decay))p.decay=Math.max(.001,m.decay);if(Number.isFinite(m.sustain))p.sustain=Math.max(0,Math.min(1,m.sustain));if(Number.isFinite(m.release))p.release=Math.max(.001,m.release);if(Number.isFinite(m.detune))p.detune=m.detune;if(Number.isFinite(m.lfoRate))p.lfoRate=m.lfoRate;if(Number.isFinite(m.lfoDepth))p.lfoDepth=m.lfoDepth;return;}
+    if(m.type==='wavetableControl'){const p=this.wavetable;if(Number.isFinite(m.waveA))p.waveA=m.waveA|0;if(Number.isFinite(m.waveB))p.waveB=m.waveB|0;if(Number.isFinite(m.mix))p.mix=Math.max(0,Math.min(1,m.mix));if(Number.isFinite(m.cutoff))p.cutoff=Math.max(.002,Math.min(.98,m.cutoff));if(Number.isFinite(m.attack))p.attack=Math.max(.001,m.attack);if(Number.isFinite(m.decay))p.decay=Math.max(.001,m.decay);if(Number.isFinite(m.sustain))p.sustain=Math.max(0,Math.min(1,m.sustain));if(Number.isFinite(m.release))p.release=Math.max(.001,m.release);if(Number.isFinite(m.detune))p.detune=m.detune;if(Number.isFinite(m.lfoRate))p.lfoRate=m.lfoRate;if(Number.isFinite(m.lfoDepth))p.lfoDepth=m.lfoDepth;if(Number.isFinite(m.subLevel))p.subLevel=Math.max(0,Math.min(1,m.subLevel));if(Number.isFinite(m.noiseLevel))p.noiseLevel=Math.max(0,Math.min(1,m.noiseLevel));if(Number.isFinite(m.unison))p.unison=Math.max(1,Math.min(4,m.unison|0));if(Number.isFinite(m.unisonDetune))p.unisonDetune=Math.max(0,Math.min(40,m.unisonDetune));if(Array.isArray(m.modRoutes))p.modRoutes=m.modRoutes.slice(0,4).filter(r=>r&&['lfo','velocity','key','envelope'].includes(r.source)&&['pitch','cutoff','mix','amp'].includes(r.destination)).map(r=>({source:r.source,destination:r.destination,depth:Math.max(-1,Math.min(1,+r.depth||0))}));return;}
+    if(m.type==='wavetableImport'){if(!Number.isInteger(m.slot)||m.slot<0||m.slot>3||!m.samples||m.samples.length<2)throw Error('Wavetable inválida');const src=new Float32Array(m.samples),table=new Float32Array(2048);for(let i=0;i<table.length;i++){const pos=i*(src.length-1)/table.length,ix=Math.floor(pos),frac=pos-ix;table[i]=src[ix]+((src[Math.min(ix+1,src.length-1)]-src[ix])*frac);}this.customWaves[m.slot]=table;this.port.postMessage({type:'wavetableImported',slot:m.slot,samples:table.length});return;}
+    if(m.type==='wavetablePreset'){const p=m.preset;if(!p||p.version!==1)throw Error('Preset Wavetable inválido');if(p.customWaves)this.customWaves=p.customWaves.map(t=>t?new Float32Array(t):null);this.message({type:'wavetableControl',...p.controls});return;}
     if(m.type==='sampleLoad'){const pcm=new Float32Array(m.pcm);if(pcm.length<2||pcm.length%2)throw Error('Sample PCM must be stereo interleaved');if(!Number.isInteger(m.slot)||m.slot<0||m.slot>=8)throw Error('Sample slot must be 0..7');this.sampleSlots[m.slot]={pcm,frames:pcm.length/2,name:m.name||('Sample '+(m.slot+1))};this.port.postMessage({type:'sampleLoaded',slot:m.slot,name:this.sampleSlots[m.slot].name,frames:pcm.length/2,samplesLoaded:this.sampleSlots.filter(Boolean).length});return;}
     if(m.type==='sampleTrigger'){this.sampleTrigger(m.slot,m.velocity);return;}
     if(m.type==='sampleStop'){this.sampleVoices.fill(null);return;}
