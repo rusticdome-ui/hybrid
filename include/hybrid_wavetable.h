@@ -15,6 +15,11 @@ typedef struct {
  uint8_t wave_a,wave_b,detune,unison;
  uint16_t osc2_mix;
  uint32_t lfo_phase;
+ /* Bounded, caller-owned PRO features; custom tables consume 512 bytes. */
+ int16_t custom_wave[4][64];
+ uint8_t custom_valid_mask,sub_level,noise_level;
+ uint16_t unison_detune;
+ uint32_t noise_state;
 } hybrid_wavetable_t;
 void hybrid_wavetable_defaults(hybrid_wavetable_t *state);
 extern const hybrid_engine_ops_t hybrid_wavetable_ops;
