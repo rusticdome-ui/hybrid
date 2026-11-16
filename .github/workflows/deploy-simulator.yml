@@ -88,7 +88,7 @@ jobs:
           set -eux
           cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c tests/test_hybrid_core.c -o /tmp/test_hybrid_core
           /tmp/test_hybrid_core
-          cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c src/hybrid_wavetable.c tests/test_hybrid_wavetable.c -o /tmp/test_hybrid_wavetable
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c src/hybrid_wavetable.c src/hybrid_wavetable_pro.c tests/test_hybrid_wavetable.c -o /tmp/test_hybrid_wavetable
           /tmp/test_hybrid_wavetable
           cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c src/hybrid_wavetable.c src/hybrid_wavetable_pro.c tests/test_hybrid_wavetable_pro.c -o /tmp/test_hybrid_wavetable_pro
           /tmp/test_hybrid_wavetable_pro
@@ -96,7 +96,7 @@ jobs:
           /tmp/test_hybrid_stress
           cc -std=c99 -O2 -Wall -Wextra -Werror -Itests/fakes -Iinclude src/hybrid_profile.c tests/test_hybrid_profile.c -o /tmp/test_hybrid_profile
           /tmp/test_hybrid_profile
-          cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c src/hybrid_wavetable.c simulator/wasm_bridge.c tests/test_hybrid_wasm_bridge.c -o /tmp/test_hybrid_wasm_bridge
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c src/hybrid_wavetable.c src/hybrid_wavetable_pro.c simulator/wasm_bridge.c tests/test_hybrid_wasm_bridge.c -o /tmp/test_hybrid_wasm_bridge
           /tmp/test_hybrid_wasm_bridge
       - name: Validate MSFA DX7 source and AudioWorklet JavaScript
         run: |
@@ -107,7 +107,7 @@ jobs:
       - name: Compile and execute browser WebAssembly core
         run: |
           set -eux
-          clang --target=wasm32 -O2 -std=c99 -nostdlib -fno-builtin -Iinclude src/hybrid_core.c src/hybrid_wavetable.c simulator/wasm_bridge.c \
+          clang --target=wasm32 -O2 -std=c99 -nostdlib -fno-builtin -Iinclude src/hybrid_core.c src/hybrid_wavetable.c src/hybrid_wavetable_pro.c simulator/wasm_bridge.c \
             -Wl,--no-entry -Wl,--export-all -Wl,--export-memory \
             -Wl,--initial-memory=2097152 -Wl,--max-memory=16777216 -Wl,-z,stack-size=65536 \
             -o simulator/hybrid_core.wasm
