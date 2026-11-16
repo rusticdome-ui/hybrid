@@ -20,7 +20,7 @@ const nowMs=()=>hasHighResClock?globalThis.performance.now():Date.now();
 class SMK37HybridProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
-    this.ready=false;this.failed=false;this.dx7=null;this.core=null;this.pendingMessages=[];this.wavetableVoices=new Map();this.wavetable={waveA:0,waveB:2,mix:.25,cutoff:.82,attack:.008,decay:.18,sustain:.72,release:.22,detune:7,lfoRate:2,lfoDepth:0,filterL:0,filterR:0};this.wavetableNoteOns=0;this.wavetablePeak=0;this.sampleSlots=Array(8).fill(null);this.sampleVoices=Array(8).fill(null);this.sampleTriggers=0;
+    this.ready=false;this.failed=false;this.dx7=null;this.core=null;this.pendingMessages=[];this.wavetableVoices=new Map();this.wavetable={waveA:0,waveB:2,mix:.25,cutoff:.82,attack:.008,decay:.18,sustain:.72,release:.22,detune:7,lfoRate:2,lfoDepth:0,filterL:0,filterR:0};this.wavetableNoteOns=0;this.wavetablePeak=0;this.wavetableTables=Array.from({length:4},(_,shape)=>{const table=new Float32Array(2048);for(let i=0;i<table.length;i++){const p=i/table.length;table[i]=shape===0?Math.sin(2*Math.PI*p):shape===1?1-4*Math.abs(p-.5):shape===2?2*p-1:p<.5?1:-1;}return table;});this.sampleSlots=Array(8).fill(null);this.sampleVoices=Array(8).fill(null);this.sampleTriggers=0;
     this.count=0;this.underruns=0;this.lateCallbacks=0;this.renderOverrunCandidates=0;this.lastTime=0;this.maxJitter=0;this.jitter=[];
     this.maxRender=0;this.dx7Max=0;this.dx7Total=0;this.dx7Peak=0;this.dx7NoteOns=0;this.dx7ActiveNotes=new Set();this.mixerMax=0;this.mixerTotal=0;this.seqMax=0;this.seqTotal=0;this.seqSteps=0;this.seqClockTicks=0;this.seqLaneEvents=[0,0,0,0];this.period=128/sampleRate*1000;this.outputViews=new Map();this.volca={running:false,bpm:120,clockPhase:0,clockDivider:0,step:0,chain:[0],chainPosition:0,variation:0,fill:false,externalClock:false,muteMask:0,soloMask:0,active:[0,0,0,0]};
     this.port.onmessage=e=>this.message(e.data);
@@ -71,11 +71,9 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     }
   }
   waveSample(phase,shape){
-    const cycle=((phase/(2*Math.PI))%1+1)%1;
-    if(shape===1)return 1-4*Math.abs(cycle-.5);
-    if(shape===2)return 2*cycle-1;
-    if(shape===3)return cycle<.5?1:-1;
-    return Math.sin(phase);
+    const table=this.wavetableTables[shape&3],position=(((phase/(2*Math.PI))%1+1)%1)*table.length,index=Math.floor(position),fraction=position-index;
+    const a=table[index],b=table[(index+1)&(table.length-1)];
+    return a+(b-a)*fraction;
   }
   renderWavetableToCore(frames){
     const pointer=this.core.hybrid_wasm_pcm_ptr(0)>>>0,memory=this.core.memory.buffer;
