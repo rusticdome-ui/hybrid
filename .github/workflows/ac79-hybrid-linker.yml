@@ -2,7 +2,7 @@ name: AC79 HYBRID wavetable firmware validation
 on:
   workflow_dispatch:
   push:
-    branches: [hybrid-memory-reduction, hybrid-wavetable-shrub-style]
+    branches: [main, hybrid-memory-reduction, hybrid-wavetable-shrub-style, hybrid-wavetable-pro-features]
     paths:
       - "src/**"
       - "include/**"
