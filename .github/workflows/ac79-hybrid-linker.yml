@@ -36,7 +36,7 @@ jobs:
           set -euo pipefail
           cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c tests/test_hybrid_core.c -o "$RUNNER_TEMP/test_hybrid_core"
           "$RUNNER_TEMP/test_hybrid_core"
-          cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c src/hybrid_wavetable.c tests/test_hybrid_wavetable.c -o "$RUNNER_TEMP/test_hybrid_wavetable"
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c src/hybrid_wavetable.c src/hybrid_wavetable_pro.c tests/test_hybrid_wavetable.c -o "$RUNNER_TEMP/test_hybrid_wavetable"
           "$RUNNER_TEMP/test_hybrid_wavetable"
           cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c src/hybrid_wavetable.c src/hybrid_wavetable_pro.c tests/test_hybrid_wavetable_pro.c -o "$RUNNER_TEMP/test_hybrid_wavetable_pro"
           "$RUNNER_TEMP/test_hybrid_wavetable_pro"
