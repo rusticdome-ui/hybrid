@@ -89,7 +89,8 @@ const server=http.createServer((req,res)=>{
   const metrics=await page.evaluate(()=>window.__hybridAudioMetrics);
   if(metrics.underruns!==0)throw Error('AudioWorklet underruns: '+JSON.stringify(metrics));
   if(errors.length)throw Error('Browser errors: '+errors.join(' | '));
-  console.log('CHROMIUM WAVETABLE PASS: independent dual-oscillator engine produced non-zero PCM and note-off cleared its voice.');\n  console.log('CHROMIUM FM6/DX7 PASS: MSFA WASM engine, real non-zero DX7 PCM, four banks and program selection.');
+  console.log('CHROMIUM WAVETABLE PASS: independent dual-oscillator engine produced non-zero PCM and note-off cleared its voice.');
+  console.log('CHROMIUM FM6/DX7 PASS: MSFA WASM engine, real non-zero DX7 PCM, four banks and program selection.');
   console.log('CHROMIUM CHORD PASS: all 14 chord types, note-off, chord trigger and single-note restore.');
   console.log('CHROMIUM CLEANUP PASS: DUB-1, AMB-1, ZEN-1 and Sample Browser absent; AudioWorklet underruns=0.');
   console.log('CHROMIUM METRICS: '+JSON.stringify(metrics));
