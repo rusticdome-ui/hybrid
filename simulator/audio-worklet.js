@@ -157,7 +157,10 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
   message(m) {
     if(!m)return;
     if(!this.ready){if(['noteOn','noteOff','wavetableNoteOn','wavetableNoteOff','wavetableControl','midi','dx7Bank','dx7Program','panic','volcaConfigure','volcaStart','volcaStop','volcaExternalStart','volcaExternalStop','volcaExternalClock','sampleLoad','sampleTrigger','sampleStop'].includes(m.type))this.pendingMessages.push(m);return;}
-    if(m.type==='wavetableNoteOn'){this.wavetableNote(m.note,m.velocity,true);return;}\n    if(m.type==='wavetableNoteOff'){this.wavetableNote(m.note,0,false);return;}\n    if(m.type==='wavetableControl'){const p=this.wavetable;if(Number.isFinite(m.waveA))p.waveA=m.waveA|0;if(Number.isFinite(m.waveB))p.waveB=m.waveB|0;if(Number.isFinite(m.mix))p.mix=Math.max(0,Math.min(1,m.mix));if(Number.isFinite(m.cutoff))p.cutoff=Math.max(.002,Math.min(.98,m.cutoff));if(Number.isFinite(m.attack))p.attack=Math.max(.001,m.attack);if(Number.isFinite(m.decay))p.decay=Math.max(.001,m.decay);if(Number.isFinite(m.sustain))p.sustain=Math.max(0,Math.min(1,m.sustain));if(Number.isFinite(m.release))p.release=Math.max(.001,m.release);if(Number.isFinite(m.detune))p.detune=m.detune;if(Number.isFinite(m.lfoRate))p.lfoRate=m.lfoRate;if(Number.isFinite(m.lfoDepth))p.lfoDepth=m.lfoDepth;return;}\n    if(m.type==='sampleLoad'){const pcm=new Float32Array(m.pcm);if(pcm.length<2||pcm.length%2)throw Error('Sample PCM must be stereo interleaved');if(!Number.isInteger(m.slot)||m.slot<0||m.slot>=8)throw Error('Sample slot must be 0..7');this.sampleSlots[m.slot]={pcm,frames:pcm.length/2,name:m.name||('Sample '+(m.slot+1))};this.port.postMessage({type:'sampleLoaded',slot:m.slot,name:this.sampleSlots[m.slot].name,frames:pcm.length/2,samplesLoaded:this.sampleSlots.filter(Boolean).length});return;}
+    if(m.type==='wavetableNoteOn'){this.wavetableNote(m.note,m.velocity,true);return;}
+    if(m.type==='wavetableNoteOff'){this.wavetableNote(m.note,0,false);return;}
+    if(m.type==='wavetableControl'){const p=this.wavetable;if(Number.isFinite(m.waveA))p.waveA=m.waveA|0;if(Number.isFinite(m.waveB))p.waveB=m.waveB|0;if(Number.isFinite(m.mix))p.mix=Math.max(0,Math.min(1,m.mix));if(Number.isFinite(m.cutoff))p.cutoff=Math.max(.002,Math.min(.98,m.cutoff));if(Number.isFinite(m.attack))p.attack=Math.max(.001,m.attack);if(Number.isFinite(m.decay))p.decay=Math.max(.001,m.decay);if(Number.isFinite(m.sustain))p.sustain=Math.max(0,Math.min(1,m.sustain));if(Number.isFinite(m.release))p.release=Math.max(.001,m.release);if(Number.isFinite(m.detune))p.detune=m.detune;if(Number.isFinite(m.lfoRate))p.lfoRate=m.lfoRate;if(Number.isFinite(m.lfoDepth))p.lfoDepth=m.lfoDepth;return;}
+    if(m.type==='sampleLoad'){const pcm=new Float32Array(m.pcm);if(pcm.length<2||pcm.length%2)throw Error('Sample PCM must be stereo interleaved');if(!Number.isInteger(m.slot)||m.slot<0||m.slot>=8)throw Error('Sample slot must be 0..7');this.sampleSlots[m.slot]={pcm,frames:pcm.length/2,name:m.name||('Sample '+(m.slot+1))};this.port.postMessage({type:'sampleLoaded',slot:m.slot,name:this.sampleSlots[m.slot].name,frames:pcm.length/2,samplesLoaded:this.sampleSlots.filter(Boolean).length});return;}
     if(m.type==='sampleTrigger'){this.sampleTrigger(m.slot,m.velocity);return;}
     if(m.type==='sampleStop'){this.sampleVoices.fill(null);return;}
     if(m.type==='volcaConfigure'){this.volcaConfigure(m);return;}
@@ -197,7 +200,8 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
       this.volcaAdvance(frames);
       const seqMs=nowMs()-segmentStart;this.seqMax=Math.max(this.seqMax,seqMs);this.seqTotal+=seqMs;
       segmentStart=nowMs();
-      this.renderWavetableToCore(frames);\n      this.renderDx7ToCore(frames);
+      this.renderWavetableToCore(frames);
+      this.renderDx7ToCore(frames);
       const dx7Ms=nowMs()-segmentStart;this.dx7Max=Math.max(this.dx7Max,dx7Ms);this.dx7Total+=dx7Ms;
       segmentStart=nowMs();
       this.renderSamplesToCore(frames);
