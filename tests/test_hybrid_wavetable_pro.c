@@ -12,9 +12,11 @@ int main(void){hybrid_core_t core;hybrid_wavetable_t s,t;int32_t rendered[HYBRID
  hybrid_note_on(&core,60,110,0);assert(hybrid_process(&core,rendered,128)==0);
  for(i=0;i<256;i++){rendered_nonzero+=(rendered[i]!=0);custom_render[i]=rendered[i];}
  assert(rendered_nonzero>0);
- /* Compare the selected custom table against the built-in sine through the actual native render path. */
- hybrid_panic(&core);s.wave_a=0;s.wave_b=0;s.osc2_mix=0;s.unison=1;s.sub_level=0;s.noise_level=0;
+ /* Compare the imported custom table and built-in sine with all other PRO layers held constant. */
+ hybrid_panic(&core);s.wave_a=4;s.wave_b=4;s.osc2_mix=0;s.unison=1;s.sub_level=0;s.noise_level=0;
  s.mod_source[0]=HYBRID_WT_MOD_OFF;s.mod_destination[0]=HYBRID_WT_DEST_OFF;s.mod_depth_q15[0]=0;s.lfo_phase=0;
+ hybrid_note_on(&core,60,110,0);assert(hybrid_process(&core,custom_render,128)==0);
+ hybrid_panic(&core);s.wave_a=0;s.wave_b=0;
  hybrid_note_on(&core,60,110,0);assert(hybrid_process(&core,rendered,128)==0);
  for(i=0;i<256;i++)different+=(rendered[i]!=custom_render[i]);
  assert(different>0);
