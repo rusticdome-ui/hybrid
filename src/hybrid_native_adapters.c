@@ -178,3 +178,9 @@ int hybrid_audio_wavetable_preset_load(const hybrid_wt_preset_t *preset)
     if (!hybrid_audio_ready || !preset) return -1;
     return hybrid_wavetable_preset_load(&hybrid_wavetable_state,0,preset);
 }
+
+void hybrid_audio_wavetable_control(uint16_t parameter,int32_t value)
+{
+    if (hybrid_audio_ready)
+        hybrid_control(&hybrid_audio_core,parameter,value,(int8_t)HYBRID_WAVETABLE);
+}
