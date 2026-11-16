@@ -2,7 +2,7 @@ name: Deploy SMK-37 HYBRID Virtual Lab
 on:
   workflow_dispatch:
   push:
-    branches: [hybrid-memory-reduction]
+    branches: [main, hybrid-memory-reduction, hybrid-wavetable-pro-features]
     paths:
       - "simulator/**"
       - "src/hybrid_core.c"
@@ -145,7 +145,7 @@ jobs:
           name: hybrid-wasm-pr-validation
           path: simulator/hybrid_core.wasm
       - uses: actions/upload-pages-artifact@v4
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         with:
           path: simulator
   deploy:
