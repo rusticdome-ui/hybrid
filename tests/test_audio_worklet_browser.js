@@ -52,8 +52,8 @@ const server=http.createServer((req,res)=>{
   await page.locator('#wtImport').click();
   await page.waitForFunction(()=>document.querySelector('#wtImportStatus')?.textContent.includes('amostras importadas'),null,{timeout:10000});
   await page.locator('#wtWaveA').selectOption('4');await page.locator('#wtUnison').selectOption('4');
-  await page.locator('#wtSub').fill('35');await page.locator('#wtNoise').fill('8');
-  await page.locator('#wtModSrc0').selectOption('lfo');await page.locator('#wtModDst0').selectOption('cutoff');await page.locator('#wtModDepth0').fill('45');
+  await page.locator('#wtSub').evaluate(e=>{e.value='35';e.dispatchEvent(new Event('input',{bubbles:true}))});await page.locator('#wtNoise').evaluate(e=>{e.value='8';e.dispatchEvent(new Event('input',{bubbles:true}))});
+  await page.locator('#wtModSrc0').selectOption('lfo');await page.locator('#wtModDst0').selectOption('cutoff');await page.locator('#wtModDepth0').evaluate(e=>{e.value='45';e.dispatchEvent(new Event('input',{bubbles:true}))});
   await page.locator('#wtPresetName').fill('CI PRO Test');await page.locator('#wtPresetSave').click();
   await page.locator('#wtUnison').selectOption('1');await page.locator('#wtPresetLoad').click();
   if(await page.locator('#wtUnison').inputValue()!=='4'||await page.locator('#wtWaveA').inputValue()!=='4')throw Error('Wavetable PRO preset did not restore controls');
