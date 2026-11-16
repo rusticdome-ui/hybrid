@@ -5,7 +5,8 @@ This bridge compiles the independent HYBRID C engine and common runtime with the
 ## Objects
 
 - `hybrid_core.o`: Q15 mixer, routing, scenes and PCM ingress.
-- `hybrid_wavetable.o`: dual-oscillator wavetable instrument, envelopes, filter and LFO.
+- `hybrid_wavetable.o`: native dual-oscillator PRO renderer, imported tables, unison, sub/noise and modulation.
+- `hybrid_wavetable_pro.o`: bounded PCM resampling, modulation evaluation, sub/noise helpers and CRC32 preset serialization.
 - `hybrid_native_adapters.o`: board audio, MIDI and sequencer bridge.
 - `hybrid_profile.o`: TIMER4 and memory diagnostics.
 - `hybrid_sequencer.o`: bounded shared-clock sequencer.
