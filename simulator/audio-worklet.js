@@ -50,6 +50,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     if(this.dx7Export('dx7_init')(sampleRate)!==0)throw Error('MSFA DX7 engine init failed');
     this.loadDx7Bank(wasmBytes.bankData,wasmBytes.program||0);
     for(let warm=0;warm<8;warm++){
+      this.renderWavetableToCore(128);
       this.renderDx7ToCore(128);
       this.renderSamplesToCore(128);
       if(this.core.hybrid_wasm_process(128)!==0)throw Error('HYBRID warm-up mixer failed');
@@ -58,6 +59,62 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     this.ready=true;
     for(const message of this.pendingMessages.splice(0))this.message(message);
     this.port.postMessage({type:'ready',engines:['HYBRID WAVETABLE · dual oscillator','FM6/DX7 · MSFA','PCM ingress · 8 slots']});
+  }
+  wavetableNote(note,velocity,on){
+    if(on){
+      const frequency=440*Math.pow(2,(note-69)/12),p=this.wavetable;
+      this.wavetableVoices.set(note,{note,phaseA:0,phaseB:0,stepA:2*Math.PI*frequency/sampleRate,stepB:2*Math.PI*frequency*Math.pow(2,p.detune/1200)/sampleRate,env:0,stage:'attack',velocity:Math.max(1,Math.min(127,velocity|0)),filter:0,lfoPhase:0});
+      this.wavetableNoteOns++;
+    }else{
+      const voice=this.wavetableVoices.get(note);
+      if(voice)voice.stage='release';
+    }
+  }
+  waveSample(phase,shape){
+    const cycle=((phase/(2*Math.PI))%1+1)%1;
+    if(shape===1)return 1-4*Math.abs(cycle-.5);
+    if(shape===2)return 2*cycle-1;
+    if(shape===3)return cycle<.5?1:-1;
+    return Math.sin(phase);
+  }
+  renderWavetableToCore(frames){
+    const pointer=this.core.hybrid_wasm_pcm_ptr(0)>>>0,memory=this.core.memory.buffer;
+    let view=this.wavetablePcmView;
+    if(!view||view.memory!==memory||view.pointer!==pointer||view.data.length<frames*2){
+      view={memory,pointer,data:new Int32Array(memory,pointer,frames*2)};
+      this.wavetablePcmView=view;
+    }
+    const output=view.data;output.fill(0);
+    const p=this.wavetable;let peak=0;
+    for(const voice of this.wavetableVoices.values()){
+      const velocity=voice.velocity/127;
+      for(let frame=0;frame<frames;frame++){
+        if(voice.stage==='attack'){
+          voice.env=Math.min(1,voice.env+1/Math.max(1,p.attack*sampleRate));
+          if(voice.env>=1)voice.stage='decay';
+        }else if(voice.stage==='decay'){
+          voice.env=Math.max(p.sustain,voice.env+(p.sustain-1)/Math.max(1,p.decay*sampleRate));
+          if(voice.env<=p.sustain)voice.stage='sustain';
+        }else if(voice.stage==='release'){
+          voice.env=Math.max(0,voice.env-1/Math.max(1,p.release*sampleRate));
+          if(voice.env<=0){this.wavetableVoices.delete(voice.note);break;}
+        }
+        const oscA=this.waveSample(voice.phaseA,p.waveA);
+        const oscB=this.waveSample(voice.phaseB,p.waveB);
+        const lfo=Math.sin(voice.lfoPhase)*p.lfoDepth;
+        const raw=(oscA*(1-p.mix)+oscB*p.mix)*voice.env*velocity*(1+lfo);
+        voice.phaseA+=voice.stepA;voice.phaseB+=voice.stepB;
+        voice.lfoPhase+=2*Math.PI*p.lfoRate/sampleRate;
+        voice.filter+=(raw-voice.filter)*Math.max(.002,Math.min(.98,p.cutoff));
+        const sample=Math.max(-1,Math.min(1,voice.filter*.22));
+        const q15=Math.round(sample*32767);
+        output[frame*2]+=q15;output[frame*2+1]+=q15;
+        peak=Math.max(peak,Math.abs(sample));
+      }
+    }
+    for(let i=0;i<output.length;i++)output[i]=Math.max(-32768,Math.min(32767,output[i]));
+    this.wavetablePeak=Math.round(peak*32767);
+    if(this.core.hybrid_wasm_submit_pcm(0,frames)!==0)throw Error('HYBRID Wavetable PCM ingress failed');
   }
   renderDx7ToCore(frames){
     if(this.dx7Export('dx7_render')(frames)!==0)throw Error('MSFA DX7 render failed');
