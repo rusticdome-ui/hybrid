@@ -1,0 +1,4 @@
+#include "hybrid_wavetable_pro.h"
+#include <assert.h>
+#include <stdio.h>
+int main(void){hybrid_wavetable_t s,t;hybrid_wt_mod_route_t r[4]={{1,2,12000},{2,4,9000},{0,0,0},{0,0,0}},rr[4];hybrid_wt_preset_t p;int16_t wave[128];uint32_t seed=1;unsigned i;hybrid_wavetable_defaults(&s);for(i=0;i<128;i++)wave[i]=(int16_t)((i<64?i:127-i)*500-16000);assert(hybrid_wavetable_import(&s,0,wave,128)==0);assert(s.custom_valid_mask&1);assert(hybrid_wavetable_custom_sample(&s,0,0)!=0);assert(hybrid_wavetable_unison_count(8)==4);assert(hybrid_wavetable_noise_sample(&seed)!=hybrid_wavetable_noise_sample(&seed));assert(hybrid_wavetable_sub_sample(0,1)==32767);assert(hybrid_wavetable_preset_save(&s,r,&p)==0);hybrid_wavetable_defaults(&t);assert(hybrid_wavetable_preset_load(&t,rr,&p)==0);assert(t.custom_valid_mask==s.custom_valid_mask);p.custom[0][0]^=1;assert(hybrid_wavetable_preset_load(&t,rr,&p)==-1);puts("HYBRID wavetable PRO import/layers/modulation/preset: PASS");return 0;}
