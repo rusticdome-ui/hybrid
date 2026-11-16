@@ -20,7 +20,7 @@ def main():
  if not clang.is_file():raise SystemExit(f"missing JieLi compiler: {clang}")
  out=a.felucca/"build/hybrid";out.mkdir(parents=True,exist_ok=True)
  inc=a.hybrid/"include";fw=a.felucca/"firmware/src";hal=a.felucca/"firmware/hal"
- objects=["hybrid_core","hybrid_wavetable","hybrid_native_adapters","hybrid_profile","hybrid_sequencer"]
+ objects=["hybrid_core","hybrid_wavetable","hybrid_wavetable_pro","hybrid_native_adapters","hybrid_profile","hybrid_sequencer"]
  for name in objects:
   src=a.hybrid/"src"/(name+".c");obj=out/(name+".o")
   if not src.is_file():raise SystemExit(f"missing HYBRID source: {src}")
@@ -44,6 +44,7 @@ def main():
         *(.pool*)
         build/hybrid/hybrid_core.o(.bss* COMMON)
         build/hybrid/hybrid_wavetable.o(.bss* COMMON)
+        build/hybrid/hybrid_wavetable_pro.o(.bss* COMMON)
         build/hybrid/hybrid_native_adapters.o(.bss* COMMON)
         build/hybrid/hybrid_profile.o(.bss* COMMON)
         build/hybrid/hybrid_sequencer.o(.bss* COMMON)
