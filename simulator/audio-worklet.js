@@ -104,8 +104,8 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
         const oscA=unisonA/count,oscB=unisonB/count;
         const mix=Math.max(0,Math.min(1,p.mix+mod.mix));
         let raw=(oscA*(1-mix)+oscB*mix)*voice.env*velocity*(1+lfo*p.lfoDepth+mod.amp);
-        if(p.subLevel>0)raw+=(Math.sin(voice.phaseA*.5)*p.subLevel*.35);
-        if(p.noiseLevel>0){let x=this.noiseSeed;x^=x<<13;x^=x>>>17;x^=x<<5;this.noiseSeed=x>>>0;raw+=((this.noiseSeed/4294967296)*2-1)*p.noiseLevel*.18;}
+        if(p.subLevel>0)raw+=(Math.sin(voice.phaseA*.5)*p.subLevel*.35*voice.env*velocity);
+        if(p.noiseLevel>0){let x=this.noiseSeed;x^=x<<13;x^=x>>>17;x^=x<<5;this.noiseSeed=x>>>0;raw+=((this.noiseSeed/4294967296)*2-1)*p.noiseLevel*.18*voice.env*velocity;}
         voice.phaseA+=voice.stepA;voice.phaseB+=voice.stepB;
         voice.lfoPhase+=2*Math.PI*p.lfoRate/sampleRate;
         const cutoff=Math.max(.002,Math.min(.98,p.cutoff+mod.cutoff*.45));
