@@ -3,7 +3,7 @@
 """Build and attach the independent HYBRID wavetable engine to the AC79 SMK-37 target."""
 import argparse, subprocess
 from pathlib import Path
-CFLAGS=["-target","pi32v2","-mcpu=r3","-mfprev1","-ffp-contract=off","-Oz","-fno-unroll-loops","-ffunction-sections","-fdata-sections","-fno-common","-fno-builtin","-Wall","-Wno-unused-function","-DBOARD_SMK37=1"]
+CFLAGS=["-target","pi32v2","-mcpu=r3","-mfprev1","-ffp-contract=off","-Oz","-fno-unroll-loops","-ffunction-sections","-fdata-sections","-fno-common","-fno-builtin","-DHYBRID_ENABLE_PROFILE=1","-Wall","-Wno-unused-function","-DBOARD_SMK37=1"]
 def run(args):
  print("+"," ".join(map(str,args)),flush=True);subprocess.run(list(map(str,args)),check=True)
 def replace_once(path,old,new,label):

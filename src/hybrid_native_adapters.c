@@ -16,19 +16,6 @@ static hybrid_seq_t hybrid_audio_sequencer;
 static uint8_t hybrid_audio_seq_synced;
 static uint16_t hybrid_audio_seq_bpm;
 static uint8_t hybrid_audio_seq_external;
-static void hybrid_wavetable_profiled_render(void *state,int32_t *out,uint16_t frames)
-{
-    hybrid_profile_begin(HYBRID_PROF_WAVETABLE);
-    hybrid_wavetable_ops.render(state,out,frames);
-    hybrid_profile_end(HYBRID_PROF_WAVETABLE,frames);
-}
-static const hybrid_engine_ops_t hybrid_profiled_wavetable_ops = {
-    "HYBRID WAVETABLE", hybrid_wavetable_ops.init, hybrid_wavetable_ops.reset,
-    hybrid_wavetable_ops.note_on, hybrid_wavetable_ops.note_off,
-    hybrid_wavetable_ops.control, hybrid_wavetable_profiled_render,
-    hybrid_wavetable_ops.panic, hybrid_wavetable_ops.save_scene,
-    hybrid_wavetable_ops.load_scene
-};
 static void hybrid_seq_midi_out(uint32_t status,uint32_t data1,uint32_t data2)
 {
     extern void hybrid_midi_out_event(uint32_t);
@@ -93,8 +80,7 @@ int hybrid_audio_init(void)
     hybrid_audio_seq_synced = 0u; hybrid_audio_seq_bpm = 120u;
     hybrid_profile_buffers(0u, (uint32_t)sizeof(hybrid_audio_mix) + (uint32_t)sizeof(hybrid_wavetable_state));
     hybrid_init_defaults(&hybrid_audio_core);
-    hybrid_wavetable_defaults(&hybrid_wavetable_state);
-    if (hybrid_register_engine(&hybrid_audio_core, HYBRID_WAVETABLE, &hybrid_profiled_wavetable_ops, &hybrid_wavetable_state) != 0)
+    if (hybrid_register_wavetable_engine(&hybrid_audio_core, &hybrid_wavetable_state) != 0)
         return -1;
     if (hybrid_start(&hybrid_audio_core) != 0)
         return -1;
