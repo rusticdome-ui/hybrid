@@ -94,7 +94,7 @@ void hybrid_audio_process(int32_t *out_q15, uint32_t frames, int32_t master_q12)
     if (!hybrid_audio_ready || !out_q15 || !frames ||
         frames > HYBRID_MAX_FRAMES || master_q12 <= 0)
         return;
-    hybrid_profile_buffers(frames * 2u * (uint32_t)sizeof(int32_t) * 2u,
+    hybrid_profile_buffers(frames * 2u * (uint32_t)sizeof(int32_t),
                            (uint32_t)sizeof(hybrid_audio_mix) + (uint32_t)sizeof(hybrid_wavetable_state));
     if (hybrid_process(&hybrid_audio_core, hybrid_audio_mix, (uint16_t)frames) != 0) {
         return;
