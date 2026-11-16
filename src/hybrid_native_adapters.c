@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include "hybrid_core.h"
 #include "hybrid_wavetable.h"
+#include "hybrid_wavetable_pro.h"
 #include "hybrid_profile.h"
 #include "hybrid_sequencer.h"
 static hybrid_core_t hybrid_audio_core;
@@ -145,4 +146,35 @@ void hybrid_audio_midi_panic(uint8_t channel)
         return;
     for (note = 0; note < 128u; ++note)
         hybrid_note_off(&hybrid_audio_core, (uint8_t)note, channel);
+}
+
+/* PRO operations are control-thread APIs; never call import/preset copies from the audio ISR. */
+int hybrid_audio_wavetable_import(uint8_t slot,const int16_t *pcm,uint16_t count)
+{
+    if (!hybrid_audio_ready) return -1;
+    return hybrid_wavetable_import(&hybrid_wavetable_state,slot,pcm,count);
+}
+int hybrid_audio_wavetable_clear(uint8_t slot)
+{
+    if (!hybrid_audio_ready) return -1;
+    return hybrid_wavetable_clear_custom(&hybrid_wavetable_state,slot);
+}
+int hybrid_audio_wavetable_mod_route(uint8_t slot,uint8_t source,uint8_t destination,int16_t depth_q15)
+{
+    if (!hybrid_audio_ready || slot>=HYBRID_WT_MOD_SLOTS ||
+        source>HYBRID_WT_MOD_ENVELOPE || destination>HYBRID_WT_DEST_AMP) return -1;
+    hybrid_wavetable_state.mod_source[slot]=source;
+    hybrid_wavetable_state.mod_destination[slot]=destination;
+    hybrid_wavetable_state.mod_depth_q15[slot]=depth_q15;
+    return 0;
+}
+int hybrid_audio_wavetable_preset_save(hybrid_wt_preset_t *out)
+{
+    if (!hybrid_audio_ready || !out) return -1;
+    return hybrid_wavetable_preset_save(&hybrid_wavetable_state,0,out);
+}
+int hybrid_audio_wavetable_preset_load(const hybrid_wt_preset_t *preset)
+{
+    if (!hybrid_audio_ready || !preset) return -1;
+    return hybrid_wavetable_preset_load(&hybrid_wavetable_state,0,preset);
 }
