@@ -1,0 +1,12 @@
+MSFA DX7 synthesis core
+
+Upstream: webaudiomodules/webdx7, src/c/msfa (Google MSFA with Dexed changes)
+Source: https://github.com/webaudiomodules/webdx7
+Related implementation: https://github.com/asb2m10/dexed
+License: Apache-2.0. Original per-file copyright and license headers are retained.
+
+HYBRID modifications:
+- Direct, non-blocking MIDI, bank and program entry points added to SynthUnit.
+- Standard equal-temperament-only tuning adapter added for this browser build.
+- Empty ring-buffer implementation used; MIDI dispatch goes directly to the synth to avoid blocking in AudioWorklet.
+- Added a C ABI wrapper for WASM bank memory, MIDI events and PCM rendering.
