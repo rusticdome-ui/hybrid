@@ -10,6 +10,9 @@ RAMTEXT_CAPACITY = 0x6000
 RAM_CAPACITY = 96 * 1024
 POOL_CAPACITY = 0x54000
 NOINIT_CAPACITY = 0x3D50
+# Hard reserves prevent silent growth into board-critical regions.
+NOINIT_MIN_HEADROOM = 128
+POOL_MIN_HEADROOM = 8192
 
 def read_sections(path):
     sections = {}
@@ -44,7 +47,10 @@ def main():
         "|---|---:|---:|---:|---|",
     ]
     for name, used, capacity in rows:
-        lines.append(f"| {name} | {used} B | {capacity} B | {capacity-used} B | {'PASS' if used <= capacity else 'OVER'} |")
+        remaining = capacity - used
+        minimum = NOINIT_MIN_HEADROOM if name == ".noinit" else (POOL_MIN_HEADROOM if name == ".pool" else 0)
+        status = "PASS" if used <= capacity and remaining >= minimum else "OVER/LOW HEADROOM"
+        lines.append(f"| {name} | {used} B | {capacity} B | {remaining} B | {status} |")
     lines += [
         "", "## Runtime instrumentation linked into firmware", "",
         "| Metric | Instrumentation |", "|---|---|",
@@ -69,6 +75,10 @@ def main():
     print(a.output.read_text())
     if any(used > capacity for _, used, capacity in rows):
         raise SystemExit("Final ELF exceeds an AC79 static memory region budget")
+    if sections[".noinit"] > NOINIT_CAPACITY - NOINIT_MIN_HEADROOM:
+        raise SystemExit(f".noinit headroom below hard reserve ({NOINIT_MIN_HEADROOM} B)")
+    if sections[".pool"] > POOL_CAPACITY - POOL_MIN_HEADROOM:
+        raise SystemExit(f".pool headroom below hard reserve ({POOL_MIN_HEADROOM} B)")
 
 if __name__ == "__main__":
     main()
