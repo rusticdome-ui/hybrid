@@ -15,6 +15,7 @@ void hybrid_audio_midi_note_on(uint8_t note,uint8_t velocity,uint8_t channel);
 void hybrid_audio_midi_note_off(uint8_t note,uint8_t channel);
 void hybrid_audio_midi_panic(uint8_t channel);
 /* Native Wavetable PRO control/import/preset API; caller owns PCM and preset buffers. */
+void hybrid_audio_wavetable_control(uint16_t parameter,int32_t value);
 int hybrid_audio_wavetable_import(uint8_t slot,const int16_t *pcm,uint16_t count);
 int hybrid_audio_wavetable_clear(uint8_t slot);
 int hybrid_audio_wavetable_mod_route(uint8_t slot,uint8_t source,uint8_t destination,int16_t depth_q15);
