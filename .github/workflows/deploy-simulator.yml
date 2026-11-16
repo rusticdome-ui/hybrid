@@ -7,8 +7,10 @@ on:
       - "simulator/**"
       - "src/hybrid_core.c"
       - "src/hybrid_wavetable.c"
+      - "src/hybrid_wavetable_pro.c"
       - "include/hybrid_core.h"
       - "include/hybrid_wavetable.h"
+      - "include/hybrid_wavetable_pro.h"
       - "tests/test_hybrid_wasm_bridge.c"
       - "tests/test_audio_worklet_browser.js"
       - "tests/test_dx7_fm6_wasm.js"
@@ -18,8 +20,10 @@ on:
       - "simulator/**"
       - "src/hybrid_core.c"
       - "src/hybrid_wavetable.c"
+      - "src/hybrid_wavetable_pro.c"
       - "include/hybrid_core.h"
       - "include/hybrid_wavetable.h"
+      - "include/hybrid_wavetable_pro.h"
       - "tests/test_hybrid_wasm_bridge.c"
       - "tests/test_audio_worklet_browser.js"
       - ".github/workflows/deploy-simulator.yml"
@@ -84,6 +88,8 @@ jobs:
           /tmp/test_hybrid_core
           cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c src/hybrid_wavetable.c tests/test_hybrid_wavetable.c -o /tmp/test_hybrid_wavetable
           /tmp/test_hybrid_wavetable
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c src/hybrid_wavetable.c src/hybrid_wavetable_pro.c tests/test_hybrid_wavetable_pro.c -o /tmp/test_hybrid_wavetable_pro
+          /tmp/test_hybrid_wavetable_pro
           cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c tests/test_hybrid_stress.c -o /tmp/test_hybrid_stress
           /tmp/test_hybrid_stress
           cc -std=c99 -O2 -Wall -Wextra -Werror -Itests/fakes -Iinclude src/hybrid_profile.c tests/test_hybrid_profile.c -o /tmp/test_hybrid_profile
