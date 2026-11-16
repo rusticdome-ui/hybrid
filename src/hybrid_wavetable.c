@@ -38,7 +38,7 @@ static void wt_reset(void*p){hybrid_wavetable_t*s=p;uint32_t i;for(i=0;i<VOICES;
 static void wt_on(void*p,uint8_t n,uint8_t vel){hybrid_wavetable_t*s=p;uint32_t i,best=0;for(i=0;i<VOICES;i++){if(!s->voice[i].active){best=i;break;}if(s->voice[i].envelope<s->voice[best].envelope)best=i;}hybrid_wavetable_voice_t*v=&s->voice[best];v->phase_a=v->phase_b=0;v->step_a=step_for(n);v->step_b=(uint32_t)(((uint64_t)v->step_a*(1000u+s->detune))/1000u);v->note=n;v->velocity=vel;v->envelope=0;v->filter_state=0;v->stage=1;v->active=1;}
 static void wt_off(void*p,uint8_t n){hybrid_wavetable_t*s=p;uint32_t i;for(i=0;i<VOICES;i++)if(s->voice[i].active&&s->voice[i].note==n)s->voice[i].stage=4;}
 static void wt_control(void*p,uint16_t id,int32_t value){hybrid_wavetable_t*s=p;uint16_t v=(uint16_t)(value<0?0:(value>32767?32767:value));switch(id){case 0:s->wave_a=(uint8_t)(v>>12);break;case 1:s->wave_b=(uint8_t)(v>>12);break;case 2:s->osc2_mix=v;break;case 3:s->attack=v;break;case 4:s->decay=v;break;case 5:s->sustain=v;break;case 6:s->release=v;break;case 7:s->cutoff=v;break;case 8:s->resonance=v;break;case 9:s->lfo_rate=v;break;case 10:s->lfo_depth=v;break;case 11:s->detune=(uint8_t)(v>>8);break;case 12:s->unison=hybrid_wavetable_unison_count((uint8_t)(1u+(v>>13)));break;
- case 13:s->unison_detune=v;break;case 14:s->sub_level=(uint8_t)(v>>8);break;case 15:s->noise_level=(uint8_t)(v>>8);break;
+ case 13:s->unison_detune=(uint16_t)(v>5000u?5000u:v);break;case 14:s->sub_level=(uint8_t)(v>>8);break;case 15:s->noise_level=(uint8_t)(v>>8);break;
  default:if(id>=32u&&id<44u){uint8_t slot=(uint8_t)((id-32u)/3u),part=(uint8_t)((id-32u)%3u);if(part==0)s->mod_source[slot]=(uint8_t)(v>>12);else if(part==1)s->mod_destination[slot]=(uint8_t)(v>>12);else s->mod_depth_q15[slot]=(int16_t)(value>32767?32767:(value< -32768?-32768:value));}break;}}
 static void wt_render(void*p,int32_t*out,uint16_t frames){
  hybrid_wavetable_t*s=p;uint16_t f;uint32_t i;hybrid_wt_mod_route_t routes[HYBRID_WT_MOD_SLOTS];
@@ -61,17 +61,21 @@ static void wt_render(void*p,int32_t*out,uint16_t frames){
    osc_mix=wt_clamp_u15((int32_t)s->osc2_mix+mod.osc_mix_q15);
    cutoff=wt_clamp_u15((int32_t)s->cutoff+mod.cutoff_q15);
    count=hybrid_wavetable_unison_count(s->unison);
-   for(u=0;u<count;u++){
-    int32_t centered=(int32_t)(2u*u)-(int32_t)(count-1u);
-    int32_t detune=(int32_t)s->unison_detune*centered/(int32_t)(count*2u);
+   {
     uint32_t sa=(uint32_t)(((uint64_t)v->step_a*(uint32_t)(32767+pitch))/32767u);
     uint32_t sb=(uint32_t)(((uint64_t)v->step_b*(uint32_t)(32767+pitch))/32767u);
-    uint32_t ua=(uint32_t)(((int64_t)sa*(100000+detune))/100000);
-    uint32_t ub=(uint32_t)(((int64_t)sb*(100000+detune))/100000);
-    uint32_t offset=(uint32_t)(((uint64_t)u<<32)/count);
-    a+=wave(s,v->phase_a+offset,s->wave_a);
-    b+=wave(s,v->phase_b+offset,s->wave_b);
-    if(u==0u){v->phase_a+=ua;v->phase_b+=ub;}
+    int32_t da=(int32_t)(((uint64_t)sa*s->unison_detune)/100000u);
+    int32_t db=(int32_t)(((uint64_t)sb*s->unison_detune)/100000u);
+    uint32_t offset_step=(count==1u)?0u:((count==2u)?0x80000000u:((count==3u)?0x55555555u:0x40000000u));
+    for(u=0;u<count;u++){
+     int32_t centered=(int32_t)(2u*u)-(int32_t)(count-1u);
+     uint32_t offset=(uint32_t)u*offset_step;
+     uint32_t ua=(uint32_t)((int64_t)sa+(int64_t)da*centered);
+     uint32_t ub=(uint32_t)((int64_t)sb+(int64_t)db*centered);
+     a+=wave(s,v->phase_a+offset,s->wave_a);
+     b+=wave(s,v->phase_b+offset,s->wave_b);
+     if(u==0u){v->phase_a+=ua;v->phase_b+=ub;}
+    }
    }
    a/=count;b/=count;
    x=(a*(32767-osc_mix)+b*osc_mix)/Q15;
