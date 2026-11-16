@@ -12,7 +12,8 @@ typedef struct {
 typedef struct {
  hybrid_wavetable_voice_t voice[16];
  uint16_t attack,decay,sustain,release,cutoff,resonance,lfo_rate,lfo_depth;
- uint8_t wave_a,wave_b,osc2_mix,detune,unison;
+ uint8_t wave_a,wave_b,detune,unison;
+ uint16_t osc2_mix;
  uint32_t lfo_phase;
 } hybrid_wavetable_t;
 void hybrid_wavetable_defaults(hybrid_wavetable_t *state);
