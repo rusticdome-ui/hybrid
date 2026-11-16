@@ -1,21 +1,24 @@
-# AC79 isolated DSP linker
+# AC79 HYBRID wavetable linker
 
-This bridge compiles AMB-1, DUB-1 and ZEN-1 as separate pi32v2 objects, namespaces engine-owned global symbols with JieLi `nm`/`objcopy`, and patches the checked-out Felucca `tools/build.py` final link to include those objects.
+This bridge compiles the independent HYBRID C engine and common runtime with the JieLi pi32v2 toolchain, then attaches those objects to the SMK-37 AC79 board audio build. It does not fetch, compile or link any external instrument DSP source.
 
-AMB-1 and DUB-1 both export `en_*` with incompatible parameter enums/state. They are compiled separately and exported as `amb_en_*` and `dub_en_*`. ZEN-1's `fumi.c` is a self-contained translation unit which textually includes `tuning.c`, `smooth.c`, `bend.c`, `fm6_core.c`, `fm6_patch.c`, `reverb.c` and `bed.c`; compile `fumi.c` once as `fumi.o` to avoid duplicate definitions.
+## Objects
+
+- `hybrid_core.o`: Q15 mixer, routing, scenes and PCM ingress.
+- `hybrid_wavetable.o`: dual-oscillator wavetable instrument, envelopes, filter and LFO.
+- `hybrid_native_adapters.o`: board audio, MIDI and sequencer bridge.
+- `hybrid_profile.o`: TIMER4 and memory diagnostics.
+- `hybrid_sequencer.o`: bounded shared-clock sequencer.
 
 ## Run
 
 ```sh
 python3 tools/ac79_link_engines.py \
-  --amb /src/fm1-amb/firmware/src/dsp \
-  --dub /src/fm1-dub/firmware/src/dsp \
-  --zen /src/zen-1/firmware/src/dsp \
   --felucca /src/Felucca \
   --toolchain "$JIELI_TOOLCHAIN"
 python3 /src/Felucca/tools/build.py --board smk37 --model pro --sdk "$AC79_SDK"
 ```
 
-The helper fails closed if a source, tool, required adapter symbol, or expected Felucca linker anchor is missing. It emits `build/hybrid/NAMESPACE-MANIFEST.txt` and adds `amb.o`, `dub.o`, and `fumi.o` to the final AC79 application link.
+The helper fails closed if the toolchain, source files or expected board linker/audio anchors are missing. It emits a HYBRID Wavetable manifest and places HYBRID object BSS in the linker POOL region.
 
-**Important:** object-level linking does not yet connect the three adapters to Felucca's audio ISR/mixer. It is not yet a complete HYBRID firmware and must not be flashed as one. RAM/pool and runtime CPU headroom, audio callback registration, GHOULBOX slot D preservation and hardware testing remain gates. Upstream GPL-3.0-only notices must be retained.
+The output remains validation-only until the package identity and flashing path are replaced and verified. CI cannot measure live board CPU, stack, DMA underruns or long-run hardware stability.
