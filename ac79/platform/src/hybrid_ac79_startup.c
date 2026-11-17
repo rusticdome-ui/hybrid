@@ -6,17 +6,21 @@
 #include <stdint.h>
 #include "hybrid_ac79_scan_hw.h"
 #include "fm1_gpio.h"
-#include "fm1_irq.h"
+
 
 #define BIT(n) (1u << (n))
 extern void smk37_adc_pmu_detect_en(unsigned mode) __attribute__((weak));
+#define FM1_VEC ((volatile uint32_t *)0x01C7FE00u)
+#define FM1_ICFG(n) (*(volatile uint32_t *)(0x1EEF100u + 4u * ((n) >> 3)))
 static volatile uint8_t pmu_detect_available;
 static volatile uint8_t scan_irq_seen;
 
 static int irq_attach(void *ctx,unsigned irq,void (*handler)(void),unsigned priority)
 {
     (void)ctx;
-    fm1_irq_attach(irq,handler,priority);
+    uint32_t shift=(irq&7u)*4u;
+    FM1_VEC[irq]=(uint32_t)(uintptr_t)handler;
+    FM1_ICFG(irq)=(FM1_ICFG(irq)&~(0xFu<<shift))|((((priority&7u)<<1)|1u)<<shift);
     return 0;
 }
 static int gpio_input(void *ctx,unsigned pin,unsigned pull_up)
