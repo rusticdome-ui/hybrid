@@ -67,14 +67,6 @@ jobs:
             -c ac79/native/src/hybrid_native_irq.c \
             -o "$RUNNER_TEMP/hybrid_native_irq.o"
           test -s "$RUNNER_TEMP/hybrid_native_irq.o"
-      - name: Compile native C runtime entry with JieLi pi32v2
-        run: |
-          set -euo pipefail
-          "$JIELI_TOOLCHAIN/pi32v2/bin/clang" -target pi32v2 -mcpu=r3 -mfprev1 -Oz \
-            -ffunction-sections -fdata-sections -fno-common -Wall -Wextra -Werror \
-            -Iac79/native/include -c ac79/native/src/hybrid_native_startup.c \
-            -o "$RUNNER_TEMP/hybrid_native_startup.o"
-          test -s "$RUNNER_TEMP/hybrid_native_startup.o"
       - name: Install JieLi pi32v2 toolchain
         shell: bash
         run: |
@@ -85,6 +77,14 @@ jobs:
           test -x "$tc_dir/pi32v2/bin/clang"
           ln -sfn "$tc_dir" "$HOME/.jieli/toolchain"
           echo "JIELI_TOOLCHAIN=$HOME/.jieli/toolchain" >> "$GITHUB_ENV"
+      - name: Compile native C runtime entry with JieLi pi32v2
+        run: |
+          set -euo pipefail
+          "$JIELI_TOOLCHAIN/pi32v2/bin/clang" -target pi32v2 -mcpu=r3 -mfprev1 -Oz \
+            -ffunction-sections -fdata-sections -fno-common -Wall -Wextra -Werror \
+            -Iac79/native/include -c ac79/native/src/hybrid_native_startup.c \
+            -o "$RUNNER_TEMP/hybrid_native_startup.o"
+          test -s "$RUNNER_TEMP/hybrid_native_startup.o"
       - name: Compile independent ALNK0 audio driver with JieLi pi32v2
         shell: bash
         run: |
