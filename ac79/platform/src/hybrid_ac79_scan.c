@@ -17,7 +17,8 @@ void hybrid_ac79_scan_init(hybrid_ac79_scan_t *s)
             s->samples[b][p]=0xffffffffu;
     s->phase=0; s->write_buffer=0; s->ready_buffer=1; s->ready=0;
     s->adc_delay=0; s->fast_index=0; s->slow_index=0;
-    s->scan_overruns=0; s->adc_completions=0;
+    s->scan_overruns=0; s->adc_completions=0; s->adc_sample_valid=0;
+    for (b=0; b<HYBRID_SCAN_FAST_ADC+HYBRID_SCAN_SLOW_ADC; ++b) s->adc_samples[b]=0;
 }
 
 void hybrid_ac79_scan_irq(hybrid_ac79_scan_t *s,const hybrid_ac79_scan_ops_t *o,
@@ -80,7 +81,7 @@ hybrid_ac79_adc_step_t hybrid_ac79_adc_next(const hybrid_ac79_scan_t *s)
     } else {
         uint8_t n=s->slow_index;
         r.index=n;
-        if (n<4u) { r.kind=HYBRID_ADC_FADER; r.adc_channel=2; r.mux_channel=(uint8_t)(n+4u); }
+        if (n<4u) { r.kind=HYBRID_ADC_FADER; r.adc_channel=2; r.mux_channel=n; }
         else if (n==4u) { r.kind=HYBRID_ADC_PEDAL; r.adc_channel=2; r.mux_channel=6; }
         else if (n==5u) { r.kind=HYBRID_ADC_BATTERY; r.adc_channel=2; r.mux_channel=7; }
         else if (n==6u) { r.kind=HYBRID_ADC_VBAT; r.adc_channel=15; r.mux_channel=0; }
@@ -89,10 +90,14 @@ hybrid_ac79_adc_step_t hybrid_ac79_adc_next(const hybrid_ac79_scan_t *s)
     return r;
 }
 
-void hybrid_ac79_adc_complete(hybrid_ac79_scan_t *s,const hybrid_ac79_scan_ops_t *o)
+void hybrid_ac79_adc_complete_value(hybrid_ac79_scan_t *s,const hybrid_ac79_scan_ops_t *o,uint16_t value)
 {
     hybrid_ac79_adc_step_t step;
+    unsigned slot;
     if (!s) return;
+    slot=s->fast_index<HYBRID_SCAN_FAST_ADC?s->fast_index:(HYBRID_SCAN_FAST_ADC+s->slow_index);
+    s->adc_samples[slot]=value;
+    s->adc_sample_valid|=(uint32_t)1u<<slot;
     ++s->adc_completions;
     if (s->fast_index<HYBRID_SCAN_FAST_ADC) {
         ++s->fast_index;
@@ -104,4 +109,15 @@ void hybrid_ac79_adc_complete(hybrid_ac79_scan_t *s,const hybrid_ac79_scan_ops_t
     step=hybrid_ac79_adc_next(s);
     if (o && o->adc_mux) o->adc_mux(o->ctx,step.mux_channel);
     s->adc_delay=1u;
+}
+
+void hybrid_ac79_adc_complete(hybrid_ac79_scan_t *s,const hybrid_ac79_scan_ops_t *o)
+{ hybrid_ac79_adc_complete_value(s,o,0u); }
+
+void hybrid_ac79_adc_copy(const hybrid_ac79_scan_t *s,uint16_t out[HYBRID_SCAN_FAST_ADC+HYBRID_SCAN_SLOW_ADC],uint32_t *valid_mask)
+{
+    unsigned i;
+    if(!s||!out)return;
+    for(i=0;i<HYBRID_SCAN_FAST_ADC+HYBRID_SCAN_SLOW_ADC;++i)out[i]=s->adc_samples[i];
+    if(valid_mask)*valid_mask=s->adc_sample_valid;
 }
