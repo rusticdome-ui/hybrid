@@ -40,6 +40,7 @@ static int gpio_output(void *ctx,unsigned pin,unsigned value)
     (void)ctx;
     if(port>7u)return -1;
     FM1_PR(port,FM1_DIE)|=BIT(bit);
+    FM1_PR(port,FM1_PU)&=~BIT(bit);FM1_PR(port,FM1_PD)&=~BIT(bit);
     if(value)FM1_PR(port,FM1_OUT)|=BIT(bit);else FM1_PR(port,FM1_OUT)&=~BIT(bit);
     FM1_PR(port,FM1_DIR)&=~BIT(bit);
     return 0;
