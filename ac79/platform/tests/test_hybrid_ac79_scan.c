@@ -20,7 +20,7 @@ int main(void)
     static const uint8_t fast_muxes[18]={0,1,2,3,4,5,6,7,0,1,2,3,4,5,6,7,4,5};
     static const uint8_t slow_kinds[8]={HYBRID_ADC_FADER,HYBRID_ADC_FADER,HYBRID_ADC_FADER,HYBRID_ADC_FADER,HYBRID_ADC_PEDAL,HYBRID_ADC_BATTERY,HYBRID_ADC_VBAT,HYBRID_ADC_REFERENCE};
     static const uint8_t slow_channels[8]={2,2,2,2,2,2,15,15};
-    static const uint8_t slow_muxes[8]={4,5,6,7,6,7,0,0};
+    static const uint8_t slow_muxes[8]={0,1,2,3,6,7,0,0};
     hybrid_ac79_scan_t s;
     uint32_t out[HYBRID_SCAN_PHASES];
     hybrid_ac79_scan_ops_t o={spi,sample,latch,soft_irq,adc,mux,0};
@@ -55,7 +55,7 @@ int main(void)
         hybrid_ac79_adc_step_t a=hybrid_ac79_adc_next(&s);
         assert(a.kind==(i<16?HYBRID_ADC_PAD:HYBRID_ADC_AUX_FAST));
         assert(a.index==i&&a.adc_channel==fast_channels[i]&&a.mux_channel==fast_muxes[i]);
-        hybrid_ac79_adc_complete(&s,&o);
+        hybrid_ac79_adc_complete_value(&s,&o,(uint16_t)(100u+i));
         if(i+1<HYBRID_SCAN_FAST_ADC) { tick(&s,&o); tick(&s,&o); }
     }
     /* The last fast conversion must also settle the first slow mux. */
@@ -70,5 +70,7 @@ int main(void)
     assert(s.adc_completions==26);
     assert(s.fast_index==0&&s.slow_index==0);
     assert(adcs==26&&muxes==27);
+    { uint16_t values[26]; uint32_t valid=0; hybrid_ac79_adc_copy(&s,values,&valid);
+      assert(valid==0x03ffffffu); for(i=0;i<26;i++)assert(values[i]==(uint16_t)(100u+i)); }
     return 0;
 }
