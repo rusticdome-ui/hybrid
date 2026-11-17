@@ -14,6 +14,8 @@ extern "C" {
 typedef struct {
     uint32_t (*clock_hz)(void *context);
     uint32_t (*ticks)(void *context);
+    uint32_t (*irq_save)(void *context);
+    void (*irq_restore)(void *context, uint32_t state);
     int (*codec_init)(void *context);
     int (*irq_attach)(void *context, unsigned irq, void (*handler)(void), unsigned priority);
     void *context;
@@ -30,6 +32,8 @@ typedef struct {
     uint32_t interval_errors;
 } hybrid_ac79_audio_stats_t;
 
+struct hybrid_core;
+int hybrid_ac79_audio_render_core(void *context, int32_t *stereo_q15, uint16_t frames);
 int hybrid_ac79_audio_init(const hybrid_ac79_audio_hw_t *hardware,
                            hybrid_ac79_render_fn render, void *render_context);
 void hybrid_ac79_audio_irq(void);
