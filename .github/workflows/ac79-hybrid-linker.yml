@@ -6,6 +6,7 @@ on:
     paths:
       - "src/**"
       - "include/**"
+      - "ac79/platform/**"
       - "tools/ac79_link_engines.py"
       - "tools/ac79_profile_report.py"
       - "tests/**"
@@ -44,6 +45,11 @@ jobs:
           "$RUNNER_TEMP/test_hybrid_profile"
           cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_sequencer.c tests/test_hybrid_sequencer.c -o "$RUNNER_TEMP/test_hybrid_sequencer"
           "$RUNNER_TEMP/test_hybrid_sequencer"
+      - name: Test independent SMK-37 AC79 platform contract
+        run: |
+          set -euo pipefail
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Iac79/platform/include ac79/platform/src/hybrid_ac79_platform.c ac79/platform/tests/test_hybrid_ac79_platform.c -o "$RUNNER_TEMP/test_hybrid_ac79_platform"
+          "$RUNNER_TEMP/test_hybrid_ac79_platform"
       - name: Install JieLi pi32v2 toolchain
         shell: bash
         run: |
