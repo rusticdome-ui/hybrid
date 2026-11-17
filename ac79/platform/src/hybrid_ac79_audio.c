@@ -130,7 +130,7 @@ int hybrid_ac79_audio_init(const hybrid_ac79_audio_hw_t *hardware,
     return 0;
 }
 
-void hybrid_ac79_audio_irq(void)
+__attribute__((interrupt(""))) void hybrid_ac79_audio_irq(void)
 {
     uint8_t pending=(uint8_t)((ALNK_CON2 >> 4) & 15u);
     uint32_t start,interval,used;
