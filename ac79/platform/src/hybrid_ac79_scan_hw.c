@@ -19,6 +19,8 @@ typedef struct { volatile uint32_t CON0,CON1; } iomap_t;
 #define IOMAP ((iomap_t *)HYBRID_WL82_IOMAP_BASE)
 #define SPI2 ((spi_t *)HYBRID_WL82_SPI2_BASE)
 #define ADC ((adc_t *)HYBRID_WL82_ADC_BASE)
+typedef struct { volatile uint32_t WLA_CON0; } ana_t;
+#define ANA ((ana_t *)0x11900u)
 #define SOFT_SET (*(volatile uint32_t *)0x1eef1a0u)
 #define SOFT_CLEAR (*(volatile uint32_t *)0x1eef1a4u)
 
@@ -56,9 +58,9 @@ static void adc_mux(void *ctx,uint8_t channel)
     (void)ctx;
     mux_mask=0xffffffc7u|(((uint32_t)channel&7u)<<3);
 }
-static void adc_start(void *ctx,uint8_t channel)
+static void adc_start(void *ctx,uint8_t channel,uint8_t param)
 {
-    (void)ctx;
+    if(param){ ANA->WLA_CON0&=~BIT(14); if(hw.adc_pmu_detect_enable)hw.adc_pmu_detect_enable(hw.ctx,param); }
     ADC->CON=5u|(4u<<12)|BIT(3)|BIT(5)|BIT(6)|(((uint32_t)channel&15u)<<8);
     ADC->CON|=BIT(4);
     ADC->CON|=BIT(6);
@@ -91,7 +93,7 @@ static void adc_irq_handler(void)
 }
 int hybrid_ac79_scan_hw_init(const hybrid_ac79_scan_hw_config_t *config)
 {
-    if(!config||!config->irq_attach||!config->gpio_input||!config->gpio_output||!config->adc_input)return -1;
+    if(!config||!config->irq_attach||!config->gpio_input||!config->gpio_output||!config->adc_input||!config->adc_pmu_detect_enable)return -1;
     hw=*config;
     /* Match Pro reference pin mux and matrix wiring. */
     IOMAP->CON1&=~BIT(16);IOMAP->CON1|=BIT(17);
