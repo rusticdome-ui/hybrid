@@ -20,11 +20,11 @@ def main():
  if not clang.is_file():raise SystemExit(f"missing JieLi compiler: {clang}")
  out=a.felucca/"build/hybrid";out.mkdir(parents=True,exist_ok=True)
  inc=a.hybrid/"include";fw=a.felucca/"firmware/src";hal=a.felucca/"firmware/hal"
- objects=["hybrid_core","hybrid_wavetable","hybrid_native_adapters","hybrid_profile","hybrid_sequencer"]
+ objects=["hybrid_core","hybrid_wavetable","hybrid_native_adapters","hybrid_profile","hybrid_sequencer","hybrid_ac79_scan","hybrid_ac79_scan_hw","hybrid_ac79_startup"]
  for name in objects:
-  src=a.hybrid/"src"/(name+".c");obj=out/(name+".o")
+  src=(a.hybrid/"ac79/platform/src"/(name+".c")) if name.startswith("hybrid_ac79_") else (a.hybrid/"src"/(name+".c"));obj=out/(name+".o")
   if not src.is_file():raise SystemExit(f"missing HYBRID source: {src}")
-  run([clang,*CFLAGS,"-I"+str(inc),"-I"+str(fw),"-I"+str(hal),"-c",src,"-o",obj])
+  run([clang,*CFLAGS,"-I"+str(inc),"-I"+str(fw),"-I"+str(hal),"-I"+str(a.hybrid/"ac79/platform/include"),"-c",src,"-o",obj])
  build=a.felucca/"tools/build.py";build_src=build.read_text()
  anchor='''    tc("pi32v2/bin/ld", "-T", ld, OUT / "crt0.o", OUT / "fm1_vec.o", OUT / "fm1_isr.o",
        OUT / "felucca.o", "-o", elf)'''
@@ -56,7 +56,7 @@ def main():
  replace_once(audio,"    mix_block(out, n);","    hybrid_audio_seq_process(n);\n    hybrid_profile_begin(4);\n    mix_block(out, n);\n    hybrid_profile_end(4, n);\n    hybrid_audio_process(out, n, fx_usb_fixed ? MASTER_FULL : (int32_t)song.master_q12);","audio mixer hook")
  replace_once(audio,"        if (fm1_audio_free_half() != half)\n            felucca_dbg.late++;","        if (fm1_audio_free_half() != half) {\n            felucca_dbg.late++;\n            hybrid_profile_underrun();\n        }","audio DMA underrun hook")
  main_c=a.felucca/"firmware/src/main.c"
- replace_once(main_c,"static void felucca_init(void)","extern int hybrid_audio_init(void);\n\nstatic void felucca_init(void)","main declaration")
+ replace_once(main_c,"static void felucca_init(void)","extern int hybrid_audio_init(void);\nextern int hybrid_ac79_scan_startup(void);\n\nstatic void felucca_init(void)","main declaration")
  replace_once(main_c,"    gb_scene_load(ui_scene);","    gb_scene_load(ui_scene);\n    (void)hybrid_audio_init();","engine initialization")
  usb=a.felucca/"firmware/src/usb.c"
  replace_once(usb,"    mo_w++;\n    }\n}\n\n/* ------------------------------------------------------- descriptors --- */","    mo_w++;\n    }\n}\n\nvoid hybrid_midi_out_event(uint32_t pkt) { midi_out_event(pkt); }\n\n/* ------------------------------------------------------- descriptors --- */","MIDI output bridge")
