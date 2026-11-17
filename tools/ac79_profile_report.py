@@ -10,6 +10,7 @@ RAMTEXT_CAPACITY = 0x6000
 RAM_CAPACITY = 96 * 1024
 POOL_CAPACITY = 0x54000
 NOINIT_CAPACITY = 0x3D50
+NOINIT_MIN_FREE = 2048
 
 def read_sections(path):
     sections = {}
@@ -69,6 +70,9 @@ def main():
     print(a.output.read_text())
     if any(used > capacity for _, used, capacity in rows):
         raise SystemExit("Final ELF exceeds an AC79 static memory region budget")
+    noinit_free = NOINIT_CAPACITY - sections[".noinit"]
+    if noinit_free < NOINIT_MIN_FREE:
+        raise SystemExit(f"AC79 .noinit margin {noinit_free} B is below required {NOINIT_MIN_FREE} B")
 
 if __name__ == "__main__":
     main()
