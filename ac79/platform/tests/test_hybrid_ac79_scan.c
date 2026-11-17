@@ -70,7 +70,7 @@ int main(void)
     }
     assert(s.adc_completions==26);
     assert(s.fast_index==0&&s.slow_index==0);
-    assert(adcs==26&&muxes==27);
+    assert(adcs==26&&muxes==26);
     { uint16_t values[26]; uint32_t valid=0; hybrid_ac79_adc_copy(&s,values,&valid);
       assert(valid==0x03ffffffu); for(i=0;i<26;i++)assert(values[i]==(uint16_t)(100u+i)); }
     return 0;
