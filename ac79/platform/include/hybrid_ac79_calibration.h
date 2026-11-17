@@ -15,6 +15,7 @@ typedef struct {
     uint32_t crc32;
 } hybrid_ac79_calibration_t;
 enum { HYBRID_CAL_KEY=0, HYBRID_CAL_PAD=1, HYBRID_CAL_PEDAL=2 };
+void hybrid_ac79_calibration_seal(hybrid_ac79_calibration_t *cal);
 int hybrid_ac79_calibration_validate(const hybrid_ac79_calibration_t *cal);
 int hybrid_ac79_calibration_set(hybrid_ac79_calibration_t *cal,unsigned kind,unsigned index,unsigned anchor,uint16_t raw);
 uint16_t hybrid_ac79_calibration_map(const uint16_t curve[HYBRID_AC79_CAL_ANCHORS],uint16_t raw);
