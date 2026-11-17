@@ -86,3 +86,19 @@ software scan ISR, ADC/CD4051 scheduling and calibration curves, encoder
 quadrature, button debounce, LCD SPI1 and multiplexed LEDs is not yet present.
 The existing callback contract is not evidence that these peripherals operate
 without Felucca.
+
+## Scanner/ADC sequencing core (new)
+
+`hybrid_ac79_scan.c` now provides a host-testable timing/state core for the
+16-phase SPI2 scan, ping-pong input buffers, deferred software-IRQ notification,
+and ADC conversion schedule. The fast group is 18 conversions (16 pad mux
+samples plus two additional fast inputs); it is followed by the eight-step slow
+schedule (four faders, pedal, battery, VBAT and PMU reference). The scan IRQ
+models the three-tick mux settling delay before starting an ADC conversion.
+
+This is deliberately the sequencer, not yet the concrete WL82 MMIO/SDK driver:
+the production ISR wrappers still need to bind IRQ 37, software IRQ 122 and ADC
+IRQ 24, apply the reference GPIO packing and calibrated pad/key curves, and
+connect the SDK's ADC start/ack operations. The original scanner's DSP/control
+processing and exact lookup-table calibration remain to be ported before
+claiming velocity/pressure parity. The tests validate sequencing only.
