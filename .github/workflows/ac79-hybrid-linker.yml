@@ -1,33 +1,29 @@
-name: AC79 isolated DSP linker check
-
+name: AC79 HYBRID wavetable firmware validation
 on:
   workflow_dispatch:
   push:
-    branches: [ac79-hybrid-linker, hybrid-audio-mixer-integration, hybrid-ac79-profiler]
+    branches: [hybrid-memory-reduction, hybrid-wavetable-shrub-style, ac79-independent-platform]
     paths:
-      - "tools/ac79_link_engines.py"
       - "src/**"
       - "include/**"
-      - "ac79/**"
+      - "ac79/platform/**"
+      - "tools/ac79_link_engines.py"
       - "tools/ac79_profile_report.py"
-      - "docs/**"
       - "tests/**"
       - ".github/workflows/ac79-hybrid-linker.yml"
   pull_request:
     paths:
-      - "tools/ac79_link_engines.py"
+      - "ac79/platform/**"
       - "src/**"
       - "include/**"
-      - "ac79/**"
+      - "tools/ac79_link_engines.py"
       - "tools/ac79_profile_report.py"
-      - "docs/**"
       - "tests/**"
-
+      - ".github/workflows/ac79-hybrid-linker.yml"
 permissions:
   contents: read
-
 jobs:
-  compile-and-link-dsps:
+  ac79-wavetable:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -37,15 +33,28 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends build-essential clang llvm binutils git python3 python3-pip xz-utils ca-certificates
           python3 -m pip install --user --break-system-packages Pillow fonttools
-      - name: Run HYBRID host core and four-engine stress tests
+      - name: Run HYBRID core, wavetable, sequencer and profiler tests
         run: |
           set -euo pipefail
           cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c tests/test_hybrid_core.c -o "$RUNNER_TEMP/test_hybrid_core"
           "$RUNNER_TEMP/test_hybrid_core"
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c src/hybrid_wavetable.c tests/test_hybrid_wavetable.c -o "$RUNNER_TEMP/test_hybrid_wavetable"
+          "$RUNNER_TEMP/test_hybrid_wavetable"
           cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c tests/test_hybrid_stress.c -o "$RUNNER_TEMP/test_hybrid_stress"
           "$RUNNER_TEMP/test_hybrid_stress"
           cc -std=c99 -O2 -Wall -Wextra -Werror -Itests/fakes -Iinclude src/hybrid_profile.c tests/test_hybrid_profile.c -o "$RUNNER_TEMP/test_hybrid_profile"
           "$RUNNER_TEMP/test_hybrid_profile"
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Iinclude src/hybrid_sequencer.c tests/test_hybrid_sequencer.c -o "$RUNNER_TEMP/test_hybrid_sequencer"
+          "$RUNNER_TEMP/test_hybrid_sequencer"
+      - name: Test independent SMK-37 AC79 platform contract
+        run: |
+          set -euo pipefail
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Iac79/platform/include ac79/platform/src/hybrid_ac79_platform.c ac79/platform/tests/test_hybrid_ac79_platform.c -o "$RUNNER_TEMP/test_hybrid_ac79_platform"
+          "$RUNNER_TEMP/test_hybrid_ac79_platform"
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Iac79/platform/include ac79/platform/src/hybrid_ac79_scan.c ac79/platform/tests/test_hybrid_ac79_scan.c -o "$RUNNER_TEMP/test_hybrid_ac79_scan"
+          "$RUNNER_TEMP/test_hybrid_ac79_scan"
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Iac79/platform/include ac79/platform/src/hybrid_ac79_calibration.c ac79/platform/tests/test_hybrid_ac79_calibration.c -o "$RUNNER_TEMP/test_hybrid_ac79_calibration"
+          "$RUNNER_TEMP/test_hybrid_ac79_calibration"
       - name: Install JieLi pi32v2 toolchain
         shell: bash
         run: |
@@ -54,153 +63,99 @@ jobs:
           curl -fL --retry 3 https://pkgman.jieliapp.com/s/linux-toolchain | tar -xJ -C "$HOME/.jieli"
           tc_dir="$(find "$HOME/.jieli" -maxdepth 1 -type d -name 'jieli-linux-toolchains-*' | sort | tail -n 1)"
           test -x "$tc_dir/pi32v2/bin/clang"
-          echo "Available symbol tools in JieLi package:"
-          find "$tc_dir" -type f -name "*nm*" -o -name "*objcopy*" -print
           ln -sfn "$tc_dir" "$HOME/.jieli/toolchain"
           echo "JIELI_TOOLCHAIN=$HOME/.jieli/toolchain" >> "$GITHUB_ENV"
-      - name: Checkout AC79 SDK
-        run: |
-          git clone --depth 1 --branch AC79NN_SDK_V1.2.1_2023-12-13 https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git "$RUNNER_TEMP/sdk"
-          echo "AC79_SDK=$RUNNER_TEMP/sdk" >> "$GITHUB_ENV"
-      - name: Build GHOULBOX-only AC79 baseline
+      - name: Compile independent ALNK0 audio driver with JieLi pi32v2
         shell: bash
         run: |
           set -euo pipefail
-          git clone --depth 1 --branch ghoulbox-smk37 https://github.com/genkigenki/Felucca.git "$RUNNER_TEMP/Felucca-baseline"
-          python3 - "$RUNNER_TEMP/Felucca-baseline/tools/build.py" <<'PY'
-          from pathlib import Path
-          import sys
-          p = Path(sys.argv[1])
-          s = p.read_text()
-          old = '    tc("pi32v2/bin/ld", "-T", ld, OUT / "crt0.o", OUT / "fm1_vec.o", OUT / "fm1_isr.o",' + chr(10) + '       OUT / "felucca.o", "-o", elf)'
-          new = '    tc("pi32v2/bin/ld", "-T", ld, OUT / "crt0.o", OUT / "fm1_vec.o", OUT / "fm1_isr.o",' + chr(10) + '       OUT / "felucca.o", "-Map", OUT / "felucca-baseline.map", "-o", elf)'
-          if s.count(old) != 1:
-              raise SystemExit("Could not locate unique baseline linker invocation")
-          p.write_text(s.replace(old, new))
-          PY
-          cd "$RUNNER_TEMP/Felucca-baseline"
-          python3 tools/build.py --board smk37 --model pro --sdk "$AC79_SDK"
-          "$JIELI_TOOLCHAIN/common/bin/objdump" -h build/felucca.elf > "$RUNNER_TEMP/ghoulbox-baseline-sections.txt"
-          "$JIELI_TOOLCHAIN/common/bin/objdump" -t build/felucca.elf > "$RUNNER_TEMP/ghoulbox-baseline-symbols.txt"
-      - name: Checkout upstream sources
+          "$JIELI_TOOLCHAIN/pi32v2/bin/clang" -target pi32v2 -mcpu=r3 -mfprev1 -Oz -ffunction-sections -fdata-sections -fno-common -Wall -Wextra -Werror -Iinclude -Iac79/platform/include -c ac79/platform/src/hybrid_ac79_audio.c -o "$RUNNER_TEMP/hybrid_ac79_audio_ac79.o"
+          test -s "$RUNNER_TEMP/hybrid_ac79_audio_ac79.o"
+      - name: Compile SPI2 scanner and ADC sequencing core with JieLi pi32v2
+        shell: bash
         run: |
-          git clone --depth 1 --branch smk37 https://github.com/genkigenki/fm1-amb.git "$RUNNER_TEMP/amb"
-          git clone --depth 1 --branch smk37 https://github.com/genkigenki/fm1-dub.git "$RUNNER_TEMP/dub"
-          git clone --depth 1 --branch smk37 https://github.com/genkigenki/zen-1.git "$RUNNER_TEMP/zen"
+          set -euo pipefail
+          "$JIELI_TOOLCHAIN/pi32v2/bin/clang" -target pi32v2 -mcpu=r3 -mfprev1 -Oz -ffunction-sections -fdata-sections -fno-common -Wall -Wextra -Werror -Iac79/platform/include -c ac79/platform/src/hybrid_ac79_scan.c -o "$RUNNER_TEMP/hybrid_ac79_scan_ac79.o"
+          test -s "$RUNNER_TEMP/hybrid_ac79_scan_ac79.o"
+      - name: Compile concrete SPI2/ADC MMIO adapter with JieLi pi32v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$JIELI_TOOLCHAIN/pi32v2/bin/clang" -target pi32v2 -mcpu=r3 -mfprev1 -Oz -ffunction-sections -fdata-sections -fno-common -Wall -Wextra -Werror -Iac79/platform/include -c ac79/platform/src/hybrid_ac79_scan_hw.c -o "$RUNNER_TEMP/hybrid_ac79_scan_hw_ac79.o"
+          test -s "$RUNNER_TEMP/hybrid_ac79_scan_hw_ac79.o"
+      - name: Checkout pinned AC79 SDK tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk="$RUNNER_TEMP/sdk"
+          mkdir -p "$sdk"
+          git -C "$sdk" init
+          git -C "$sdk" remote add origin https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git
+          git -C "$sdk" config core.sparseCheckout true
+          git -C "$sdk" config core.sparseCheckoutCone false
+          cat > "$sdk/.git/info/sparse-checkout" <<'EOF'
+          /cpu/wl82/tools/uboot.boot
+          /cpu/wl82/tools/cfg_tool.bin
+          /cpu/wl82/tools/cfg/eq_cfg_hw.bin
+          EOF
+          git -C "$sdk" fetch --depth=1 origin AC79NN_SDK_V1.2.1_2023-12-13
+          git -C "$sdk" checkout --detach FETCH_HEAD
+          test -s "$sdk/cpu/wl82/tools/uboot.boot"
+          test -s "$sdk/cpu/wl82/tools/cfg_tool.bin"
+          test -s "$sdk/cpu/wl82/tools/cfg/eq_cfg_hw.bin"
+          echo "AC79_SDK=$sdk" >> "$GITHUB_ENV"
+      - name: Checkout SMK-37 AC79 board startup and codec base
+        run: |
           git clone --depth 1 --branch ghoulbox-smk37 https://github.com/genkigenki/Felucca.git "$RUNNER_TEMP/Felucca"
-      - name: Compile DSP objects and patch final AC79 link
+          git -C "$RUNNER_TEMP/Felucca" rev-parse HEAD | tee "$RUNNER_TEMP/upstream-felucca-commit.txt"
+      - name: Compile HYBRID wavetable and integrate the AC79 audio hooks
         run: |
-          python3 tools/ac79_link_engines.py \
-            --amb "$RUNNER_TEMP/amb/firmware/src/dsp" \
-            --dub "$RUNNER_TEMP/dub/firmware/src/dsp" \
-            --zen "$RUNNER_TEMP/zen/firmware/src/dsp" \
-            --felucca "$RUNNER_TEMP/Felucca" \
-            --toolchain "$JIELI_TOOLCHAIN"
-      - name: Build SMK-37 package with DSP objects
+          set -euo pipefail
+          python3 tools/ac79_link_engines.py --felucca "$RUNNER_TEMP/Felucca" --toolchain "$JIELI_TOOLCHAIN"
+      - name: Build SMK-37 Pro validation package
         working-directory: ${{ runner.temp }}/Felucca
         env:
           BOARD: smk37
           MODEL: pro
           JIELI_TOOLCHAIN: ${{ env.JIELI_TOOLCHAIN }}
+          FELUCCA_CDC: "0"
+          FELUCCA_UAC: "0"
+          FELUCCA_ICONS: "0"
         run: python3 tools/build.py --board smk37 --model pro --sdk "$AC79_SDK"
-      - name: Collect linker maps and section diagnostics
-        if: always()
+      - name: Verify the final ELF contains only the HYBRID wavetable instrument
+        working-directory: ${{ runner.temp }}/Felucca
         shell: bash
         run: |
-          set +e
-          mkdir -p "$RUNNER_TEMP/ac79-diagnostics"
-          cp "$RUNNER_TEMP/"*baseline* "$RUNNER_TEMP/ac79-diagnostics/" 2>/dev/null
-          cp "$RUNNER_TEMP/hybrid-"* "$RUNNER_TEMP/ac79-diagnostics/" 2>/dev/null
-          cp "$RUNNER_TEMP/Felucca/build/felucca.map" "$RUNNER_TEMP/ac79-diagnostics/" 2>/dev/null
-          cp "$RUNNER_TEMP/Felucca/build/hybrid/"*.map "$RUNNER_TEMP/ac79-diagnostics/" 2>/dev/null
-          cd "$RUNNER_TEMP/Felucca"
-          if [ -f build/felucca.o ] && [ -f build/hybrid/amb.o ]; then
-            LD_SCRIPT=build/app.ld
-            [ -f "$LD_SCRIPT" ] || LD_SCRIPT=firmware/app.ld
-            "$JIELI_TOOLCHAIN/common/bin/objdump" -h build/hybrid/amb.o build/hybrid/dub.o build/hybrid/fumi.o \
-              build/hybrid/hybrid_core.o build/hybrid/hybrid_native_adapters.o build/hybrid/hybrid_profile.o \
-              > "$RUNNER_TEMP/ac79-diagnostics/hybrid-object-sections.txt" 2>&1
-            "$JIELI_TOOLCHAIN/common/bin/objdump" -t build/hybrid/amb.o build/hybrid/dub.o build/hybrid/fumi.o \
-              > "$RUNNER_TEMP/ac79-diagnostics/hybrid-object-symbols.txt" 2>&1
-            "$JIELI_TOOLCHAIN/pi32v2/bin/ld" --noinhibit-exec --unresolved-symbols=ignore-all --gc-sections -T "$LD_SCRIPT" \
-              build/crt0.o build/fm1_vec.o build/fm1_isr.o build/felucca.o \
-              build/hybrid/amb.o build/hybrid/dub.o build/hybrid/fumi.o \
-              build/hybrid/hybrid_core.o build/hybrid/hybrid_native_adapters.o build/hybrid/hybrid_profile.o \
-              -Map build/felucca-diagnostic.map -o build/felucca-diagnostic.elf \
-              > "$RUNNER_TEMP/ac79-diagnostics/diagnostic-link.txt" 2>&1
-            if [ -f build/felucca-diagnostic.elf ]; then
-              "$JIELI_TOOLCHAIN/common/bin/objdump" -h build/felucca-diagnostic.elf > "$RUNNER_TEMP/ac79-diagnostics/hybrid-sections.txt" 2>&1
-              "$JIELI_TOOLCHAIN/common/bin/objdump" -t build/felucca-diagnostic.elf > "$RUNNER_TEMP/ac79-diagnostics/hybrid-linked-symbols.txt" 2>&1
-            fi
-            cp build/felucca-diagnostic.map "$RUNNER_TEMP/ac79-diagnostics/" 2>/dev/null
+          set -euo pipefail
+          "$JIELI_TOOLCHAIN/common/bin/objdump" -t build/felucca.elf > "$RUNNER_TEMP/hybrid-symbols.txt"
+          for symbol in hybrid_wavetable_ops hybrid_audio_init hybrid_audio_process hybrid_audio_note_on hybrid_audio_note_off hybrid_audio_panic; do
+            grep -Eq "[[:space:]]${symbol}$" "$RUNNER_TEMP/hybrid-symbols.txt" || { echo "::error::Missing HYBRID symbol: $symbol"; exit 1; }
+          done
+          if grep -Eiq 'amb_en_|dub_en_|zen_fm_|native_port_stubs' build/felucca.map "$RUNNER_TEMP/hybrid-symbols.txt"; then
+            echo "::error::Legacy AMB-1/DUB-1/ZEN-1 DSP symbol or host stub found in final link"
+            exit 1
           fi
-          {
-            find "$JIELI_TOOLCHAIN" -type f -name 'libgcc.a'
-            find "$JIELI_TOOLCHAIN" -type f -name 'libclang_rt.builtins*.a'
-          } > "$RUNNER_TEMP/ac79-diagnostics/compiler-runtime-libraries.txt" 2>/dev/null
-          python3 - "$RUNNER_TEMP/ac79-diagnostics/hybrid-object-sections.txt" "$RUNNER_TEMP/ac79-diagnostics/hybrid-object-memory-summary.txt" <<'PY'
-          import collections, re, sys
-          source, target = sys.argv[1:]
-          totals = collections.defaultdict(collections.Counter)
-          current = None
-          try:
-              lines = open(source, encoding="utf-8", errors="replace")
-          except OSError:
-              sys.exit(0)
-          for line in lines:
-              match = re.match(r"(build/hybrid/[^:]+\.o):\s*file format", line)
-              if match:
-                  current = match.group(1)
-                  continue
-              match = re.match(r"\s*\d+\s+(\S+)\s+([0-9a-fA-F]{8,16})\s+", line)
-              if not match or current is None:
-                  continue
-              name, raw_size = match.groups()
-              size = int(raw_size, 16)
-              if name == ".pool":
-                  category = ".pool"
-              elif name.startswith(".bss"):
-                  category = ".bss"
-              elif name.startswith(".data"):
-                  category = ".data"
-              elif name.startswith(".text"):
-                  category = ".text"
-              elif name.startswith(".rodata"):
-                  category = ".rodata"
-              elif name == ".ram_text":
-                  category = ".ram_text"
-              else:
-                  continue
-              totals[current][category] += size
-          categories = (".text", ".rodata", ".data", ".bss", ".pool", ".ram_text")
-          with open(target, "w", encoding="utf-8") as out:
-              out.write("Relocatable object section sizes (pre-GC; not final linked occupancy)\n")
-              for obj, values in sorted(totals.items()):
-                  out.write(obj + ": " + ", ".join(f"{k}={values[k]}" for k in categories if values[k]) + "\n")
-              out.write("TOTAL: " + ", ".join(f"{k}={sum(v[k] for v in totals.values())}" for k in categories) + "\n")
-          PY
-          find "$RUNNER_TEMP/ac79-diagnostics" -maxdepth 1 -type f -printf '%f %s bytes\n'
-      - name: Upload AC79 linker diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ac79-linker-diagnostics-${{ github.sha }}
-          path: ${{ runner.temp }}/ac79-diagnostics/*
-          if-no-files-found: warn
-          retention-days: 14
-      - name: Generate AC79 static memory and profiler report
+      - name: Generate static AC79 memory report
         working-directory: ${{ runner.temp }}/Felucca
         run: |
           set -euo pipefail
-          "$JIELI_TOOLCHAIN/common/bin/objdump" -t build/felucca.elf > "$RUNNER_TEMP/felucca-symbols.txt"
-          python3 "$GITHUB_WORKSPACE/tools/ac79_profile_report.py" --symbols "$RUNNER_TEMP/felucca-symbols.txt" --output build/hybrid/AC79-PROFILE-REPORT.md
-      - name: Upload linked AC79 package and profiling report
+          "$JIELI_TOOLCHAIN/common/bin/objdump" -h build/felucca.elf > "$RUNNER_TEMP/felucca-sections.txt"
+          python3 "$GITHUB_WORKSPACE/tools/ac79_profile_report.py" --sections "$RUNNER_TEMP/felucca-sections.txt" --output build/hybrid/AC79-PROFILE-REPORT.md
+      - name: Mark the current upstream package identity as validation-only
+        working-directory: ${{ runner.temp }}/Felucca
+        run: |
+          printf '%s\n' 'VALIDATION ONLY: the upstream board package identity has not yet been replaced with a dedicated HYBRID identity. Do not flash as a production HYBRID release.' > build/hybrid/FLASHING-WARNING.txt
+      - name: Upload AC79 ELF, BIN, map and diagnostics
         uses: actions/upload-artifact@v4
         with:
-          name: smk37-ac79-dsp-linked-${{ github.sha }}
+          name: smk37-hybrid-wavetable-ac79-validation-${{ github.sha }}
           path: |
-            ${{ runner.temp }}/Felucca/build/ghoulbox-smk37.fwsc
-            ${{ runner.temp }}/Felucca/build/hybrid/NAMESPACE-MANIFEST.txt
+            ${{ runner.temp }}/Felucca/build/felucca.elf
+            ${{ runner.temp }}/Felucca/build/felucca.bin
+            ${{ runner.temp }}/Felucca/build/felucca.map
+            ${{ runner.temp }}/Felucca/build/hybrid/HYBRID-WAVETABLE-MANIFEST.txt
             ${{ runner.temp }}/Felucca/build/hybrid/AC79-PROFILE-REPORT.md
+            ${{ runner.temp }}/Felucca/build/hybrid/FLASHING-WARNING.txt
+            ${{ runner.temp }}/upstream-felucca-commit.txt
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 14

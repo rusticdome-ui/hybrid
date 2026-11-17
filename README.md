@@ -1,42 +1,23 @@
-# SMK-37 HYBRID — common core (integration scaffold)
+# SMK-37 HYBRID — Wavetable workstation and VOLCA sequencer
 
-Initial isolated common-core implementation for the M-VAVE SMK-37 Pro hybrid firmware.
+The `hybrid-wavetable-shrub-style` branch replaces the former AMB-1, DUB-1 and ZEN-1 integrations with one original HYBRID wavetable synthesizer. It is an independent design inspired by the publicly described workflow and sound-design concepts of modern wavetable instruments. It does not contain SHRUB/Xfer source code, firmware, presets or proprietary assets.
 
-## Included
-- Four engine slots: A=AMB-1, B=DUB-1, C=ZEN-1, D=GHOULBOX.
-- Engine callback contract (init/reset/note/control/render/panic).
-- MIDI routing GLOBAL / ZONE / OFF, channel filter, velocity window and transpose.
-- Per-channel volume, pan, mute and solo.
-- Four-way stereo summing in signed Q15 with output saturation.
-- Sixteen in-memory scenes and optional per-engine 64-byte scene-state hooks.
-- Linear volume/pan transition; discrete controls switch at fade completion.
-- Fixed render quantum up to 128 frames; no heap allocation in audio callback.
+## Instrument architecture
 
-## Host test
-```sh
-cc -std=c99 -Wall -Wextra -Werror -Iinclude src/hybrid_core.c tests/test_hybrid_core.c -o test_hybrid_core
-./test_hybrid_core
-```
+- **HYBRID Wavetable:** native C engine for AC79 and a real-time AudioWorklet renderer for the browser. Dual oscillators, selectable sine/triangle/saw/pulse shapes, oscillator blend, detune, polyphony, ADSR, low-pass filter and LFO modulation.
+- **FM6/DX7:** retained as a separate six-operator MSFA renderer with 128 DX7 voices in four banks.
+- **PCM ingress:** reserved stereo sample slot; browser sample playback remains a separate feature and AC79 sample playback is not claimed.
+- **Q15 mixer:** four fixed slots: Wavetable, FM6/DX7 PCM, reserved and PCM/sample.
+- **Shared controls:** MIDI, keyboard, chord mode, 16-scene mixer, routing, mute/solo, VOLCA-style sequencer and transport.
 
-## Integration status and limitations
-This is a tested host-side scaffold, **not a complete firmware image**. It does not yet include or instantiate the AMB-1, DUB-1, ZEN-1 or GHOULBOX engine sources, and has not been built with the JieLi SDK or tested on an SMK-37 Pro.
+## Implementation boundaries
 
-Felucca's build compiles `firmware/src/felucca.c` as a single translation unit; integration must include the core in a deliberate location and connect MIDI/key events and the audio callback. Do not map HYBRID slots to GHOULBOX's four internal tracks: GHOULBOX is one engine in slot D, retaining its own internal engines and sequencer.
+The browser's Wavetable renderer runs inside AudioWorklet and submits stereo Q15 PCM into the C HYBRID mixer. The AC79 target uses the independent C wavetable renderer directly in the native audio callback. FM6/DX7 remains a separate browser renderer; this branch does not claim a native AC79 FM6 implementation.
 
-Remaining work includes engine adapters, persistent scene storage/versioning/CRC, per-engine FX, equal-power pan, CPU/polyphony arbitration, audio HAL/DMA integration, and note ownership tracking so zone changes cannot strand sustained notes. Scene hooks currently hold at most 64 bytes per engine.
+The former AMB-1, DUB-1 and ZEN-1 DSP objects, adapters, upstream source checkouts, profile labels and validation steps are removed from the HYBRID build path. The AC79 workflow now compiles only the HYBRID core, wavetable engine, sequencer and profiler alongside the SMK-37 board startup/audio base.
 
-## Licensing
-SPDX-License-Identifier: GPL-3.0-only. When importing upstream engine code, retain all copyright, license and third-party notices and verify compatibility for every imported file.
+## Validation
 
+Host tests cover the Q15 core, wavetable note/render lifecycle, sequencer, stress blocks and profiler. Chromium tests exercise AudioWorklet Wavetable PCM, FM6/DX7 bank loading, chords, note-off and zero underruns. The AC79 workflow compiles and links the C engine with the JieLi pi32v2 toolchain and emits ELF/BIN/map plus static memory diagnostics.
 
-## GitHub Actions: SMK-37 build pipeline
-
-The workflow `.github/workflows/smk37-hybrid.yml` runs on pushes, pull requests and manual dispatch.
-
-- Compiles and runs the isolated HYBRID core host tests.
-- Downloads the Linux x86-64 JieLi pi32v2 toolchain.
-- Checks out JieLi AC79 SDK `AC79NN_SDK_V1.2.1_2023-12-13`.
-- Checks out the upstream `Felucca` `ghoulbox-smk37` branch and builds its SMK-37 Pro reference package with `tools/build.py --board smk37 --model pro`.
-- Uploads `ghoulbox-smk37.fwsc` as a 14-day Actions artifact, alongside the upstream source commit identifier.
-
-**Important:** this is currently a GHOULBOX reference package build, not an integrated SMK-37 HYBRID firmware. The hybrid core tests do not imply that AMB-1, DUB-1, ZEN-1 and GHOULBOX have been integrated into the device firmware. Do not flash the reference artifact as the HYBRID build.
+A passing host or browser test is not physical-board certification. Hardware CPU load, stack high-water, DMA underruns, long-run stability and a production-ready HYBRID package identity still require separate validation. The AC79 artifact is marked validation-only until its package identity and flashing procedure are independently verified.

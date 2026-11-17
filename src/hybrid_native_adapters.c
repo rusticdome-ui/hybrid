@@ -1,146 +1,86 @@
 /* SPDX-License-Identifier: GPL-3.0-only
- * SMK-37 HYBRID adapters for the upstream AMB-1, DUB-1 and ZEN-1 DSPs.
- *
- * Upstream renderers produce signed 24-bit samples in int32_t containers.
- * hybrid_core consumes signed Q15 in int32_t containers. Convert only after
- * each native renderer has completed its block; the common mixer then applies
- * per-channel gain, pan, mute and solo.
+ * HYBRID native audio bridge. The only native instrument engine is the
+ * independent dual-oscillator wavetable synthesizer; FM6/DX7 remains hosted
+ * by its own renderer and enters the common mixer as PCM.
  */
 #include <stdint.h>
 #include "hybrid_core.h"
+#include "hybrid_wavetable.h"
 #include "hybrid_profile.h"
-#include "hybrid_native_ports.h"
-
-#define HYBRID_RENDER_MAX 128u
-#define HYBRID_NATIVE_GAIN_Q12 4096u
-
-static int32_t native_lr[HYBRID_RENDER_MAX * 2u];
-
-static void clear_native(void)
-{
-    uint32_t i;
-    for (i = 0; i < HYBRID_RENDER_MAX * 2u; ++i)
-        native_lr[i] = 0;
-}
-
-static void native24_to_q15(int32_t *dst, uint16_t frames)
-{
-    uint32_t i;
-    for (i = 0; i < (uint32_t)frames * 2u; ++i)
-        dst[i] = native_lr[i] >> 8;
-}
-
-/* AMB-1 is a self-running generative instrument. MIDI note events are not
- * translated into arbitrary notes: its native bell/performance interface is
- * not equivalent to a conventional note allocator. MIDI controls and clock
- * need a dedicated event adapter in the next integration stage. */
-static int amb_init(void *state) { (void)state; amb_en_init(); amb_en_play(1); return 0; }
-static void amb_reset(void *state) { (void)state; amb_en_panic(); amb_en_init(); }
-static void amb_note_on(void *state, uint8_t note, uint8_t velocity)
-{ (void)state; (void)note; (void)velocity; }
-static void amb_note_off(void *state, uint8_t note) { (void)state; (void)note; }
-static void amb_control(void *state, uint16_t p, int32_t v)
-{ (void)state; amb_en_set((int)p, (int)v); }
-static void amb_render(void *state, int32_t *out, uint16_t frames)
-{
-    (void)state;
-    if (!out || frames < 32u || frames > HYBRID_RENDER_MAX || (frames & 31u)) return;
-    hybrid_profile_begin(HYBRID_PROF_AMB);
-    clear_native();
-    amb_en_render(native_lr, frames, HYBRID_NATIVE_GAIN_Q12);
-    native24_to_q15(out, frames);
-    hybrid_profile_end(HYBRID_PROF_AMB, frames);
-}
-static void amb_panic(void *state) { (void)state; amb_en_panic(); }
-
-/* DUB-1 is likewise generative; its own freeze/arrangement controls remain
- * available through the native parameter/control namespace. */
-static int dub_init(void *state) { (void)state; dub_en_init(); dub_en_play(1); return 0; }
-static void dub_reset(void *state) { (void)state; dub_en_panic(); dub_en_init(); }
-static void dub_note_on(void *state, uint8_t note, uint8_t velocity)
-{ (void)state; (void)note; (void)velocity; }
-static void dub_note_off(void *state, uint8_t note) { (void)state; (void)note; }
-static void dub_control(void *state, uint16_t p, int32_t v)
-{
-    (void)state;
-    /* Reserve this adapter command for the DUB freeze toggle; all other
-       parameter numbers are passed unchanged to the native engine. */
-    if (p == 0xFFFFu) dub_en_freeze(v != 0);
-    else dub_en_set((int)p, (int)v);
-}
-static void dub_render(void *state, int32_t *out, uint16_t frames)
-{
-    (void)state;
-    if (!out || !frames || frames > HYBRID_RENDER_MAX) return;
-    hybrid_profile_begin(HYBRID_PROF_DUB);
-    clear_native();
-    dub_en_render(native_lr, frames, HYBRID_NATIVE_GAIN_Q12);
-    native24_to_q15(out, frames);
-    hybrid_profile_end(HYBRID_PROF_DUB, frames);
-}
-static void dub_panic(void *state) { (void)state; dub_en_panic(); }
-
-/* ZEN-1 accepts MIDI-like note IDs and velocity directly. Its cents argument
- * is relative to A4, so MIDI note 69 maps to 0 cents. */
-static int zen_init(void *state) { (void)state; zen_fm_init(); return 0; }
-static void zen_reset(void *state) { (void)state; zen_fm_panic(); zen_fm_init(); }
-static void zen_note_on(void *state, uint8_t note, uint8_t velocity)
-{
-    (void)state;
-    zen_fm_note_vel(32 + (int)note, 1, ((float)((int)note - 69)) * 100.0f, velocity);
-}
-static void zen_note_off(void *state, uint8_t note)
-{ (void)state; zen_fm_note_vel(32 + (int)note, 0, ((float)((int)note - 69)) * 100.0f, 0); }
-static void zen_control(void *state, uint16_t p, int32_t v)
-{ (void)state; zen_fm_set((int)p, (int)v); }
-static void zen_render(void *state, int32_t *out, uint16_t frames)
-{
-    (void)state;
-    if (!out || !frames || frames > HYBRID_RENDER_MAX) return;
-    hybrid_profile_begin(HYBRID_PROF_ZEN);
-    clear_native();
-    zen_fm_render(native_lr, frames, HYBRID_NATIVE_GAIN_Q12);
-    native24_to_q15(out, frames);
-    hybrid_profile_end(HYBRID_PROF_ZEN, frames);
-}
-static void zen_panic(void *state) { (void)state; zen_fm_panic(); }
-
-int hybrid_register_native_engines(hybrid_core_t *core)
-{
-    if (!core) return -1;
-    if (hybrid_register_engine(core, HYBRID_AMB, &hybrid_amb_ops, 0) != 0) return -1;
-    if (hybrid_register_engine(core, HYBRID_DUB, &hybrid_dub_ops, 0) != 0) return -1;
-    if (hybrid_register_engine(core, HYBRID_ZEN, &hybrid_zen_ops, 0) != 0) return -1;
-    return 0;
-}
-
-const hybrid_engine_ops_t hybrid_amb_ops = {
-    "AMB-1", amb_init, amb_reset, amb_note_on, amb_note_off,
-    amb_control, amb_render, amb_panic, 0, 0
-};
-const hybrid_engine_ops_t hybrid_dub_ops = {
-    "DUB-1", dub_init, dub_reset, dub_note_on, dub_note_off,
-    dub_control, dub_render, dub_panic, 0, 0
-};
-const hybrid_engine_ops_t hybrid_zen_ops = {
-    "ZEN-1", zen_init, zen_reset, zen_note_on, zen_note_off,
-    zen_control, zen_render, zen_panic, 0, 0
-};
-
-
-/* Runtime bridge used by Felucca's audio ISR. GHOULBOX remains the native
- * fourth engine: its mix_block() runs first and is never replaced. These
- * three DSPs are mixed afterwards in the same signed-Q15 domain. */
+#include "hybrid_sequencer.h"
 static hybrid_core_t hybrid_audio_core;
+static hybrid_wavetable_t hybrid_wavetable_state;
 static int32_t hybrid_audio_mix[HYBRID_MAX_FRAMES * 2u];
 static uint8_t hybrid_audio_ready;
+static hybrid_seq_t hybrid_audio_sequencer;
+static uint8_t hybrid_audio_seq_synced;
+static uint16_t hybrid_audio_seq_bpm;
+static uint8_t hybrid_audio_seq_external;
+static void hybrid_seq_midi_out(uint32_t status,uint32_t data1,uint32_t data2)
+{
+    extern void hybrid_midi_out_event(uint32_t);
+    uint32_t s=status&0xFFu;
+    hybrid_midi_out_event(((s>>4)&15u)|(s<<8)|((data1&127u)<<16)|((data2&127u)<<24));
+}
+static void hybrid_seq_emit(void *context, uint8_t engine, hybrid_seq_event_t event, uint8_t note, uint8_t velocity)
+{
+    hybrid_core_t *core = (hybrid_core_t *)context;
+    if (event == HYBRID_SEQ_CLOCK) { if (!hybrid_audio_seq_external) hybrid_seq_midi_out(0xF8u, 0u, 0u); return; }
+    if (event == HYBRID_SEQ_START) { if (!hybrid_audio_seq_external) hybrid_seq_midi_out(0xFAu, 0u, 0u); return; }
+    if (event == HYBRID_SEQ_STOP) { if (!hybrid_audio_seq_external) hybrid_seq_midi_out(0xFCu, 0u, 0u); return; }
+    if (!core || engine >= HYBRID_CHANNELS) return;
+    if (event == HYBRID_SEQ_NOTE_ON && core->engine[engine].ops && core->engine[engine].ops->note_on)
+        core->engine[engine].ops->note_on(core->engine[engine].state, note, velocity);
+    else if (event == HYBRID_SEQ_NOTE_OFF && core->engine[engine].ops && core->engine[engine].ops->note_off)
+        core->engine[engine].ops->note_off(core->engine[engine].state, note);
+}
+
+void hybrid_audio_seq_process(uint32_t frames)
+{
+    if (!hybrid_audio_ready || !frames || frames > HYBRID_MAX_FRAMES) return;
+    hybrid_profile_begin(HYBRID_PROF_SEQUENCER);
+    hybrid_seq_process(&hybrid_audio_sequencer, (uint16_t)frames);
+    hybrid_profile_end(HYBRID_PROF_SEQUENCER, frames);
+}
+int hybrid_audio_seq_tempo(uint16_t bpm) { return hybrid_seq_tempo(&hybrid_audio_sequencer, bpm); }
+int hybrid_audio_seq_chain(const uint8_t *families, uint8_t length) { return hybrid_seq_chain(&hybrid_audio_sequencer, families, length); }
+void hybrid_audio_seq_start(void) { hybrid_seq_start(&hybrid_audio_sequencer); }
+void hybrid_audio_seq_stop(void) { hybrid_seq_stop(&hybrid_audio_sequencer); }
+void hybrid_audio_seq_sync(uint8_t playing, uint16_t bpm, uint8_t external_clock)
+{
+    if (bpm < 40u) bpm = 40u;
+    if (bpm > 240u) bpm = 240u;
+    hybrid_audio_seq_external = (uint8_t)!!external_clock;
+    hybrid_seq_external_clock(&hybrid_audio_sequencer, hybrid_audio_seq_external);
+    if (bpm != hybrid_audio_seq_bpm) {
+        (void)hybrid_seq_tempo(&hybrid_audio_sequencer, bpm);
+        hybrid_audio_seq_bpm = bpm;
+    }
+    if (playing && !hybrid_audio_seq_synced) hybrid_seq_start(&hybrid_audio_sequencer);
+    else if (!playing && hybrid_audio_seq_synced) hybrid_seq_stop(&hybrid_audio_sequencer);
+    hybrid_audio_seq_synced = (uint8_t)!!playing;
+}
+void hybrid_audio_seq_clock_pulse(void)
+{
+    if (hybrid_audio_ready) {
+        hybrid_profile_begin(HYBRID_PROF_SEQUENCER);
+        hybrid_seq_clock_pulse(&hybrid_audio_sequencer);
+        hybrid_profile_end(HYBRID_PROF_SEQUENCER, 0u);
+    }
+}
+void hybrid_audio_seq_variation(uint8_t value) { hybrid_seq_variation(&hybrid_audio_sequencer, value); }
+void hybrid_audio_seq_fill(uint8_t value) { hybrid_seq_fill(&hybrid_audio_sequencer, value); }
+void hybrid_audio_seq_mute(uint8_t track, uint8_t value) { hybrid_seq_mute(&hybrid_audio_sequencer, track, value); }
+void hybrid_audio_seq_solo(uint8_t track, uint8_t value) { hybrid_seq_solo(&hybrid_audio_sequencer, track, value); }
 
 int hybrid_audio_init(void)
 {
     hybrid_profile_init();
-    hybrid_profile_buffers(0u, (uint32_t)sizeof(hybrid_audio_mix) + (uint32_t)sizeof(native_lr));
+    hybrid_seq_init(&hybrid_audio_sequencer, 44118u, hybrid_seq_emit, &hybrid_audio_core); /* AC79 I2S: 24 MHz / 544 ticks */
+    hybrid_audio_seq_synced = 0u; hybrid_audio_seq_bpm = 120u;
+    hybrid_profile_buffers(0u, (uint32_t)sizeof(hybrid_audio_mix) + (uint32_t)sizeof(hybrid_wavetable_state));
     hybrid_init_defaults(&hybrid_audio_core);
-    if (hybrid_register_native_engines(&hybrid_audio_core) != 0)
+    if (hybrid_register_wavetable_engine(&hybrid_audio_core, &hybrid_wavetable_state) != 0)
         return -1;
     if (hybrid_start(&hybrid_audio_core) != 0)
         return -1;
@@ -154,11 +94,9 @@ void hybrid_audio_process(int32_t *out_q15, uint32_t frames, int32_t master_q12)
     if (!hybrid_audio_ready || !out_q15 || !frames ||
         frames > HYBRID_MAX_FRAMES || master_q12 <= 0)
         return;
-    hybrid_profile_buffers(frames * 2u * (uint32_t)sizeof(int32_t) * 2u,
-                           (uint32_t)sizeof(hybrid_audio_mix) + (uint32_t)sizeof(native_lr));
-    hybrid_profile_audio_block_begin();
+    hybrid_profile_buffers(frames * 2u * (uint32_t)sizeof(int32_t),
+                           (uint32_t)sizeof(hybrid_audio_mix) + (uint32_t)sizeof(hybrid_wavetable_state));
     if (hybrid_process(&hybrid_audio_core, hybrid_audio_mix, (uint16_t)frames) != 0) {
-        hybrid_profile_audio_block_end();
         return;
     }
     for (i = 0; i < frames * 2u; ++i) {
@@ -168,7 +106,6 @@ void hybrid_audio_process(int32_t *out_q15, uint32_t frames, int32_t master_q12)
         if (v < -32768) v = -32768;
         out_q15[i] = (int32_t)v;
     }
-    hybrid_profile_audio_block_end();
 }
 
 void hybrid_audio_note_on(uint8_t note, uint8_t velocity)
@@ -181,4 +118,31 @@ void hybrid_audio_note_off(uint8_t note)
 {
     if (hybrid_audio_ready)
         hybrid_note_off(&hybrid_audio_core, note, 0);
+}
+
+void hybrid_audio_panic(void)
+{
+    if (hybrid_audio_ready)
+        hybrid_panic(&hybrid_audio_core);
+}
+
+void hybrid_audio_midi_note_on(uint8_t note, uint8_t velocity, uint8_t channel)
+{
+    if (hybrid_audio_ready)
+        hybrid_note_on(&hybrid_audio_core, note, velocity, channel);
+}
+
+void hybrid_audio_midi_note_off(uint8_t note, uint8_t channel)
+{
+    if (hybrid_audio_ready)
+        hybrid_note_off(&hybrid_audio_core, note, channel);
+}
+
+void hybrid_audio_midi_panic(uint8_t channel)
+{
+    uint32_t note;
+    if (!hybrid_audio_ready)
+        return;
+    for (note = 0; note < 128u; ++note)
+        hybrid_note_off(&hybrid_audio_core, (uint8_t)note, channel);
 }
