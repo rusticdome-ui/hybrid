@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include "hybrid_ac79_audio.h"
 #include "hybrid_ac79_wl82_map.h"
+#include "hybrid_core.h"
 
 #define BIT(n) (1u << (n))
 #define AUDIO_IRQ 11u
@@ -88,7 +89,7 @@ int hybrid_ac79_audio_init(const hybrid_ac79_audio_hw_t *hardware,
 {
     uint32_t clock,outputs;
     if(!hardware || !hardware->clock_hz || !hardware->irq_attach ||
-       !hardware->codec_init || !render)return -1;
+       !hardware->codec_init || !hardware->irq_save || !hardware->irq_restore || !render)return -1;
     if(initialized)return -2;
     hw=hardware;render_block=render;render_context=context;
     clock=hw->clock_hz(hw->context);
@@ -151,9 +152,15 @@ void hybrid_ac79_audio_irq(void)
     if(render_block(render_context,render_q15,HYBRID_AC79_AUDIO_FRAMES)!=0) {
         ++stats.render_errors;++stats.underruns;return;
     }
-    for(i=0;i<AUDIO_WORDS;i++)tx_dma[half][i]=q15_to_q23(render_q15[i]);
-    __asm__ volatile("" ::: "memory");
-    if(dma_half_owned(half))committed=1;
+    {
+        uint32_t irq_state=hw->irq_save(hw->context);
+        if(dma_half_owned(half)) {
+            for(i=0;i<AUDIO_WORDS;i++)tx_dma[half][i]=q15_to_q23(render_q15[i]);
+            __asm__ volatile("csync" ::: "memory");
+            committed=dma_half_owned(half);
+        }
+        hw->irq_restore(hw->context,irq_state);
+    }
     if(!committed) {
         ++stats.late_commits;++stats.underruns;
     }
@@ -177,4 +184,11 @@ void hybrid_ac79_audio_mute(uint8_t mute)
     muted=(uint8_t)!!mute;
     if(muted)clear_buffers();
     else previous_valid=0;
+}
+
+/* Adapter used by the native IRQ path: the actual core mixes/renders the block. */
+int hybrid_ac79_audio_render_core(void *context, int32_t *stereo_q15, uint16_t frames)
+{
+    if(!context || !stereo_q15 || frames!=HYBRID_MAX_FRAMES)return -1;
+    return hybrid_process((hybrid_core_t *)context,stereo_q15,frames);
 }
