@@ -9,7 +9,6 @@
 
 
 #define BIT(n) (1u << (n))
-extern void smk37_adc_pmu_detect_en(unsigned mode) __attribute__((weak));
 #define FM1_VEC ((volatile uint32_t *)0x01C7FE00u)
 #define FM1_ICFG(n) (*(volatile uint32_t *)(0x1EEF100u + 4u * ((n) >> 3)))
 static volatile uint8_t pmu_detect_available;
@@ -56,7 +55,7 @@ static int adc_input(void *ctx,unsigned pin)
     FM1_PR(port,FM1_PD)&=~BIT(bit);
     return 0;
 }
-static void pmu_detect(void *ctx,unsigned mode){(void)ctx;if(smk37_adc_pmu_detect_en)smk37_adc_pmu_detect_en(mode);else pmu_detect_available=0u;}
+static void pmu_detect(void *ctx,unsigned mode){(void)ctx;(void)mode;pmu_detect_available=0u;}
 static void soft_scan(void *ctx){(void)ctx;scan_irq_seen=1u;}
 
 int hybrid_ac79_scan_startup(void)
@@ -64,7 +63,7 @@ int hybrid_ac79_scan_startup(void)
     const hybrid_ac79_scan_hw_config_t config={
         irq_attach,soft_scan,gpio_input,gpio_output,adc_input,pmu_detect,0
     };
-    scan_irq_seen=0u;pmu_detect_available=(uint8_t)(smk37_adc_pmu_detect_en!=0);
+    scan_irq_seen=0u;pmu_detect_available=0u;
     return hybrid_ac79_scan_hw_init(&config);
 }
 int hybrid_ac79_scan_pending(void){return scan_irq_seen!=0u;}
