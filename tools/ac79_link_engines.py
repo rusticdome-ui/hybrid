@@ -47,6 +47,7 @@ def main():
         build/hybrid/hybrid_native_adapters.o(.bss* COMMON)
         build/hybrid/hybrid_profile.o(.bss* COMMON)
         build/hybrid/hybrid_sequencer.o(.bss* COMMON)
+        build/hybrid/hybrid_ac79_audio.o(.bss* COMMON)
         . = ALIGN(4); _pool_end = .;
     } > POOL
     .bss (NOLOAD) : { _bss_start = .; *(.bss*) *(.sbss*) *(COMMON) . = ALIGN(4); _bss_end = .; } > RAM'''
