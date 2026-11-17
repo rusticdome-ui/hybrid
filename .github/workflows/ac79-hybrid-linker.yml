@@ -62,6 +62,12 @@ jobs:
           test -x "$tc_dir/pi32v2/bin/clang"
           ln -sfn "$tc_dir" "$HOME/.jieli/toolchain"
           echo "JIELI_TOOLCHAIN=$HOME/.jieli/toolchain" >> "$GITHUB_ENV"
+      - name: Compile independent ALNK0 audio driver with JieLi pi32v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$JIELI_TOOLCHAIN/pi32v2/bin/clang" -target pi32v2 -mcpu=r3 -mfprev1 -Oz -ffunction-sections -fdata-sections -fno-common -Wall -Wextra -Werror -Iac79/platform/include -c ac79/platform/src/hybrid_ac79_audio.c -o "$RUNNER_TEMP/hybrid_ac79_audio_ac79.o"
+          test -s "$RUNNER_TEMP/hybrid_ac79_audio_ac79.o"
       - name: Checkout pinned AC79 SDK tools
         shell: bash
         run: |
