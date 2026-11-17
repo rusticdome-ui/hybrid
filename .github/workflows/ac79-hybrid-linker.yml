@@ -51,7 +51,7 @@ jobs:
           set -euo pipefail
           cc -std=c99 -O2 -Wall -Wextra -Werror -Iac79/platform/include ac79/platform/src/hybrid_ac79_platform.c ac79/platform/tests/test_hybrid_ac79_platform.c -o "$RUNNER_TEMP/test_hybrid_ac79_platform"
           "$RUNNER_TEMP/test_hybrid_ac79_platform"
-          cc -std=c99 -O2 -Wall -Wextra -Werror -Iac79/platform/include -c ac79/platform/src/hybrid_ac79_audio.c -o "$RUNNER_TEMP/hybrid_ac79_audio_host.o"
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Iac79/platform/include -Iinclude -c ac79/platform/src/hybrid_ac79_audio.c -o "$RUNNER_TEMP/hybrid_ac79_audio_host.o"
       - name: Install JieLi pi32v2 toolchain
         shell: bash
         run: |
