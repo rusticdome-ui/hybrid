@@ -127,3 +127,26 @@ curves must be loaded from validated calibration records or measured on the
 physical SMK-37 Pro. The reference firmware's factory defaults are not a
 substitute for measurements from this unit. Physical IRQ timing, DMA activity,
 voltage levels and long-run stability remain hardware test gates.
+
+
+## Native startup and calibration preparation
+
+`hybrid_ac79_startup.c` supplies the Felucca/WL82 glue for IRQ vector
+attachment and GPIO/ADC pad configuration, using the existing FM1 HAL
+register definitions. The AC79 link script now compiles and links the scanner,
+MMIO adapter and startup bridge, and inserts the scanner startup call after
+the existing ADC initialization in the native main boot path. The original
+input path remains active: this first integration is **raw diagnostic capture**
+only and does not yet dispatch calibrated key/pad events to the instrument UI.
+
+The PMU detect helper is weak-linked because it is declared by the public
+SMK-37 board SDK but is not present in the Felucca HAL snapshot. Its availability
+is exposed through `hybrid_ac79_scan_pmu_detect_available()`; VBAT/PMU reference
+measurements must be treated as unavailable until the board SDK supplies it.
+
+Calibration preparation lives in `calibration/`. The blank CSV contains
+37 × 5 key anchors, 16 × 5 pad anchors and 5 pedal anchors. The calibration
+library validates strict monotonicity, version and CRC32, and maps measured
+values to 0..1023. The template is intentionally empty; no factory defaults
+or synthetic values are activated. Physical collection, persistent storage
+integration and hardware approval are still required before using the curves.
