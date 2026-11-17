@@ -13,6 +13,7 @@ typedef struct {
     int (*gpio_input)(void *ctx,unsigned pin,unsigned pull_up);
     int (*gpio_output)(void *ctx,unsigned pin,unsigned initial_value);
     int (*adc_input)(void *ctx,unsigned pin);
+    void (*adc_pmu_detect_enable)(void *ctx,unsigned mode);
     void *ctx;
 } hybrid_ac79_scan_hw_config_t;
 int hybrid_ac79_scan_hw_init(const hybrid_ac79_scan_hw_config_t *config);
