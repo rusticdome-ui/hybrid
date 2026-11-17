@@ -6,7 +6,8 @@ on:
     paths:
       - "src/**"
       - "include/**"
-      - "ac79/platform/**"\n      - "ac79/native/**"
+      - "ac79/platform/**"
+      - "ac79/native/**"
       - "tools/ac79_link_engines.py"
       - "tools/ac79_profile_report.py"
       - "tests/**"
@@ -14,6 +15,7 @@ on:
   pull_request:
     paths:
       - "ac79/platform/**"
+      - "ac79/native/**"
       - "src/**"
       - "include/**"
       - "tools/ac79_link_engines.py"
