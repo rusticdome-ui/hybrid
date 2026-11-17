@@ -64,8 +64,11 @@ static int proj_cache_load(uint32_t slot)
  save_old='memcpy(&proj_slot[slot & 3u], &proj_wire, sizeof proj_wire);'
  save_new='memcpy(&proj_cache, &proj_wire, sizeof proj_wire);\n        proj_cache_slot = (uint8_t)(slot & 3u);\n        proj_cache_valid = 1;'
  source=project.read_text()
- if source.count(save_old)!=2: raise SystemExit("project save cache update: expected exactly two save paths")
- project.write_text(source.replace(save_old,save_new))
+ begin=source.index("static int project_save_as(")
+ end=source.index("static int project_save(", begin)
+ save_region=source[begin:end]
+ if save_region.count(save_old)!=2: raise SystemExit("project save cache update: expected exactly two save paths")
+ project.write_text(source[:begin]+save_region.replace(save_old,save_new)+source[end:])
  replace_once(project,
   'if (!proj_import(&proj_scratch, &proj_slot[slot & 3u], sizeof(project_store_t)))\n        return 0;',
   'if (!proj_cache_load(slot))\n        return 0;',
