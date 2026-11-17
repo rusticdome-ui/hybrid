@@ -150,3 +150,26 @@ library validates strict monotonicity, version and CRC32, and maps measured
 values to 0..1023. The template is intentionally empty; no factory defaults
 or synthetic values are activated. Physical collection, persistent storage
 integration and hardware approval are still required before using the curves.
+
+
+## Native ALNK0 renderer wiring (implementation branch)
+
+The AC79 integration compiles and links both `hybrid_ac79_audio.c` and
+`hybrid_ac79_audio_board.c`. After the Wavetable core is initialized and the
+board's legacy audio initialization has run, startup rebinds ALNK0 IRQ 11 to
+the native HYBRID handler. The renderer context is obtained from
+`hybrid_audio_render_context()`; the IRQ calls `hybrid_process()` directly
+for 128-frame interleaved Q15 stereo blocks. DMA buffers are assigned to POOL.
+The IRQ entry is explicitly marked with the JieLi interrupt attribute.
+
+The board adapter uses the reference SMK-37 Pro IRQ 11, 24 MHz timer clock,
+timer registers and PC6 integrated-DAC enable route. The reference board
+implementation does not show a separate external codec-control transaction;
+the enable pin and ALNK0 clock/data setup are the available codec bring-up
+surface. The 24 MHz timer assumption and PC6 electrical behavior still require
+confirmation on the target revision.
+
+CI can prove object compilation, final linking, symbol presence and software
+render/DMA contract checks. It cannot prove physical codec output, DMA timing,
+IRQ delivery, audible continuity or long-duration underrun-free operation.
+Those remain physical SMK-37 Pro test gates.
