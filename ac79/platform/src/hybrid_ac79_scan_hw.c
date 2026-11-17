@@ -86,10 +86,8 @@ static void adc_irq_handler(void)
     result=(uint16_t)ADC->RES;
     ADC->CON=BIT(6);
     ADC->CON=0u;
-    ++scanner.adc_completions;
-    /* Advance the 18-fast + 8-slow schedule in the shared sequencer. */
-    hybrid_ac79_adc_complete(&scanner,&ops);
-    (void)result;
+    /* Preserve the raw ADC sample before advancing the channel schedule. */
+    hybrid_ac79_adc_complete_value(&scanner,&ops,result);
 }
 static void gpio_input(port_t *p,unsigned bit)
 {
@@ -128,7 +126,7 @@ int hybrid_ac79_scan_hw_init(const hybrid_ac79_scan_hw_config_t *config)
     ADC->CON=0u;
     SPI2->CON=BIT(5)|BIT(14)|BIT(13);
     SPI2->BAUD=5u;
-    shift_data=0xffff0000u;
+    shift_data=(~BIT(24))|0xffffu;
     SPI2->ADR=(uint32_t)(uintptr_t)&shift_data;
     SPI2->CNT=4u;
     SPI2->CON|=BIT(0);
@@ -142,3 +140,6 @@ void hybrid_ac79_scan_hw_get_samples(uint32_t out[16])
     if(!hybrid_ac79_scan_take(&scanner,scan_out))return;
     for(unsigned i=0;i<16u;++i)out[i]=scan_out[i];
 }
+
+void hybrid_ac79_scan_hw_get_adc(uint16_t out[26],uint32_t *valid_mask)
+{ hybrid_ac79_adc_copy(&scanner,out,valid_mask); }
