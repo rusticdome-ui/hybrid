@@ -41,7 +41,7 @@ void hybrid_ac79_scan_irq(hybrid_ac79_scan_t *s,const hybrid_ac79_scan_ops_t *o,
         ++s->adc_delay;
         if (s->adc_delay==3u && o->adc_start) {
             hybrid_ac79_adc_step_t step=hybrid_ac79_adc_next(s);
-            o->adc_start(o->ctx,step.adc_channel);
+            o->adc_start(o->ctx,step.adc_channel,step.adc_param);
         }
     }
 
@@ -71,7 +71,7 @@ int hybrid_ac79_scan_take(hybrid_ac79_scan_t *s,uint32_t out[HYBRID_SCAN_PHASES]
 
 hybrid_ac79_adc_step_t hybrid_ac79_adc_next(const hybrid_ac79_scan_t *s)
 {
-    hybrid_ac79_adc_step_t r={HYBRID_ADC_PAD,0,1,0};
+    hybrid_ac79_adc_step_t r={HYBRID_ADC_PAD,0,1,0,0};
     if (!s) return r;
     if (s->fast_index<HYBRID_SCAN_FAST_ADC) {
         r.kind=s->fast_index<16u?HYBRID_ADC_PAD:HYBRID_ADC_AUX_FAST;
@@ -84,7 +84,7 @@ hybrid_ac79_adc_step_t hybrid_ac79_adc_next(const hybrid_ac79_scan_t *s)
         if (n<4u) { r.kind=HYBRID_ADC_FADER; r.adc_channel=2; r.mux_channel=n; }
         else if (n==4u) { r.kind=HYBRID_ADC_PEDAL; r.adc_channel=2; r.mux_channel=6; }
         else if (n==5u) { r.kind=HYBRID_ADC_BATTERY; r.adc_channel=2; r.mux_channel=7; }
-        else if (n==6u) { r.kind=HYBRID_ADC_VBAT; r.adc_channel=15; r.mux_channel=0; }
+        else if (n==6u) { r.kind=HYBRID_ADC_VBAT; r.adc_channel=15; r.mux_channel=0; r.adc_param=5; }
         else { r.kind=HYBRID_ADC_REFERENCE; r.adc_channel=15; r.mux_channel=0; }
     }
     return r;
@@ -108,7 +108,7 @@ void hybrid_ac79_adc_complete_value(hybrid_ac79_scan_t *s,const hybrid_ac79_scan
     }
     step=hybrid_ac79_adc_next(s);
     if (o && o->adc_mux) o->adc_mux(o->ctx,step.mux_channel);
-    s->adc_delay=1u;
+    s->adc_delay=0u;
 }
 
 void hybrid_ac79_adc_complete(hybrid_ac79_scan_t *s,const hybrid_ac79_scan_ops_t *o)
