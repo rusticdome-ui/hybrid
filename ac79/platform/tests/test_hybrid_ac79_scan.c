@@ -3,7 +3,7 @@
 #include "hybrid_ac79_scan.h"
 static uint32_t sample_value;
 static unsigned starts,soft,latches,adcs,muxes;
-static uint32_t sample(void){return ++sample_value;}
+static uint32_t sample(void *c){(void)c;return ++sample_value;}
 static void spi(void *c,uint32_t w,uint8_t n){(void)c;(void)w;assert(n==4);++starts;}
 static void latch(void *c){(void)c;++latches;}
 static void soft(void *c){(void)c;++soft;}
