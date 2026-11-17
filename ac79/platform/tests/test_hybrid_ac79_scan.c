@@ -4,12 +4,12 @@
 
 static uint32_t sample_value;
 static unsigned starts,soft_count,latches,adcs,muxes;
-static uint8_t last_adc,last_mux;
+static uint8_t last_adc,last_mux,last_adc_param;
 static uint32_t sample(void *c){(void)c;return ++sample_value;}
 static void spi(void *c,uint32_t w,uint8_t n){(void)c;(void)w;assert(n==4);++starts;}
 static void latch(void *c){(void)c;++latches;}
 static void soft_irq(void *c){(void)c;++soft_count;}
-static void adc(void *c,uint8_t ch){(void)c;last_adc=ch;++adcs;}
+static void adc(void *c,uint8_t ch,uint8_t param){(void)c;last_adc=ch;last_adc_param=param;++adcs;}
 static void mux(void *c,uint8_t ch){(void)c;assert(ch<8);last_mux=ch;++muxes;}
 static void tick(hybrid_ac79_scan_t *s,hybrid_ac79_scan_ops_t *o)
 { hybrid_ac79_scan_irq(s,o,0xffffu,0xffffffffu,0xffffffffu); }
@@ -56,16 +56,17 @@ int main(void)
         assert(a.kind==(i<16?HYBRID_ADC_PAD:HYBRID_ADC_AUX_FAST));
         assert(a.index==i&&a.adc_channel==fast_channels[i]&&a.mux_channel==fast_muxes[i]);
         hybrid_ac79_adc_complete_value(&s,&o,(uint16_t)(100u+i));
-        if(i+1<HYBRID_SCAN_FAST_ADC) { tick(&s,&o); tick(&s,&o); }
+        if(i+1<HYBRID_SCAN_FAST_ADC) { tick(&s,&o); tick(&s,&o); tick(&s,&o); }
     }
     /* The last fast conversion must also settle the first slow mux. */
-    tick(&s,&o); tick(&s,&o);
+    tick(&s,&o); tick(&s,&o); tick(&s,&o);
     for(i=0;i<HYBRID_SCAN_SLOW_ADC;i++) {
         hybrid_ac79_adc_step_t a=hybrid_ac79_adc_next(&s);
         assert(a.kind==slow_kinds[i]&&a.index==i);
         assert(a.adc_channel==slow_channels[i]&&a.mux_channel==slow_muxes[i]);
+        assert(a.adc_param==(i==6u?5u:0u));
         hybrid_ac79_adc_complete(&s,&o);
-        if(i+1<HYBRID_SCAN_SLOW_ADC) { tick(&s,&o); tick(&s,&o); }
+        if(i+1<HYBRID_SCAN_SLOW_ADC) { tick(&s,&o); tick(&s,&o); tick(&s,&o); }
     }
     assert(s.adc_completions==26);
     assert(s.fast_index==0&&s.slow_index==0);
