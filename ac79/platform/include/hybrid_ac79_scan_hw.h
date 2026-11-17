@@ -15,4 +15,5 @@ typedef struct {
 int hybrid_ac79_scan_hw_init(const hybrid_ac79_scan_hw_config_t *config);
 void hybrid_ac79_scan_hw_set_led_mask(uint32_t mask);
 void hybrid_ac79_scan_hw_get_samples(uint32_t out[16]);
+void hybrid_ac79_scan_hw_get_adc(uint16_t out[26],uint32_t *valid_mask);
 #endif
