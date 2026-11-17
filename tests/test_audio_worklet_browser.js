@@ -26,10 +26,18 @@ const server=http.createServer((req,res)=>{
   if(/DUB-1|AMB-1|ZEN-1|SAMPLE BROWSER/i.test(visible))throw Error('Removed DSP or Sample Browser remains visible');
   if(!visible.includes('FM6/DX7'))throw Error('FM6/DX7 engine not visible');
   if(await page.locator('#dx7BankSelect option').count()!==4)throw Error('DX7 must expose four banks');
+  // Wait for the page script to populate the voice selector; a parse error can
+  // leave the static bank selector present while all 32 voice options are absent.
+  const voiceSelect=page.locator('#dx7VoiceSelect');
   for(let bank=0;bank<4;bank++){
     await page.locator('#dx7BankSelect').selectOption(String(bank));
-    if(await page.locator('#dx7VoiceSelect option').count()!==32)throw Error('DX7 bank '+bank+' must contain 32 voices');
-    const names=await page.locator('#dx7VoiceSelect option').allTextContents();
+    await page.waitForFunction(()=>document.querySelector('#dx7VoiceSelect')?.options.length===32,null,{timeout:5000}).catch(async()=>{
+      const detail=await page.evaluate(()=>({count:document.querySelector('#dx7VoiceSelect')?.options.length??-1,
+        label:document.querySelector('#dx7VoiceCount')?.textContent,
+        errors:[]})); 
+      throw Error('DX7 bank '+bank+' UI did not populate 32 voices: '+JSON.stringify(detail));
+    });
+    const names=await voiceSelect.locator('option').allTextContents();
     if(names.some(x=>!x.trim()))throw Error('DX7 voice name missing');
   }
   if(!/FM-1_015/.test(await page.locator('#dx7SourceTag').textContent()))throw Error('DX7 bank provenance missing');
