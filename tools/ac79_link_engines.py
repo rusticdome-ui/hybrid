@@ -130,10 +130,9 @@ def patch_editor_backup(fw):
   '''    if (id >= 2u && id <= 5u) {
         uint32_t slot = id - 2u;
         if (project_used(slot)) {
-            memcpy(ED_BK_RAW, &proj_cache, sizeof proj_cache);
             *len = sizeof proj_cache;
         }
-        return ED_BK_RAW;
+        return (const uint8_t *)&proj_cache;
     }''',
   "backup project export through the single cache")
  replace_once(backup,
