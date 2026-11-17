@@ -3,12 +3,12 @@
 #include "hybrid_ac79_scan.h"
 
 static uint32_t sample_value;
-static unsigned starts,soft,latches,adcs,muxes;
+static unsigned starts,soft_count,latches,adcs,muxes;
 static uint8_t last_adc,last_mux;
 static uint32_t sample(void *c){(void)c;return ++sample_value;}
 static void spi(void *c,uint32_t w,uint8_t n){(void)c;(void)w;assert(n==4);++starts;}
 static void latch(void *c){(void)c;++latches;}
-static void soft(void *c){(void)c;++soft;}
+static void soft_count(void *c){(void)c;++soft_count;}
 static void adc(void *c,uint8_t ch){(void)c;last_adc=ch;++adcs;}
 static void mux(void *c,uint8_t ch){(void)c;assert(ch<8);last_mux=ch;++muxes;}
 static void tick(hybrid_ac79_scan_t *s,hybrid_ac79_scan_ops_t *o)
@@ -23,12 +23,12 @@ int main(void)
     static const uint8_t slow_muxes[8]={4,5,6,7,6,7,0,0};
     hybrid_ac79_scan_t s;
     uint32_t out[HYBRID_SCAN_PHASES];
-    hybrid_ac79_scan_ops_t o={spi,sample,latch,soft,adc,mux,0};
+    hybrid_ac79_scan_ops_t o={spi,sample,latch,soft_count,adc,mux,0};
     unsigned i;
 
     hybrid_ac79_scan_init(&s);
     for(i=0;i<16;i++) tick(&s,&o);
-    assert(soft==1&&starts==16&&latches==16&&s.ready);
+    assert(soft_count==1&&starts==16&&latches==16&&s.ready);
     assert(hybrid_ac79_scan_take(&s,out)==1&&out[0]==1&&out[15]==16);
     assert(hybrid_ac79_scan_take(&s,out)==0);
 
@@ -42,7 +42,7 @@ int main(void)
     /* Boot must select the initial mux and start the first conversion only
        after the three-tick settling interval. */
     hybrid_ac79_scan_init(&s);
-    starts=soft=latches=adcs=muxes=0;
+    starts=soft_count=latches=adcs=muxes=0;
     tick(&s,&o);
     assert(muxes==1&&last_mux==0&&adcs==0&&s.adc_delay==1);
     tick(&s,&o);
