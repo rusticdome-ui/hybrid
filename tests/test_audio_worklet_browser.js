@@ -37,11 +37,19 @@ const server=http.createServer((req,res)=>{
   await page.locator('#dawAudio').click();
   await page.waitForFunction(()=>{const t=document.querySelector('#log')?.textContent||'';return t.includes('AudioWorklet activo:')||t.includes('AudioWorklet:');},null,{timeout:30000});
   let log=await page.locator('#log').textContent();
-  if(!log.includes('AudioWorklet ativo: FM6/DX7')&&!log.includes('AudioWorklet activo: FM6/DX7'))throw Error('FM6/DX7 AudioWorklet failed: '+log+' | '+errors.join(' | '));
+  if(!log.includes('HYBRID WAVETABLE')||!log.includes('FM6/DX7'))throw Error('Wavetable/FM6 AudioWorklet failed: '+log+' | '+errors.join(' | '));
+  const key=page.locator('#keys [data-n="60"]');
+  await page.locator('#activeEngine').selectOption('0');
+  await key.hover();await page.mouse.down();
+  await page.waitForFunction(()=>window.__hybridAudioMetrics?.wavetablePeak>0,null,{timeout:10000});
+  const wt=await page.evaluate(()=>({peak:window.__hybridAudioMetrics.wavetablePeak,voices:window.__hybridAudioMetrics.wavetableVoices}));
+  if(wt.peak<=0||wt.voices<1)throw Error('HYBRID Wavetable did not produce non-zero PCM: '+JSON.stringify(wt));
+  await page.mouse.up();
+  await page.waitForFunction(()=>window.__hybridAudioMetrics?.wavetableVoices===0,null,{timeout:5000});
+  await page.locator('#activeEngine').selectOption('1');
   for(let bank=0;bank<4;bank++){await page.locator('#dx7BankSelect').selectOption(String(bank));await page.waitForFunction(expected=>window.__hybridDx7Status?.bank===expected,bank,{timeout:5000});}
   await page.locator('#dx7VoiceSelect').selectOption('13');await page.waitForFunction(()=>window.__hybridDx7Status?.program===13,null,{timeout:5000});
   await page.waitForFunction(()=>window.__hybridAudioMetrics&&window.__hybridAudioMetrics.callbacks>=256,null,{timeout:15000});
-  const key=page.locator('#keys [data-n="60"]');
   await key.hover();await page.mouse.down();
   await page.waitForFunction(()=>window.__hybridDx7Notes?.includes(60),null,{timeout:5000});
   await page.waitForFunction(()=>window.__hybridAudioMetrics?.dx7Peak>0,null,{timeout:10000});
@@ -81,6 +89,7 @@ const server=http.createServer((req,res)=>{
   const metrics=await page.evaluate(()=>window.__hybridAudioMetrics);
   if(metrics.underruns!==0)throw Error('AudioWorklet underruns: '+JSON.stringify(metrics));
   if(errors.length)throw Error('Browser errors: '+errors.join(' | '));
+  console.log('CHROMIUM WAVETABLE PASS: independent dual-oscillator engine produced non-zero PCM and note-off cleared its voice.');
   console.log('CHROMIUM FM6/DX7 PASS: MSFA WASM engine, real non-zero DX7 PCM, four banks and program selection.');
   console.log('CHROMIUM CHORD PASS: all 14 chord types, note-off, chord trigger and single-note restore.');
   console.log('CHROMIUM CLEANUP PASS: DUB-1, AMB-1, ZEN-1 and Sample Browser absent; AudioWorklet underruns=0.');

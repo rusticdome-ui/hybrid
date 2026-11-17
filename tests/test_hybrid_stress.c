@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Host stress tests for the SMK-37 HYBRID mixer and four engine slots.
  * These tests exercise the common core with deterministic engine doubles;
- * they do NOT emulate or certify the native AMB/DUB/ZEN/GHOULBOX DSPs.
+ * they do NOT emulate or certify the native DSP hardware.
  */
 #include "hybrid_core.h"
 #include <assert.h>
@@ -102,14 +102,14 @@ int main(void)
     /* Long deterministic render run: mixed block sizes, all four engines. */
     for (iteration = 0; iteration < 12000u; ++iteration) {
         uint16_t frames = blocks[iteration % 4u];
-        if (iteration == 3000u) hybrid_set_mute(&core, HYBRID_DUB, 1);
-        if (iteration == 4000u) hybrid_set_mute(&core, HYBRID_DUB, 0);
-        if (iteration == 5000u) hybrid_set_solo(&core, HYBRID_ZEN, 1);
-        if (iteration == 6000u) hybrid_set_solo(&core, HYBRID_ZEN, 0);
+        if (iteration == 3000u) hybrid_set_mute(&core, HYBRID_FM6, 1);
+        if (iteration == 4000u) hybrid_set_mute(&core, HYBRID_FM6, 0);
+        if (iteration == 5000u) hybrid_set_solo(&core, HYBRID_RESERVED, 1);
+        if (iteration == 6000u) hybrid_set_solo(&core, HYBRID_RESERVED, 0);
         if (iteration == 7000u) {
             assert(hybrid_scene_capture(&core, 3) == 0);
-            hybrid_set_volume(&core, HYBRID_AMB, 12000);
-            hybrid_set_pan(&core, HYBRID_DUB, 75);
+            hybrid_set_volume(&core, HYBRID_WAVETABLE, 12000);
+            hybrid_set_pan(&core, HYBRID_FM6, 75);
             assert(hybrid_scene_recall(&core, 3, 1000) == 0);
         }
         if (iteration == 9000u) hybrid_panic(&core);

@@ -20,7 +20,7 @@ const nowMs=()=>hasHighResClock?globalThis.performance.now():Date.now();
 class SMK37HybridProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
-    this.ready=false;this.failed=false;this.dx7=null;this.core=null;this.pendingMessages=[];this.sampleSlots=Array(8).fill(null);this.sampleVoices=Array(8).fill(null);this.sampleTriggers=0;
+    this.ready=false;this.failed=false;this.dx7=null;this.core=null;this.pendingMessages=[];this.wavetableVoices=new Map();this.wavetable={waveA:0,waveB:2,mix:.25,cutoff:.82,attack:.008,decay:.18,sustain:.72,release:.22,detune:7,lfoRate:2,lfoDepth:0,filterL:0,filterR:0};this.wavetableNoteOns=0;this.wavetablePeak=0;this.wavetableTables=Array.from({length:4},(_,shape)=>{const table=new Float32Array(2048);for(let i=0;i<table.length;i++){const p=i/table.length;table[i]=shape===0?Math.sin(2*Math.PI*p):shape===1?1-4*Math.abs(p-.5):shape===2?2*p-1:p<.5?1:-1;}return table;});this.sampleSlots=Array(8).fill(null);this.sampleVoices=Array(8).fill(null);this.sampleTriggers=0;
     this.count=0;this.underruns=0;this.lateCallbacks=0;this.renderOverrunCandidates=0;this.lastTime=0;this.maxJitter=0;this.jitter=[];
     this.maxRender=0;this.dx7Max=0;this.dx7Total=0;this.dx7Peak=0;this.dx7NoteOns=0;this.dx7ActiveNotes=new Set();this.mixerMax=0;this.mixerTotal=0;this.seqMax=0;this.seqTotal=0;this.seqSteps=0;this.seqClockTicks=0;this.seqLaneEvents=[0,0,0,0];this.period=128/sampleRate*1000;this.outputViews=new Map();this.volca={running:false,bpm:120,clockPhase:0,clockDivider:0,step:0,chain:[0],chainPosition:0,variation:0,fill:false,externalClock:false,muteMask:0,soloMask:0,active:[0,0,0,0]};
     this.port.onmessage=e=>this.message(e.data);
@@ -50,6 +50,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     if(this.dx7Export('dx7_init')(sampleRate)!==0)throw Error('MSFA DX7 engine init failed');
     this.loadDx7Bank(wasmBytes.bankData,wasmBytes.program||0);
     for(let warm=0;warm<8;warm++){
+      this.renderWavetableToCore(128);
       this.renderDx7ToCore(128);
       this.renderSamplesToCore(128);
       if(this.core.hybrid_wasm_process(128)!==0)throw Error('HYBRID warm-up mixer failed');
@@ -57,7 +58,61 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     this.dx7Export('dx7_panic')();this.core.hybrid_wasm_panic();
     this.ready=true;
     for(const message of this.pendingMessages.splice(0))this.message(message);
-    this.port.postMessage({type:'ready',engines:['FM6/DX7 · MSFA','PCM ingress · 8 slots']});
+    this.port.postMessage({type:'ready',engines:['HYBRID WAVETABLE · dual oscillator','FM6/DX7 · MSFA','PCM ingress · 8 slots']});
+  }
+  wavetableNote(note,velocity,on){
+    if(on){
+      const frequency=440*Math.pow(2,(note-69)/12),p=this.wavetable;
+      this.wavetableVoices.set(note,{note,phaseA:0,phaseB:0,stepA:2*Math.PI*frequency/sampleRate,stepB:2*Math.PI*frequency*Math.pow(2,p.detune/1200)/sampleRate,env:0,stage:'attack',velocity:Math.max(1,Math.min(127,velocity|0)),filter:0,lfoPhase:0});
+      this.wavetableNoteOns++;
+    }else{
+      const voice=this.wavetableVoices.get(note);
+      if(voice)voice.stage='release';
+    }
+  }
+  waveSample(phase,shape){
+    const table=this.wavetableTables[shape&3],position=(((phase/(2*Math.PI))%1+1)%1)*table.length,index=Math.floor(position),fraction=position-index;
+    const a=table[index],b=table[(index+1)&(table.length-1)];
+    return a+(b-a)*fraction;
+  }
+  renderWavetableToCore(frames){
+    const pointer=this.core.hybrid_wasm_pcm_ptr(0)>>>0,memory=this.core.memory.buffer;
+    let view=this.wavetablePcmView;
+    if(!view||view.memory!==memory||view.pointer!==pointer||view.data.length<frames*2){
+      view={memory,pointer,data:new Int32Array(memory,pointer,frames*2)};
+      this.wavetablePcmView=view;
+    }
+    const output=view.data;output.fill(0);
+    const p=this.wavetable;let peak=0;
+    for(const voice of this.wavetableVoices.values()){
+      const velocity=voice.velocity/127;
+      for(let frame=0;frame<frames;frame++){
+        if(voice.stage==='attack'){
+          voice.env=Math.min(1,voice.env+1/Math.max(1,p.attack*sampleRate));
+          if(voice.env>=1)voice.stage='decay';
+        }else if(voice.stage==='decay'){
+          voice.env=Math.max(p.sustain,voice.env+(p.sustain-1)/Math.max(1,p.decay*sampleRate));
+          if(voice.env<=p.sustain)voice.stage='sustain';
+        }else if(voice.stage==='release'){
+          voice.env=Math.max(0,voice.env-1/Math.max(1,p.release*sampleRate));
+          if(voice.env<=0){this.wavetableVoices.delete(voice.note);break;}
+        }
+        const oscA=this.waveSample(voice.phaseA,p.waveA);
+        const oscB=this.waveSample(voice.phaseB,p.waveB);
+        const lfo=Math.sin(voice.lfoPhase)*p.lfoDepth;
+        const raw=(oscA*(1-p.mix)+oscB*p.mix)*voice.env*velocity*(1+lfo);
+        voice.phaseA+=voice.stepA;voice.phaseB+=voice.stepB;
+        voice.lfoPhase+=2*Math.PI*p.lfoRate/sampleRate;
+        voice.filter+=(raw-voice.filter)*Math.max(.002,Math.min(.98,p.cutoff));
+        const sample=Math.max(-1,Math.min(1,voice.filter*.22));
+        const q15=Math.round(sample*32767);
+        output[frame*2]+=q15;output[frame*2+1]+=q15;
+        peak=Math.max(peak,Math.abs(sample));
+      }
+    }
+    for(let i=0;i<output.length;i++)output[i]=Math.max(-32768,Math.min(32767,output[i]));
+    this.wavetablePeak=Math.round(peak*32767);
+    if(this.core.hybrid_wasm_submit_pcm(0,frames)!==0)throw Error('HYBRID Wavetable PCM ingress failed');
   }
   renderDx7ToCore(frames){
     if(this.dx7Export('dx7_render')(frames)!==0)throw Error('MSFA DX7 render failed');
@@ -156,7 +211,10 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
   }
   message(m) {
     if(!m)return;
-    if(!this.ready){if(['noteOn','noteOff','midi','dx7Bank','dx7Program','panic','volcaConfigure','volcaStart','volcaStop','volcaExternalStart','volcaExternalStop','volcaExternalClock','sampleLoad','sampleTrigger','sampleStop'].includes(m.type))this.pendingMessages.push(m);return;}
+    if(!this.ready){if(['noteOn','noteOff','wavetableNoteOn','wavetableNoteOff','wavetableControl','midi','dx7Bank','dx7Program','panic','volcaConfigure','volcaStart','volcaStop','volcaExternalStart','volcaExternalStop','volcaExternalClock','sampleLoad','sampleTrigger','sampleStop'].includes(m.type))this.pendingMessages.push(m);return;}
+    if(m.type==='wavetableNoteOn'){this.wavetableNote(m.note,m.velocity,true);return;}
+    if(m.type==='wavetableNoteOff'){this.wavetableNote(m.note,0,false);return;}
+    if(m.type==='wavetableControl'){const p=this.wavetable;if(Number.isFinite(m.waveA))p.waveA=m.waveA|0;if(Number.isFinite(m.waveB))p.waveB=m.waveB|0;if(Number.isFinite(m.mix))p.mix=Math.max(0,Math.min(1,m.mix));if(Number.isFinite(m.cutoff))p.cutoff=Math.max(.002,Math.min(.98,m.cutoff));if(Number.isFinite(m.attack))p.attack=Math.max(.001,m.attack);if(Number.isFinite(m.decay))p.decay=Math.max(.001,m.decay);if(Number.isFinite(m.sustain))p.sustain=Math.max(0,Math.min(1,m.sustain));if(Number.isFinite(m.release))p.release=Math.max(.001,m.release);if(Number.isFinite(m.detune))p.detune=m.detune;if(Number.isFinite(m.lfoRate))p.lfoRate=m.lfoRate;if(Number.isFinite(m.lfoDepth))p.lfoDepth=m.lfoDepth;return;}
     if(m.type==='sampleLoad'){const pcm=new Float32Array(m.pcm);if(pcm.length<2||pcm.length%2)throw Error('Sample PCM must be stereo interleaved');if(!Number.isInteger(m.slot)||m.slot<0||m.slot>=8)throw Error('Sample slot must be 0..7');this.sampleSlots[m.slot]={pcm,frames:pcm.length/2,name:m.name||('Sample '+(m.slot+1))};this.port.postMessage({type:'sampleLoaded',slot:m.slot,name:this.sampleSlots[m.slot].name,frames:pcm.length/2,samplesLoaded:this.sampleSlots.filter(Boolean).length});return;}
     if(m.type==='sampleTrigger'){this.sampleTrigger(m.slot,m.velocity);return;}
     if(m.type==='sampleStop'){this.sampleVoices.fill(null);return;}
@@ -177,7 +235,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     else if(m.type==='midi')this.dx7Export('dx7_midi')(m.status,m.data1||0,m.data2||0);
     else if(m.type==='dx7Bank')this.loadDx7Bank(m.data,m.program||0);
     else if(m.type==='dx7Program'){if(this.dx7Export('dx7_select_program')(m.program|0)!==0)throw Error('DX7 program selection failed');this.port.postMessage({type:'dx7ProgramSelected',program:m.program|0});}
-    else if(m.type==='panic'){this.dx7Export('dx7_panic')();this.dx7ActiveNotes.clear();this.port.postMessage({type:'dx7Notes',notes:[]});this.sampleVoices.fill(null);}
+    else if(m.type==='panic'){this.dx7Export('dx7_panic')();this.dx7ActiveNotes.clear();this.wavetableVoices.clear();this.port.postMessage({type:'dx7Notes',notes:[]});this.sampleVoices.fill(null);}
     else if(m.type==='mix'){
       this.core.hybrid_wasm_set_mix(m.id,m.volume,m.pan,+m.mute,+m.solo);
       this.core.hybrid_wasm_set_route(m.id,m.mode,m.low,m.high);
@@ -197,6 +255,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
       this.volcaAdvance(frames);
       const seqMs=nowMs()-segmentStart;this.seqMax=Math.max(this.seqMax,seqMs);this.seqTotal+=seqMs;
       segmentStart=nowMs();
+      this.renderWavetableToCore(frames);
       this.renderDx7ToCore(frames);
       const dx7Ms=nowMs()-segmentStart;this.dx7Max=Math.max(this.dx7Max,dx7Ms);this.dx7Total+=dx7Ms;
       segmentStart=nowMs();
@@ -215,7 +274,7 @@ class SMK37HybridProcessor extends AudioWorkletProcessor {
     this.count++;
     if((this.count&255)===0){
       const s=this.jitter.slice().sort((a,b)=>a-b),p95=s.length?s[Math.min(s.length-1,Math.ceil(s.length*.95)-1)]:0;
-      this.port.postMessage({type:'metrics',callbacks:this.count,underruns:this.underruns,lateCallbacks:this.lateCallbacks,renderOverrunCandidates:this.renderOverrunCandidates,jitterP95:p95,jitterMax:this.maxJitter,renderMax:this.maxRender,sequencerMax:this.seqMax,sequencerAvg:this.seqTotal/this.count,seqSteps:this.seqSteps,seqClockTicks:this.seqClockTicks,seqLaneEvents:this.seqLaneEvents.slice(),dx7Max:this.dx7Max,dx7Avg:this.dx7Total/this.count,dx7Peak:this.dx7Peak,dx7NoteOns:this.dx7NoteOns,dx7ActiveNotes:this.dx7ActiveNotes.size,sampleTriggers:this.sampleTriggers,samplesLoaded:this.sampleSlots.filter(Boolean).length,mixerMax:this.mixerMax,mixerAvg:this.mixerTotal/this.count,timingSource,timingResolutionMs});
+      this.port.postMessage({type:'metrics',callbacks:this.count,underruns:this.underruns,lateCallbacks:this.lateCallbacks,renderOverrunCandidates:this.renderOverrunCandidates,jitterP95:p95,jitterMax:this.maxJitter,renderMax:this.maxRender,sequencerMax:this.seqMax,sequencerAvg:this.seqTotal/this.count,seqSteps:this.seqSteps,seqClockTicks:this.seqClockTicks,seqLaneEvents:this.seqLaneEvents.slice(),wavetableNoteOns:this.wavetableNoteOns,wavetableVoices:this.wavetableVoices.size,wavetablePeak:this.wavetablePeak,dx7Max:this.dx7Max,dx7Avg:this.dx7Total/this.count,dx7Peak:this.dx7Peak,dx7NoteOns:this.dx7NoteOns,dx7ActiveNotes:this.dx7ActiveNotes.size,sampleTriggers:this.sampleTriggers,samplesLoaded:this.sampleSlots.filter(Boolean).length,mixerMax:this.mixerMax,mixerAvg:this.mixerTotal/this.count,timingSource,timingResolutionMs});
     }
     return true;
   }

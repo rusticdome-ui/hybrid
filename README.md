@@ -1,35 +1,23 @@
-# SMK-37 HYBRID — DAW workstation and VOLCA sequencer
+# SMK-37 HYBRID — Wavetable workstation and VOLCA sequencer
 
-The `hybrid-memory-reduction` branch contains the SMK-37 AC79 integration work and a browser DAW-style workstation.
+The `hybrid-wavetable-shrub-style` branch replaces the former AMB-1, DUB-1 and ZEN-1 integrations with one original HYBRID wavetable synthesizer. It is an independent design inspired by the publicly described workflow and sound-design concepts of modern wavetable instruments. It does not contain SHRUB/Xfer source code, firmware, presets or proprietary assets.
 
-## Current product architecture
+## Instrument architecture
 
-- Three original DSPs: AMB-1, DUB-1 and ZEN-1, compiled independently and preserved internally as selectable soundbanks; they are no longer presented as independent instrument panels.
-- Soundbank UI uses source-derived preset names/counts: AMB-1 (8: Garden, Departures, Voices, Afternoon, Night Bus, Shoreline, Glass, Tides), DUB-1 (8: Basic, Chamber, Steppers, Fog, Concrete, Night Drive, Pressure, Haze), ZEN-1 (14 selectable FuMi voices: Koto, Koto II, Sho, Shakuhachi, Dragon Flt, Bamboo Flt, Kokyu, Taiko, Hyoshigi, Mokugyo, Koto Pluck, Koto Ring, Koto Warm, Harp). ZEN-1 has 9 additional scene-layer patches, not part of its main instrument voice selector.
-- Fourth HYBRID mixer slot is now **PCM Sample Player**, not a GHOULBOX instrument.
-- Browser sampler: eight stereo one-shot slots; imports audio files supported by Web Audio (WAV/AIFF/OGG/MP3 in Chromium), resampled by the browser to the active session rate; 20-second limit per slot.
-- DAW-style UI: arrangement view, 8-bar clip overview, shared family chain, transport, BPM, variation A/B, fill, track mute/solo, piano-roll phrase preview, mixer and sample browser.
-- Bounded shared-clock sequencer: 16-step phrases, up to 16 family entries in the chain, internal BPM or external MIDI IN clock at 24 PPQN.
-- Q15 four-channel mixer with per-slot volume, pan, mute, solo and routing.
-- Original native DSP WASM renderers remain the audio sources for AMB/DUB/ZEN. Sample PCM is submitted to the fourth mixer slot before the Q15 mix.
+- **HYBRID Wavetable:** native C engine for AC79 and a real-time AudioWorklet renderer for the browser. Dual oscillators, selectable sine/triangle/saw/pulse shapes, oscillator blend, detune, polyphony, ADSR, low-pass filter and LFO modulation.
+- **FM6/DX7:** retained as a separate six-operator MSFA renderer with 128 DX7 voices in four banks.
+- **PCM ingress:** reserved stereo sample slot; browser sample playback remains a separate feature and AC79 sample playback is not claimed.
+- **Q15 mixer:** four fixed slots: Wavetable, FM6/DX7 PCM, reserved and PCM/sample.
+- **Shared controls:** MIDI, keyboard, chord mode, 16-scene mixer, routing, mute/solo, VOLCA-style sequencer and transport.
 
-## Important limits
+## Implementation boundaries
 
-The browser's eight sample slots are session-memory only. They are not stored in the SMK-37 flash and do not yet stream from an SD card or external storage. The DAW arrangement currently edits a shared family chain; independent per-track clip patterns, editable piano-roll notes, automation lanes, save/load projects and recording/overdub are future work. The piano roll is a phrase preview, not yet a note editor.
+The browser's Wavetable renderer runs inside AudioWorklet and submits stereo Q15 PCM into the C HYBRID mixer. The AC79 target uses the independent C wavetable renderer directly in the native audio callback. FM6/DX7 remains a separate browser renderer; this branch does not claim a native AC79 FM6 implementation.
 
-The GHOULBOX renderer, program-change controls, GHOULBOX lane and GHOULBOX WASM build have been removed from the browser simulator and its deployment workflow. The AC79 reference build still uses the Felucca board startup/audio base because the current repository does not yet contain a replacement AC79 startup, codec and DMA transport implementation. This is a remaining hardware-firmware dependency, not a HYBRID instrument slot. A fully GHOULBOX-free installable AC79 image is **not** claimed.
+The former AMB-1, DUB-1 and ZEN-1 DSP objects, adapters, upstream source checkouts, profile labels and validation steps are removed from the HYBRID build path. The AC79 workflow now compiles only the HYBRID core, wavetable engine, sequencer and profiler alongside the SMK-37 board startup/audio base.
 
-The AC79 sample slot is reserved in the mixer interface, but the on-device sample-bank loader/player is not implemented yet. Browser sample playback is real PCM through the WebAudio AudioWorklet and HYBRID Q15 mixer; it must not be confused with AC79 sample playback.
+## Validation
 
-## Build and validation
+Host tests cover the Q15 core, wavetable note/render lifecycle, sequencer, stress blocks and profiler. Chromium tests exercise AudioWorklet Wavetable PCM, FM6/DX7 bank loading, chords, note-off and zero underruns. The AC79 workflow compiles and links the C engine with the JieLi pi32v2 toolchain and emits ELF/BIN/map plus static memory diagnostics.
 
-- `src/hybrid_sequencer.c`: bounded shared-clock sequencer.
-- `src/hybrid_core.c`: Q15 mixer, routing and scenes.
-- `src/hybrid_native_adapters.c`: original AMB/DUB/ZEN AC79 adapters.
-- `simulator/audio-worklet.js`: original DSP WASM renderers and eight-slot PCM sampler.
-- `simulator/index.html`: DAW-style workstation.
-- `tests/test_audio_worklet_browser.js`: Chromium regression for sample imports, non-zero PCM, arrangement, transport, variation, fills and mute/solo.
-
-The latest AC79 ELF baseline previously reported XIP 10,380 B free, RAM 15,056 B, POOL 8,768 B, RAMTEXT 21,540 B and NOINIT 132 B. Those are historical measurements from the earlier linked build; the current source/tool changes require a fresh AC79 run before treating them as current margins. NOINIT and POOL remain critical.
-
-A passing browser test proves the browser path only. It does not certify physical-board sample playback, CPU, stack, DMA underruns or an installable GHOULBOX-free AC79 image.
+A passing host or browser test is not physical-board certification. Hardware CPU load, stack high-water, DMA underruns, long-run stability and a production-ready HYBRID package identity still require separate validation. The AC79 artifact is marked validation-only until its package identity and flashing procedure are independently verified.
