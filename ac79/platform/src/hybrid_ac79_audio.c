@@ -73,7 +73,7 @@ static int32_t q15_to_q23(int32_t value)
 {
     if(value>32767)value=32767;
     if(value< -32768)value=-32768;
-    return value << 8;
+    return value * 256;
 }
 static void clear_buffers(void)
 {
