@@ -60,3 +60,29 @@ by guessed polling delays or fabricated pin assignments.
 Host compilation is only a syntax/build check. It does not exercise memory-mapped
 registers. A pi32v2 object compile does not prove board operation. Hardware
 validation must be performed on the physical SMK-37 Pro.
+
+
+## Native audio integration update
+
+The ALNK0 backend now requires explicit SDK-provided `irq_save`/`irq_restore`
+hooks and performs the DMA half ownership check, copy, memory fence and
+post-copy ownership check inside that critical section. This avoids treating
+a pre-copy free-half observation as proof that the half remained writable.
+
+`hybrid_ac79_audio_render_core()` adapts the native `hybrid_core_t` /
+`hybrid_process()` renderer to the audio callback contract. The board startup
+must register the Wavetable engine before passing the core to this adapter.
+
+This remains an integration component, not a complete board port. The SDK
+adapter must still supply verified clock, codec, interrupt attach and critical
+section implementations. Physical DMA timing and codec output require tests
+on the SMK-37 Pro.
+
+## Control backend status
+
+The exact scan/ADC behavior is documented from the public SMK-37 Pro
+reference source, but the independent AC79 implementation of SPI2 scan ISR,
+software scan ISR, ADC/CD4051 scheduling and calibration curves, encoder
+quadrature, button debounce, LCD SPI1 and multiplexed LEDs is not yet present.
+The existing callback contract is not evidence that these peripherals operate
+without Felucca.
