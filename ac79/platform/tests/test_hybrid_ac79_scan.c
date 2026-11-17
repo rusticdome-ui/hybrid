@@ -67,6 +67,6 @@ int main(void)
     }
     assert(s.adc_completions==26);
     assert(s.fast_index==0&&s.slow_index==0);
-    assert(adcs==26&&muxes==26);
+    assert(adcs==26&&muxes==27);
     return 0;
 }
