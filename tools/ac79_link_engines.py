@@ -56,7 +56,8 @@ def main():
  replace_once(audio,"    mix_block(out, n);","    hybrid_audio_seq_process(n);\n    hybrid_profile_begin(4);\n    mix_block(out, n);\n    hybrid_profile_end(4, n);\n    hybrid_audio_process(out, n, fx_usb_fixed ? MASTER_FULL : (int32_t)song.master_q12);","audio mixer hook")
  replace_once(audio,"        if (fm1_audio_free_half() != half)\n            felucca_dbg.late++;","        if (fm1_audio_free_half() != half) {\n            felucca_dbg.late++;\n            hybrid_profile_underrun();\n        }","audio DMA underrun hook")
  main_c=a.felucca/"firmware/src/main.c"
- replace_once(main_c,"static void felucca_init(void)","extern int hybrid_audio_init(void);\nextern int hybrid_ac79_scan_startup(void);\n\nstatic void felucca_init(void)","main declaration")\n replace_once(main_c,"    fm1_adc_init();","    fm1_adc_init();\n    /* Start independent raw SPI2/ADC capture; legacy event decoding remains active. */\n    (void)hybrid_ac79_scan_startup();","native scanner startup")
+ replace_once(main_c,"static void felucca_init(void)","extern int hybrid_audio_init(void);\nextern int hybrid_ac79_scan_startup(void);\n\nstatic void felucca_init(void)" ,"main declaration")
+ replace_once(main_c,"    fm1_adc_init();","    fm1_adc_init();\n    /* Start independent raw SPI2/ADC capture; legacy event decoding remains active. */\n    (void)hybrid_ac79_scan_startup();","native scanner startup")
  replace_once(main_c,"    gb_scene_load(ui_scene);","    gb_scene_load(ui_scene);\n    (void)hybrid_audio_init();","engine initialization")
  usb=a.felucca/"firmware/src/usb.c"
  replace_once(usb,"    mo_w++;\n    }\n}\n\n/* ------------------------------------------------------- descriptors --- */","    mo_w++;\n    }\n}\n\nvoid hybrid_midi_out_event(uint32_t pkt) { midi_out_event(pkt); }\n\n/* ------------------------------------------------------- descriptors --- */","MIDI output bridge")
