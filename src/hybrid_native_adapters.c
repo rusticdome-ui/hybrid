@@ -88,6 +88,11 @@ int hybrid_audio_init(void)
     return 0;
 }
 
+void *hybrid_audio_render_context(void)
+{
+    return hybrid_audio_ready ? (void *)&hybrid_audio_core : 0;
+}
+
 void hybrid_audio_process(int32_t *out_q15, uint32_t frames, int32_t master_q12)
 {
     uint32_t i;
