@@ -47,7 +47,8 @@ def main():
     for name, used, capacity in rows:
         lines.append(f"| {name} | {used} B | {capacity} B | {capacity-used} B | {'PASS' if used <= capacity else 'OVER'} |")
     lines += [
-        "", "## Runtime instrumentation linked into firmware", "",
+        "", "Minimum required free .noinit margin: 2,048 B.", "",
+        "## Runtime instrumentation linked into firmware", "",
         "| Metric | Instrumentation |", "|---|---|",
         "| HYBRID Wavetable | TIMER4 calls, frames, total/last/max ticks |",
         "| FM6/DX7 | Independent MSFA renderer in browser; native AC79 FM6 port not included in this target |",
