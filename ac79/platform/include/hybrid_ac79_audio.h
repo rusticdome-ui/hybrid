@@ -34,6 +34,7 @@ typedef struct {
 
 struct hybrid_core;
 int hybrid_ac79_audio_render_core(void *context, int32_t *stereo_q15, uint16_t frames);
+int hybrid_ac79_audio_startup(void *renderer_context);
 int hybrid_ac79_audio_init(const hybrid_ac79_audio_hw_t *hardware,
                            hybrid_ac79_render_fn render, void *render_context);
 void hybrid_ac79_audio_irq(void);

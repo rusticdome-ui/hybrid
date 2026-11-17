@@ -71,6 +71,8 @@ jobs:
           set -euo pipefail
           "$JIELI_TOOLCHAIN/pi32v2/bin/clang" -target pi32v2 -mcpu=r3 -mfprev1 -Oz -ffunction-sections -fdata-sections -fno-common -Wall -Wextra -Werror -Iinclude -Iac79/platform/include -c ac79/platform/src/hybrid_ac79_audio.c -o "$RUNNER_TEMP/hybrid_ac79_audio_ac79.o"
           test -s "$RUNNER_TEMP/hybrid_ac79_audio_ac79.o"
+          "$JIELI_TOOLCHAIN/pi32v2/bin/clang" -target pi32v2 -mcpu=r3 -mfprev1 -Oz -ffunction-sections -fdata-sections -fno-common -Wall -Wextra -Werror -Iac79/platform/include -c ac79/platform/src/hybrid_ac79_audio_board.c -o "$RUNNER_TEMP/hybrid_ac79_audio_board_ac79.o"
+          test -s "$RUNNER_TEMP/hybrid_ac79_audio_board_ac79.o"
       - name: Compile SPI2 scanner and ADC sequencing core with JieLi pi32v2
         shell: bash
         run: |
@@ -128,7 +130,7 @@ jobs:
         run: |
           set -euo pipefail
           "$JIELI_TOOLCHAIN/common/bin/objdump" -t build/felucca.elf > "$RUNNER_TEMP/hybrid-symbols.txt"
-          for symbol in hybrid_wavetable_ops hybrid_audio_init hybrid_audio_process hybrid_audio_note_on hybrid_audio_note_off hybrid_audio_panic; do
+          for symbol in hybrid_wavetable_ops hybrid_audio_init hybrid_audio_process hybrid_audio_note_on hybrid_audio_note_off hybrid_audio_panic hybrid_ac79_audio_startup hybrid_ac79_audio_irq hybrid_ac79_audio_render_core; do
             grep -Eq "[[:space:]]${symbol}$" "$RUNNER_TEMP/hybrid-symbols.txt" || { echo "::error::Missing HYBRID symbol: $symbol"; exit 1; }
           done
           if grep -Eiq 'amb_en_|dub_en_|zen_fm_|native_port_stubs' build/felucca.map "$RUNNER_TEMP/hybrid-symbols.txt"; then
