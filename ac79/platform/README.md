@@ -1,57 +1,62 @@
 # Independent AC79 platform layer — SMK-37 Pro
 
 This directory separates the HYBRID instrument engine from the physical
-SMK-37 Pro board implementation.
+SMK-37 Pro board implementation. The migration is incremental; Felucca remains
+in the existing firmware build until every replacement gate passes.
 
 ## Verified board surface
 
-The Pro board reference implementation reports 37 velocity-sensed keys,
-18 panel buttons, 8 rotary encoders and 16 pressure pads. The HYBRID platform
-contract now uses those counts (not the earlier 14-button/7-encoder estimate).
-Four fader channels and two wheel channels remain exposed by the abstraction;
-their ADC channel-to-control calibration still needs confirmation against the
-specific Pro hardware revision.
+The public SMK-37 Pro board source in `m-vave/smk37_open` reports:
+- 37 velocity-sensed keys, 18 panel buttons, 8 rotary encoders and 16 pads.
+- Matrix scan via SPI2/shift-register hardware and sampled GPIO inputs.
+- LCD transport via SPI1.
+- ALNK0/IIS audio at 44.118 kHz, 128 stereo frames per DMA block.
+- ALNK0 audio clock/control pins PC0/PC1/PC2/PC3/PC6.
 
-The publicly available `m-vave/smk37_open` board sources identify:
-- Matrix scan: SPI2/shift-register scan, with PA1 latch, PA3 clock, PA4 data.
-- Matrix input sample pins: PH6, PH8, PH9, PA2, PA5, PA6, PA7 and PA9.
-- LCD transport: SPI1; PC8 chip-select, PB5 data/command, PB6 clock,
-  PB7 shared data route; PC10 RGB route.
-- Audio output: ALNK0/IIS with two DMA directions/buffers and an external
-  codec control sequence on PC0/PC1/PC2/PC6.
+The register and pin constants are recorded in
+`include/hybrid_ac79_wl82_map.h`. They are source-derived references, not
+evidence that the new HYBRID input backend has already exercised the board.
 
-These are source-derived reference mappings, not a claim that the new HYBRID
-driver has already initialized or exercised the hardware. See
-`include/hybrid_ac79_wl82_map.h` for the register/pin constants.
+## Native ALNK0 audio driver
 
-## Driver boundary
+`include/hybrid_ac79_audio.h` and `src/hybrid_ac79_audio.c` provide the first
+native audio-driver implementation:
+- ALNK0 register setup and RX/TX DMA buffer configuration.
+- Two 128-frame stereo DMA halves, 32-byte aligned.
+- Renderer callback consumes signed Q15 stereo; driver promotes samples to
+  signed Q23 32-bit DMA slots.
+- DMA IRQ entry point, half-ownership checks and late-commit/underrun counters.
+- Peak and last render duration counters.
+- No allocation, blocking calls or UI work inside the IRQ.
 
-`hybrid_ac79_board_ops_t` is the interface between the event/debounce layer
-and the native WL82/AC79 board driver. The production driver still needs to
-implement matrix scan, ADC/pad acquisition, encoder decoding, LCD SPI1 and
-LED service directly against the pinned SDK/register definitions.
+The board integration must provide the clock, interrupt-vector attachment and
+codec bring-up callbacks. The public board code establishes the ALNK0 pins and
+register setup, but the complete external codec programming sequence has not
+yet been identified in the available source. The driver therefore refuses to
+start if codec initialization is not supplied; it does not pretend that merely
+setting the enable pin initializes the codec.
 
-The independent audio driver must own ALNK0/IIS, aligned double buffers,
-DMA-half ownership, interrupt acknowledgement, codec bring-up and underrun
-statistics. It must call the HYBRID render callback only for the free half.
-No UI, LCD, allocation or blocking operation may run in the audio ISR.
+## Physical input backend — still pending
 
-## Status and gate
+The event/debounce layer in `hybrid_ac79_platform.c` is not a physical scanner.
+The production backend still needs native SPI2 matrix scan, key-contact velocity,
+ADC/multiplexer sequencing for pad pressure and faders/wheels, quadrature
+encoder decoding, SPI1 LCD transactions, and LED multiplexing. The public
+reference scanner uses additional timer/ADC interrupt routing and calibration
+curves; these must be ported with their real board services rather than replaced
+by guessed polling delays or fabricated pin assignments.
 
-This remains a hardware integration milestone, not a completed BSP. The
-reference register map and corrected control counts are committed first so
-that the drivers are built against the right Pro surface. The board and audio
-driver implementations, native SDK compilation, startup/linker migration and
-physical SMK-37 Pro verification remain separate gates. Felucca is retained
-until all gates pass.
+## Build and removal gates
 
-## Host test
+1. Compile the ALNK0 driver with JieLi `pi32v2` (CI step added).
+2. Implement and compile the physical SPI2/ADC/LCD/LED backend with the pinned
+   AC79 SDK.
+3. Integrate the renderer callback and codec initialization in native firmware.
+4. Validate on SMK-37 Pro: audio continuity, controls, DMA ownership, underruns,
+   CPU and RAM.
+5. Only after all previous gates pass, migrate startup/linker/package identity
+   and remove Felucca from CI and firmware.
 
-```sh
-cc -std=c99 -O2 -Wall -Wextra -Werror \
-  -Iac79/platform/include \
-  ac79/platform/src/hybrid_ac79_platform.c \
-  ac79/platform/tests/test_hybrid_ac79_platform.c \
-  -o /tmp/test_hybrid_ac79_platform
-/tmp/test_hybrid_ac79_platform
-```
+Host compilation is only a syntax/build check. It does not exercise memory-mapped
+registers. A pi32v2 object compile does not prove board operation. Hardware
+validation must be performed on the physical SMK-37 Pro.
