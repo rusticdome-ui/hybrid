@@ -59,7 +59,8 @@ def main():
  main_c=a.felucca/"firmware/src/main.c"
  replace_once(main_c,"static void felucca_init(void)","extern int hybrid_audio_init(void);\nextern void *hybrid_audio_render_context(void);\nextern int hybrid_ac79_audio_startup(void *);\nextern int hybrid_ac79_scan_startup(void);\n\nstatic void felucca_init(void)" ,"main declaration")
  replace_once(main_c,"    fm1_adc_init();","    fm1_adc_init();\n    /* Start independent raw SPI2/ADC capture; legacy event decoding remains active. */\n    (void)hybrid_ac79_scan_startup();","native scanner startup")
- replace_once(main_c,"    gb_scene_load(ui_scene);","    gb_scene_load(ui_scene);\n    (void)hybrid_audio_init();","engine initialization")\n replace_once(main_c,"    audio_init();","    audio_init();\n    /* Rebind ALNK0 IRQ 11 to the independent HYBRID Q15 renderer. */\n    (void)hybrid_ac79_audio_startup(hybrid_audio_render_context());","native ALNK0 renderer startup")
+ replace_once(main_c,"    gb_scene_load(ui_scene);","    gb_scene_load(ui_scene);\n    (void)hybrid_audio_init();","engine initialization")
+ replace_once(main_c,"    audio_init();","    audio_init();\n    /* Rebind ALNK0 IRQ 11 to the independent HYBRID Q15 renderer. */\n    (void)hybrid_ac79_audio_startup(hybrid_audio_render_context());","native ALNK0 renderer startup")
  usb=a.felucca/"firmware/src/usb.c"
  replace_once(usb,"    mo_w++;\n    }\n}\n\n/* ------------------------------------------------------- descriptors --- */","    mo_w++;\n    }\n}\n\nvoid hybrid_midi_out_event(uint32_t pkt) { midi_out_event(pkt); }\n\n/* ------------------------------------------------------- descriptors --- */","MIDI output bridge")
  seq=a.felucca/"firmware/src/seq.c"
