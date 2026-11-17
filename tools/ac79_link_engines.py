@@ -11,6 +11,152 @@ def replace_once(path,old,new,label):
  if new in s:return
  if s.count(old)!=1:raise SystemExit(f"{label}: expected exactly one source anchor, found {s.count(old)}")
  path.write_text(s.replace(old,new))
+
+def patch_single_project_cache(fw):
+ project=fw/"project.c"
+ replace_once(project,
+  'project_store_t proj_slot[4] __attribute__((section(".noinit")));',
+  'project_store_t proj_cache __attribute__((section(".noinit")));\nstatic uint8_t proj_cache_slot;\nstatic uint8_t proj_cache_valid;',
+  "single project cache declaration")
+ old='''static void proj_fetch(uint32_t slot)
+{
+    project_store_t *q = &proj_slot[slot & 3u];
+    int n;
+    proj_wire_gen++;
+    n = st_load(OBJ_PROJECT0 + (slot & 3u), &proj_wire, sizeof proj_wire);
+    if (!proj_import(&proj_scratch, &proj_wire, n))
+        memset(q->raw, 0, 4);
+    else {
+        proj_bound(&proj_scratch);
+        if (!proj_pack(q, &proj_scratch))
+            memset(q->raw, 0, 4);
+    }
+}'''
+ new='''/* One decoded working slot. Flash A/B objects remain authoritative; .noinit
+ * cache bytes are never trusted until this session loads and validates them. */
+static int proj_cache_load(uint32_t slot)
+{
+    slot &= 3u;
+    if (proj_cache_valid && proj_cache_slot == slot) {
+        if (proj_import(&proj_scratch, &proj_cache, sizeof proj_cache))
+            return 1;
+        proj_cache_valid = 0;
+    }
+    proj_cache_valid = 0;
+#if FELUCCA_FLASH
+    if (flash_ok) {
+        int n;
+        proj_wire_gen++;
+        n = st_load(OBJ_PROJECT0 + slot, &proj_wire, sizeof proj_wire);
+        if (!proj_import(&proj_scratch, &proj_wire, n))
+            return 0;
+        proj_bound(&proj_scratch);
+        if (!proj_pack(&proj_cache, &proj_scratch))
+            return 0;
+        proj_cache_slot = (uint8_t)slot;
+        proj_cache_valid = 1;
+        return 1;
+    }
+#endif
+    return 0; /* RAM-only mode has only the one explicitly saved cache slot. */
+}'''
+ replace_once(project,old,new,"on-demand project cache loader")
+ save_old='memcpy(&proj_slot[slot & 3u], &proj_wire, sizeof proj_wire);'
+ save_new='memcpy(&proj_cache, &proj_wire, sizeof proj_wire);\n        proj_cache_slot = (uint8_t)(slot & 3u);\n        proj_cache_valid = 1;'
+ source=project.read_text()
+ begin=source.index("static int project_save_as(")
+ end=source.index("static int project_save(", begin)
+ save_region=source[begin:end]
+ if save_region.count(save_old)!=2: raise SystemExit("project save cache update: expected exactly two save paths")
+ project.write_text(source[:begin]+save_region.replace(save_old,save_new)+source[end:])
+ replace_once(project,
+  'if (!proj_import(&proj_scratch, &proj_slot[slot & 3u], sizeof(project_store_t)))\n        return 0;',
+  'if (!proj_cache_load(slot))\n        return 0;',
+  "project info on-demand load")
+ replace_once(project,
+  'if (!proj_import(p, &proj_slot[slot & 3u], sizeof(project_store_t))) {',
+  'if (!proj_cache_load(slot)) {',
+  "project rename on-demand load")
+ replace_once(project,
+  '    memcpy(&proj_slot[slot & 3u], &proj_wire, sizeof proj_wire);\n    if (proj_cur == (slot & 3u))',
+  '    memcpy(&proj_cache, &proj_wire, sizeof proj_wire);\n    proj_cache_slot = (uint8_t)(slot & 3u);\n    proj_cache_valid = 1;\n    if (proj_cur == (slot & 3u))',
+  "project rename cache update")
+ old='''static void project_load(uint32_t slot)
+{
+#if FELUCCA_FLASH
+    if (flash_ok && !proj_import(&proj_scratch, &proj_slot[slot & 3u], sizeof(project_store_t))) proj_fetch(slot);
+#endif
+    if (!proj_import(&proj_scratch, &proj_slot[slot & 3u], sizeof(project_store_t))) { ui_message("EMPTY SLOT"); return; }
+    proj_bound(&proj_scratch);'''
+ new='''static void project_load(uint32_t slot)
+{
+    if (!proj_cache_load(slot)) {
+        ui_message(flash_ok ? "EMPTY SLOT" : "RAM ONLY: EMPTY");
+        return;
+    }
+    proj_bound(&proj_scratch);'''
+ replace_once(project,old,new,"project load on-demand")
+ replace_once(project,
+  'static void persist_boot(void)                    /* before settings_init / panel_init */\n{',
+  'static void persist_boot(void)                    /* before settings_init / panel_init */\n{\n    proj_cache_valid = 0; /* .noinit cache is untrusted after every reset. */',
+  "invalidate cache at boot")
+ old='''    {   /* projects: fill empty RAM slots from flash, so the slot list is right after power-on */
+        uint32_t i;
+        for (i = 0; i < 4u; i++)
+            if (!proj_import(&proj_scratch, &proj_slot[i], sizeof(project_store_t)))
+                proj_fetch(i);
+    }
+'''
+ replace_once(project,old,"    /* Projects are fetched individually on demand; no four-slot RAM mirror. */\n","remove eager four-project preload")
+ replace_once(project,
+  'static int project_used(uint32_t slot) { return proj_import(&proj_scratch, &proj_slot[slot & 3u], sizeof(project_store_t)); }',
+  'static int project_used(uint32_t slot) { return proj_cache_load(slot); }',
+  "chain project presence check")
+ replace_once(project,
+  'if (!proj_import(p, &proj_slot[i], sizeof(project_store_t))) return 3u + i;',
+  'if (!proj_cache_load(i)) return 3u + i;',
+  "chain source on-demand load")
+ if "proj_slot[" in project.read_text():
+  raise SystemExit("single-cache patch incomplete: residual proj_slot[] reference")
+
+
+def patch_editor_backup(fw):
+ backup=fw/"editor_backup.c"
+ replace_once(backup,
+  '''    if (id >= 2u && id <= 5u) {
+        if (project_used(id - 2u)) *len = sizeof proj_slot[0];
+        return (const uint8_t *)&proj_slot[id - 2u];
+    }''',
+  '''    if (id >= 2u && id <= 5u) {
+        uint32_t slot = id - 2u;
+        if (project_used(slot)) {
+            *len = sizeof proj_cache;
+        }
+        return (const uint8_t *)&proj_cache;
+    }''',
+  "backup project export through the single cache")
+ replace_once(backup,
+  '''    if (ed_bk_id >= 2u && ed_bk_id <= 5u) {
+        memset(&proj_slot[ed_bk_id - 2u], 0, sizeof proj_slot[0]);
+        if (proj_cur == ed_bk_id - 2u)
+            proj_cur = PROJ_NO_SLOT;                     /* (another project there now: the music keeps its name) */
+        if (ed_bk_len) memcpy(&proj_slot[ed_bk_id - 2u], raw, ed_bk_len);
+    } else if (ed_bk_id == 1u) {''',
+  '''    if (ed_bk_id >= 2u && ed_bk_id <= 5u) {
+        uint32_t slot = ed_bk_id - 2u;
+        if (proj_cache_valid && proj_cache_slot == slot)
+            proj_cache_valid = 0;
+        if (ed_bk_len) {
+            memset(&proj_cache, 0, sizeof proj_cache);
+            memcpy(&proj_cache, raw, ed_bk_len);
+            proj_cache_slot = (uint8_t)slot;
+            proj_cache_valid = 1;
+        }
+        if (proj_cur == slot)
+            proj_cur = PROJ_NO_SLOT;                     /* (another project there now: the music keeps its name) */
+    } else if (ed_bk_id == 1u) {''',
+  "backup project import through the single cache")
+
 def main():
  p=argparse.ArgumentParser()
  p.add_argument("--felucca",type=Path,required=True)
@@ -20,6 +166,8 @@ def main():
  if not clang.is_file():raise SystemExit(f"missing JieLi compiler: {clang}")
  out=a.felucca/"build/hybrid";out.mkdir(parents=True,exist_ok=True)
  inc=a.hybrid/"include";fw=a.felucca/"firmware/src";hal=a.felucca/"firmware/hal"
+ patch_single_project_cache(fw)
+ patch_editor_backup(fw)
  objects=["hybrid_core","hybrid_wavetable","hybrid_native_adapters","hybrid_profile","hybrid_sequencer","hybrid_ac79_scan","hybrid_ac79_scan_hw","hybrid_ac79_startup","hybrid_ac79_calibration","hybrid_ac79_audio","hybrid_ac79_audio_board"]
  for name in objects:
   src=(a.hybrid/"ac79/platform/src"/(name+".c")) if name.startswith("hybrid_ac79_") else (a.hybrid/"src"/(name+".c"));obj=out/(name+".o")

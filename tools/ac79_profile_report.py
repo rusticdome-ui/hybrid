@@ -10,6 +10,7 @@ RAMTEXT_CAPACITY = 0x6000
 RAM_CAPACITY = 96 * 1024
 POOL_CAPACITY = 0x54000
 NOINIT_CAPACITY = 0x3D50
+NOINIT_MIN_FREE = 2048
 
 def read_sections(path):
     sections = {}
@@ -46,7 +47,8 @@ def main():
     for name, used, capacity in rows:
         lines.append(f"| {name} | {used} B | {capacity} B | {capacity-used} B | {'PASS' if used <= capacity else 'OVER'} |")
     lines += [
-        "", "## Runtime instrumentation linked into firmware", "",
+        "", "Minimum required free .noinit margin: 2,048 B.", "",
+        "## Runtime instrumentation linked into firmware", "",
         "| Metric | Instrumentation |", "|---|---|",
         "| HYBRID Wavetable | TIMER4 calls, frames, total/last/max ticks |",
         "| FM6/DX7 | Independent MSFA renderer in browser; native AC79 FM6 port not included in this target |",
@@ -69,6 +71,9 @@ def main():
     print(a.output.read_text())
     if any(used > capacity for _, used, capacity in rows):
         raise SystemExit("Final ELF exceeds an AC79 static memory region budget")
+    noinit_free = NOINIT_CAPACITY - sections[".noinit"]
+    if noinit_free < NOINIT_MIN_FREE:
+        raise SystemExit(f"AC79 .noinit margin {noinit_free} B is below required {NOINIT_MIN_FREE} B")
 
 if __name__ == "__main__":
     main()

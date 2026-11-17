@@ -2,7 +2,7 @@ name: AC79 HYBRID wavetable firmware validation
 on:
   workflow_dispatch:
   push:
-    branches: [hybrid-memory-reduction, hybrid-wavetable-shrub-style, ac79-independent-platform]
+    branches: [hybrid-memory-reduction, hybrid-wavetable-shrub-style, ac79-independent-platform, ac79-project-cache-single]
     paths:
       - "src/**"
       - "include/**"
@@ -114,6 +114,17 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/ac79_link_engines.py --felucca "$RUNNER_TEMP/Felucca" --toolchain "$JIELI_TOOLCHAIN"
+      - name: Verify single-slot project cache and preserved A/B flash storage
+        working-directory: ${{ runner.temp }}/Felucca
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'static int proj_cache_load(uint32_t slot)' firmware/src/project.c
+          ! grep -Fq 'proj_slot[' firmware/src/project.c
+          grep -q 'st_save(OBJ_PROJECT0 +' firmware/src/project.c
+          grep -q 'st_load(OBJ_PROJECT0 +' firmware/src/project.c
+          cc -O2 -w -o "$RUNNER_TEMP/felucca_storage_test" tests/storage_test.c
+          "$RUNNER_TEMP/felucca_storage_test"
       - name: Build SMK-37 Pro validation package
         working-directory: ${{ runner.temp }}/Felucca
         env:
