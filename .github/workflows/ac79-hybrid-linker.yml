@@ -2,7 +2,7 @@ name: AC79 HYBRID wavetable firmware validation
 on:
   workflow_dispatch:
   push:
-    branches: [hybrid-memory-reduction, hybrid-wavetable-shrub-style, ac79-independent-platform, ac79-project-cache-single]
+    branches: [hybrid-memory-reduction, hybrid-wavetable-shrub-style, ac79-independent-platform, ac79-project-cache-single, smk37-hybrid-native]
     paths:
       - "src/**"
       - "include/**"
@@ -55,6 +55,26 @@ jobs:
           "$RUNNER_TEMP/test_hybrid_ac79_scan"
           cc -std=c99 -O2 -Wall -Wextra -Werror -Iac79/platform/include ac79/platform/src/hybrid_ac79_calibration.c ac79/platform/tests/test_hybrid_ac79_calibration.c -o "$RUNNER_TEMP/test_hybrid_ac79_calibration"
           "$RUNNER_TEMP/test_hybrid_ac79_calibration"
+      - name: Test standalone HYBRID native startup memory contract
+        run: |
+          set -euo pipefail
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Iac79/native/include \
+            ac79/native/src/hybrid_native_memory.c \
+            ac79/native/tests/test_hybrid_native_memory.c \
+            -o "$RUNNER_TEMP/test_hybrid_native_memory"
+          "$RUNNER_TEMP/test_hybrid_native_memory"
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Iac79/native/include \
+            -c ac79/native/src/hybrid_native_irq.c \
+            -o "$RUNNER_TEMP/hybrid_native_irq.o"
+          test -s "$RUNNER_TEMP/hybrid_native_irq.o"
+      - name: Compile native C runtime entry with JieLi pi32v2
+        run: |
+          set -euo pipefail
+          "$JIELI_TOOLCHAIN/pi32v2/bin/clang" -target pi32v2 -mcpu=r3 -mfprev1 -Oz \
+            -ffunction-sections -fdata-sections -fno-common -Wall -Wextra -Werror \
+            -Iac79/native/include -c ac79/native/src/hybrid_native_startup.c \
+            -o "$RUNNER_TEMP/hybrid_native_startup.o"
+          test -s "$RUNNER_TEMP/hybrid_native_startup.o"
       - name: Install JieLi pi32v2 toolchain
         shell: bash
         run: |
