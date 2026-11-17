@@ -14,6 +14,8 @@ typedef struct {
     uint8_t adc_delay, fast_index, slow_index;
     uint32_t samples[HYBRID_SCAN_BUFFERS][HYBRID_SCAN_PHASES];
     uint32_t scan_overruns, adc_completions;
+    uint32_t adc_sample_valid;
+    uint16_t adc_samples[HYBRID_SCAN_FAST_ADC + HYBRID_SCAN_SLOW_ADC];
 } hybrid_ac79_scan_t;
 typedef struct {
     void (*spi2_start)(void *ctx, uint32_t shift_word, uint8_t bit_count);
@@ -33,4 +35,6 @@ void hybrid_ac79_scan_irq(hybrid_ac79_scan_t *s,const hybrid_ac79_scan_ops_t *op
 int hybrid_ac79_scan_take(hybrid_ac79_scan_t *s,uint32_t out[HYBRID_SCAN_PHASES]);
 hybrid_ac79_adc_step_t hybrid_ac79_adc_next(const hybrid_ac79_scan_t *s);
 void hybrid_ac79_adc_complete(hybrid_ac79_scan_t *s,const hybrid_ac79_scan_ops_t *ops);
+void hybrid_ac79_adc_complete_value(hybrid_ac79_scan_t *s,const hybrid_ac79_scan_ops_t *ops,uint16_t value);
+void hybrid_ac79_adc_copy(const hybrid_ac79_scan_t *s,uint16_t out[HYBRID_SCAN_FAST_ADC + HYBRID_SCAN_SLOW_ADC],uint32_t *valid_mask);
 #endif
