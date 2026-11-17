@@ -9,6 +9,11 @@
 #include "hybrid_ac79_wl82_map.h"
 
 #define BIT(n) (1u << (n))
+#if defined(__GNUC__)
+#define HYBRID_IRQ_HANDLER __attribute__((interrupt(\"\")))
+#else
+#define HYBRID_IRQ_HANDLER
+#endif
 typedef struct { volatile uint32_t OUT,IN,DIR,DIE,PU,PD,HD0,HD,DIEH; } port_t;
 typedef struct { volatile uint32_t CON,BAUD,BUF,ADR,CNT; } spi_t;
 typedef struct { volatile uint32_t CON,RES; } adc_t;
@@ -71,17 +76,17 @@ static void software_irq(void *ctx)
     (void)ctx;
     SOFT_SET|=BIT(2);
 }
-static void scan_irq_handler(void)
+static HYBRID_IRQ_HANDLER void scan_irq_handler(void)
 {
     SPI2->CON|=BIT(14);
     hybrid_ac79_scan_irq(&scanner,&ops,0xffffffffu,led_mask,mux_mask);
 }
-static void software_irq_handler(void)
+static HYBRID_IRQ_HANDLER void software_irq_handler(void)
 {
     SOFT_CLEAR|=BIT(2);
     if(hw.soft_scan)hw.soft_scan(hw.ctx);
 }
-static void adc_irq_handler(void)
+static HYBRID_IRQ_HANDLER void adc_irq_handler(void)
 {
     uint32_t con=ADC->CON;
     uint16_t result;
