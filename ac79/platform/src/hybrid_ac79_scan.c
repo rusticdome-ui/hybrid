@@ -92,7 +92,6 @@ hybrid_ac79_adc_step_t hybrid_ac79_adc_next(const hybrid_ac79_scan_t *s)
 
 void hybrid_ac79_adc_complete_value(hybrid_ac79_scan_t *s,const hybrid_ac79_scan_ops_t *o,uint16_t value)
 {
-    hybrid_ac79_adc_step_t step;
     unsigned slot;
     if (!s) return;
     slot=s->fast_index<HYBRID_SCAN_FAST_ADC?s->fast_index:(HYBRID_SCAN_FAST_ADC+s->slow_index);
@@ -106,8 +105,8 @@ void hybrid_ac79_adc_complete_value(hybrid_ac79_scan_t *s,const hybrid_ac79_scan
         s->slow_index=(uint8_t)((s->slow_index+1u)%HYBRID_SCAN_SLOW_ADC);
         if (s->slow_index==0u) s->fast_index=0;
     }
-    step=hybrid_ac79_adc_next(s);
-    if (o && o->adc_mux) o->adc_mux(o->ctx,step.mux_channel);
+    /* The next SPI2 scan tick selects the next mux before shifting it out. */
+    (void)o;
     s->adc_delay=0u;
 }
 
