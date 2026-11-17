@@ -16,7 +16,7 @@ def patch_single_project_cache(fw):
  project=fw/"project.c"
  replace_once(project,
   'project_store_t proj_slot[4] __attribute__((section(".noinit")));',
-  'project_store_t proj_cache __attribute__((section(".noinit")));\\nstatic uint8_t proj_cache_slot;\\nstatic uint8_t proj_cache_valid;',
+  'project_store_t proj_cache __attribute__((section(".noinit")));\nstatic uint8_t proj_cache_slot;\nstatic uint8_t proj_cache_valid;',
   "single project cache declaration")
  old='''static void proj_fetch(uint32_t slot)
 {
@@ -61,21 +61,22 @@ static int proj_cache_load(uint32_t slot)
     return 0; /* RAM-only mode has only the one explicitly saved cache slot. */
 }'''
  replace_once(project,old,new,"on-demand project cache loader")
+ save_old='memcpy(&proj_slot[slot & 3u], &proj_wire, sizeof proj_wire);'
+ save_new='memcpy(&proj_cache, &proj_wire, sizeof proj_wire);\\n        proj_cache_slot = (uint8_t)(slot & 3u);\\n        proj_cache_valid = 1;'
+ source=project.read_text()
+ if source.count(save_old)!=2: raise SystemExit("project save cache update: expected exactly two save paths")
+ project.write_text(source.replace(save_old,save_new))
  replace_once(project,
-  'memcpy(&proj_slot[slot & 3u], &proj_wire, sizeof proj_wire);',
-  'memcpy(&proj_cache, &proj_wire, sizeof proj_wire);\\n        proj_cache_slot = (uint8_t)(slot & 3u);\\n        proj_cache_valid = 1;',
-  "project save cache update")
- replace_once(project,
-  'if (!proj_import(&proj_scratch, &proj_slot[slot & 3u], sizeof(project_store_t)))\\n        return 0;',
-  'if (!proj_cache_load(slot))\\n        return 0;',
+  'if (!proj_import(&proj_scratch, &proj_slot[slot & 3u], sizeof(project_store_t)))\n        return 0;',
+  'if (!proj_cache_load(slot))\n        return 0;',
   "project info on-demand load")
  replace_once(project,
   'if (!proj_import(p, &proj_slot[slot & 3u], sizeof(project_store_t))) {',
   'if (!proj_cache_load(slot)) {',
   "project rename on-demand load")
  replace_once(project,
-  '    memcpy(&proj_slot[slot & 3u], &proj_wire, sizeof proj_wire);\\n    if (proj_cur == (slot & 3u))',
-  '    memcpy(&proj_cache, &proj_wire, sizeof proj_wire);\\n    proj_cache_slot = (uint8_t)(slot & 3u);\\n    proj_cache_valid = 1;\\n    if (proj_cur == (slot & 3u))',
+  '    memcpy(&proj_slot[slot & 3u], &proj_wire, sizeof proj_wire);\n    if (proj_cur == (slot & 3u))',
+  '    memcpy(&proj_cache, &proj_wire, sizeof proj_wire);\n    proj_cache_slot = (uint8_t)(slot & 3u);\n    proj_cache_valid = 1;\n    if (proj_cur == (slot & 3u))',
   "project rename cache update")
  old='''static void project_load(uint32_t slot)
 {
@@ -93,8 +94,8 @@ static int proj_cache_load(uint32_t slot)
     proj_bound(&proj_scratch);'''
  replace_once(project,old,new,"project load on-demand")
  replace_once(project,
-  'static void persist_boot(void)                    /* before settings_init / panel_init */\\n{',
-  'static void persist_boot(void)                    /* before settings_init / panel_init */\\n{\\n    proj_cache_valid = 0; /* .noinit cache is untrusted after every reset. */',
+  'static void persist_boot(void)                    /* before settings_init / panel_init */\n{',
+  'static void persist_boot(void)                    /* before settings_init / panel_init */\n{\n    proj_cache_valid = 0; /* .noinit cache is untrusted after every reset. */',
   "invalidate cache at boot")
  old='''    {   /* projects: fill empty RAM slots from flash, so the slot list is right after power-on */
         uint32_t i;
@@ -103,7 +104,7 @@ static int proj_cache_load(uint32_t slot)
                 proj_fetch(i);
     }
 '''
- replace_once(project,old,"    /* Projects are fetched individually on demand; no four-slot RAM mirror. */\\n","remove eager four-project preload")
+ replace_once(project,old,"    /* Projects are fetched individually on demand; no four-slot RAM mirror. */\n","remove eager four-project preload")
  replace_once(project,
   'static int project_used(uint32_t slot) { return proj_import(&proj_scratch, &proj_slot[slot & 3u], sizeof(project_store_t)); }',
   'static int project_used(uint32_t slot) { return proj_cache_load(slot); }',
@@ -123,8 +124,8 @@ def main():
  a=p.parse_args();tc=a.toolchain.resolve();clang=tc/"pi32v2/bin/clang"
  if not clang.is_file():raise SystemExit(f"missing JieLi compiler: {clang}")
  out=a.felucca/"build/hybrid";out.mkdir(parents=True,exist_ok=True)
- patch_single_project_cache(fw)
  inc=a.hybrid/"include";fw=a.felucca/"firmware/src";hal=a.felucca/"firmware/hal"
+ patch_single_project_cache(fw)
  objects=["hybrid_core","hybrid_wavetable","hybrid_native_adapters","hybrid_profile","hybrid_sequencer","hybrid_ac79_scan","hybrid_ac79_scan_hw","hybrid_ac79_startup","hybrid_ac79_calibration","hybrid_ac79_audio","hybrid_ac79_audio_board"]
  for name in objects:
   src=(a.hybrid/"ac79/platform/src"/(name+".c")) if name.startswith("hybrid_ac79_") else (a.hybrid/"src"/(name+".c"));obj=out/(name+".o")
