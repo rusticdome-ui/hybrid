@@ -9,8 +9,8 @@
 extern "C" {
 #endif
 #define HYBRID_AC79_KEYS 37u
-#define HYBRID_AC79_BUTTONS 14u
-#define HYBRID_AC79_ENCODERS 7u
+#define HYBRID_AC79_BUTTONS 18u
+#define HYBRID_AC79_ENCODERS 8u
 #define HYBRID_AC79_FADERS 4u
 #define HYBRID_AC79_PADS 16u
 #define HYBRID_AC79_WHEELS 2u
@@ -33,7 +33,7 @@ typedef struct {
 /* Raw, board-specific readings. Bit 1 means physically active/pressed. */
 typedef struct {
  uint32_t keys;       /* bits 0..36 */
- uint16_t buttons;    /* bits 0..13 */
+ uint16_t buttons;    /* bits 0..17 */
  uint16_t pads;       /* bits 0..15 */
  int16_t encoder_delta[HYBRID_AC79_ENCODERS];
  uint16_t fader[HYBRID_AC79_FADERS]; /* normalized 0..4095 */
