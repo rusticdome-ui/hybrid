@@ -119,6 +119,45 @@ static int proj_cache_load(uint32_t slot)
  if "proj_slot[" in project.read_text():
   raise SystemExit("single-cache patch incomplete: residual proj_slot[] reference")
 
+
+def patch_editor_backup(fw):
+ backup=fw/"editor_backup.c"
+ replace_once(backup,
+  '''    if (id >= 2u && id <= 5u) {
+        if (project_used(id - 2u)) *len = sizeof proj_slot[0];
+        return (const uint8_t *)&proj_slot[id - 2u];
+    }''',
+  '''    if (id >= 2u && id <= 5u) {
+        uint32_t slot = id - 2u;
+        if (project_used(slot)) {
+            memcpy(ED_BK_RAW, &proj_cache, sizeof proj_cache);
+            *len = sizeof proj_cache;
+        }
+        return ED_BK_RAW;
+    }''',
+  "backup project export through the single cache")
+ replace_once(backup,
+  '''    if (ed_bk_id >= 2u && ed_bk_id <= 5u) {
+        memset(&proj_slot[ed_bk_id - 2u], 0, sizeof proj_slot[0]);
+        if (proj_cur == ed_bk_id - 2u)
+            proj_cur = PROJ_NO_SLOT;                     /* (another project there now: the music keeps its name) */
+        if (ed_bk_len) memcpy(&proj_slot[ed_bk_id - 2u], raw, ed_bk_len);
+    } else if (ed_bk_id == 1u) {''',
+  '''    if (ed_bk_id >= 2u && ed_bk_id <= 5u) {
+        uint32_t slot = ed_bk_id - 2u;
+        if (proj_cache_valid && proj_cache_slot == slot)
+            proj_cache_valid = 0;
+        if (ed_bk_len) {
+            memset(&proj_cache, 0, sizeof proj_cache);
+            memcpy(&proj_cache, raw, ed_bk_len);
+            proj_cache_slot = (uint8_t)slot;
+            proj_cache_valid = 1;
+        }
+        if (proj_cur == slot)
+            proj_cur = PROJ_NO_SLOT;                     /* (another project there now: the music keeps its name) */
+    } else if (ed_bk_id == 1u) {''',
+  "backup project import through the single cache")
+
 def main():
  p=argparse.ArgumentParser()
  p.add_argument("--felucca",type=Path,required=True)
@@ -129,6 +168,7 @@ def main():
  out=a.felucca/"build/hybrid";out.mkdir(parents=True,exist_ok=True)
  inc=a.hybrid/"include";fw=a.felucca/"firmware/src";hal=a.felucca/"firmware/hal"
  patch_single_project_cache(fw)
+ patch_editor_backup(fw)
  objects=["hybrid_core","hybrid_wavetable","hybrid_native_adapters","hybrid_profile","hybrid_sequencer","hybrid_ac79_scan","hybrid_ac79_scan_hw","hybrid_ac79_startup","hybrid_ac79_calibration","hybrid_ac79_audio","hybrid_ac79_audio_board"]
  for name in objects:
   src=(a.hybrid/"ac79/platform/src"/(name+".c")) if name.startswith("hybrid_ac79_") else (a.hybrid/"src"/(name+".c"));obj=out/(name+".o")
