@@ -22,11 +22,11 @@ typedef struct {
     uint32_t (*gpio_sample)(void *ctx);
     void (*latch_pulse)(void *ctx);
     void (*software_irq)(void *ctx);
-    void (*adc_start)(void *ctx, uint8_t adc_channel);
+    void (*adc_start)(void *ctx, uint8_t adc_channel, uint8_t adc_param);
     void (*adc_mux)(void *ctx, uint8_t mux_channel);
     void *ctx;
 } hybrid_ac79_scan_ops_t;
-typedef struct { uint8_t kind, index, adc_channel, mux_channel; } hybrid_ac79_adc_step_t;
+typedef struct { uint8_t kind, index, adc_channel, mux_channel, adc_param; } hybrid_ac79_adc_step_t;
 enum { HYBRID_ADC_PAD=0, HYBRID_ADC_AUX_FAST=1, HYBRID_ADC_FADER=2, HYBRID_ADC_PEDAL=3,
        HYBRID_ADC_BATTERY=4, HYBRID_ADC_VBAT=5, HYBRID_ADC_REFERENCE=6 };
 void hybrid_ac79_scan_init(hybrid_ac79_scan_t *s);
