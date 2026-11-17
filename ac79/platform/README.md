@@ -102,3 +102,28 @@ IRQ 24, apply the reference GPIO packing and calibrated pad/key curves, and
 connect the SDK's ADC start/ack operations. The original scanner's DSP/control
 processing and exact lookup-table calibration remain to be ported before
 claiming velocity/pressure parity. The tests validate sequencing only.
+
+
+## Concrete SPI2/ADC MMIO adapter (in progress)
+
+`src/hybrid_ac79_scan_hw.c` now binds the documented WL82 register blocks and
+board IRQs: SPI2 scan IRQ 37 (priority 5), software scan IRQ 122 (priority 4),
+and ADC IRQ 24 (priority 5). It configures SPI2 mode/baud/DMA address/count,
+acknowledges the SPI2/ADC status flags, applies the CD4051 mux selection,
+starts ADC conversions, and captures all 26 raw conversion results. GPIO
+configuration is delegated to mandatory SDK callbacks so the port DIR
+polarity and pad electrical configuration are not guessed. The scan latch
+edge is held across the SPI2 DMA submission, matching the Pro reference ISR.
+
+The fast mux map is PA08 channels 0–7, PC09 channels 0–7, then PA10 channels
+4–5. The slow mux map is PA10 channels 0–3 for four faders, 6 for pedal, and
+7 for battery, followed by VBAT and PMU reference on ADC channel 15. Host tests
+assert the 18+8 channel routing and preserve the raw sample bank. The adapter
+requires the firmware startup to provide the SDK IRQ and GPIO callbacks.
+
+**Calibration is not yet complete:** the adapter captures raw ADC values but
+does not claim calibrated pressure/velocity output. Per-key, per-pad and pedal
+curves must be loaded from validated calibration records or measured on the
+physical SMK-37 Pro. The reference firmware's factory defaults are not a
+substitute for measurements from this unit. Physical IRQ timing, DMA activity,
+voltage levels and long-run stability remain hardware test gates.
