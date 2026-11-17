@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 #include "hybrid_ac79_scan.h"
-static const uint8_t fast_mux[HYBRID_SCAN_FAST_ADC]={0,1,2,3,4,5,6,7,0,1,2,3,4,5,6,7,0,1};
+static const uint8_t fast_mux[HYBRID_SCAN_FAST_ADC]={0,1,2,3,4,5,6,7,0,1,2,3,4,5,6,7,4,5};
 static const uint8_t fast_adc[HYBRID_SCAN_FAST_ADC]={1,1,1,1,1,1,1,1,8,8,8,8,8,8,8,8,2,2};
 void hybrid_ac79_scan_init(hybrid_ac79_scan_t *s)
 {
@@ -15,9 +15,9 @@ void hybrid_ac79_scan_irq(hybrid_ac79_scan_t *s,const hybrid_ac79_scan_ops_t *o,
                           uint32_t phase_mask,uint32_t led_mask,uint32_t mux_mask)
 {
     uint8_t next;
-    uint32_t sample;
+    uint32_t sample,shift_word;
     if(!s||!o||!o->gpio_sample||!o->spi2_start||!o->latch_pulse)return;
-    sample=o->gpio_sample();
+    sample=o->gpio_sample(o->ctx);
     s->samples[s->write_buffer][s->phase]=sample;
     if(s->adc_delay && s->adc_delay<3u) {
         ++s->adc_delay;
@@ -28,7 +28,8 @@ void hybrid_ac79_scan_irq(hybrid_ac79_scan_t *s,const hybrid_ac79_scan_ops_t *o,
     }
     next=(uint8_t)((s->phase+1u)&15u);
     o->latch_pulse(o->ctx);
-    o->spi2_start(o->ctx,(~(1u<<next))&phase_mask&led_mask&mux_mask,4u);
+    shift_word=~(1u<<(next<8u?(next+24u):(next+8u)));
+    o->spi2_start(o->ctx,shift_word&phase_mask&led_mask&mux_mask,4u);
     s->phase=next;
     if(next==0u) {
         if(s->ready)s->scan_overruns++;
@@ -50,7 +51,7 @@ hybrid_ac79_adc_step_t hybrid_ac79_adc_next(const hybrid_ac79_scan_t *s)
     hybrid_ac79_adc_step_t r={HYBRID_ADC_PAD,0,1,0};
     if(!s)return r;
     if(s->fast_index<HYBRID_SCAN_FAST_ADC) {
-        r.kind=HYBRID_ADC_PAD;r.index=s->fast_index;
+        r.kind=s->fast_index<16u?HYBRID_ADC_PAD:HYBRID_ADC_AUX_FAST;r.index=s->fast_index;
         r.adc_channel=fast_adc[s->fast_index];r.mux_channel=fast_mux[s->fast_index];
     } else {
         uint8_t n=s->slow_index;
