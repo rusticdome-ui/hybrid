@@ -65,7 +65,7 @@ int main(void)
         assert(a.kind==slow_kinds[i]&&a.index==i);
         assert(a.adc_channel==slow_channels[i]&&a.mux_channel==slow_muxes[i]);
         assert(a.adc_param==(i==6u?5u:0u));
-        hybrid_ac79_adc_complete(&s,&o);
+        hybrid_ac79_adc_complete_value(&s,&o,(uint16_t)(118u+i));
         if(i+1<HYBRID_SCAN_SLOW_ADC) { tick(&s,&o); tick(&s,&o); tick(&s,&o); }
     }
     assert(s.adc_completions==26);
