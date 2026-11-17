@@ -154,7 +154,8 @@ __attribute__((interrupt(""))) void hybrid_ac79_audio_irq(void)
     }
     {
         uint32_t irq_state=hw->irq_save(hw->context);
-        if(dma_half_owned(half)) {
+        if(dma_half_owned(half) &&
+           elapsed(start,audio_ticks()) < ticks_per_block-(ticks_per_block>>3)) {
             for(i=0;i<AUDIO_WORDS;i++)tx_dma[half][i]=q15_to_q23(render_q15[i]);
             __asm__ volatile("csync" ::: "memory");
             committed=dma_half_owned(half);
