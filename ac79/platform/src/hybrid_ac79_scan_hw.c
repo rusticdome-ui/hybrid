@@ -41,7 +41,6 @@ static void latch_pulse(void *ctx)
 {
     (void)ctx;
     PORTA->OUT|=BIT(1);
-    PORTA->OUT&=~BIT(1);
 }
 static void spi2_start(void *ctx,uint32_t word,uint8_t bits)
 {
@@ -50,6 +49,7 @@ static void spi2_start(void *ctx,uint32_t word,uint8_t bits)
     shift_data=word;
     SPI2->ADR=(uint32_t)(uintptr_t)&shift_data;
     SPI2->CNT=4u;
+    PORTA->OUT&=~BIT(1);
 }
 static void adc_mux(void *ctx,uint8_t channel)
 {
