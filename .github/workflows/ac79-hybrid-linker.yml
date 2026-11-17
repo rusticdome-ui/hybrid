@@ -53,6 +53,8 @@ jobs:
           "$RUNNER_TEMP/test_hybrid_ac79_platform"
           cc -std=c99 -O2 -Wall -Wextra -Werror -Iac79/platform/include ac79/platform/src/hybrid_ac79_scan.c ac79/platform/tests/test_hybrid_ac79_scan.c -o "$RUNNER_TEMP/test_hybrid_ac79_scan"
           "$RUNNER_TEMP/test_hybrid_ac79_scan"
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Iac79/platform/include ac79/platform/src/hybrid_ac79_calibration.c ac79/platform/tests/test_hybrid_ac79_calibration.c -o "$RUNNER_TEMP/test_hybrid_ac79_calibration"
+          "$RUNNER_TEMP/test_hybrid_ac79_calibration"
       - name: Install JieLi pi32v2 toolchain
         shell: bash
         run: |
