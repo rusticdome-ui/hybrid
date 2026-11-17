@@ -89,30 +89,18 @@ static void adc_irq_handler(void)
     /* Preserve the raw ADC sample before advancing the channel schedule. */
     hybrid_ac79_adc_complete_value(&scanner,&ops,result);
 }
-static void gpio_input(port_t *p,unsigned bit)
-{
-    p->DIR|=BIT(bit);p->DIE|=BIT(bit);p->PU|=BIT(bit);p->PD&=~BIT(bit);
-}
-static void gpio_output(port_t *p,unsigned bit)
-{
-    p->DIR&=~BIT(bit);p->DIE|=BIT(bit);p->PU&=~BIT(bit);p->PD&=~BIT(bit);
-}
-static void adc_input(port_t *p,unsigned bit)
-{
-    p->DIR|=BIT(bit);p->DIE&=~BIT(bit);p->PU&=~BIT(bit);p->PD&=~BIT(bit);
-}
 int hybrid_ac79_scan_hw_init(const hybrid_ac79_scan_hw_config_t *config)
 {
-    if(!config||!config->irq_attach)return -1;
+    if(!config||!config->irq_attach||!config->gpio_input||!config->gpio_output||!config->adc_input)return -1;
     hw=*config;
     /* Match Pro reference pin mux and matrix wiring. */
     IOMAP->CON1&=~BIT(16);IOMAP->CON1|=BIT(17);
-    gpio_input(PORTH,6);gpio_input(PORTH,8);gpio_input(PORTH,9);
-    gpio_input(PORTA,2);gpio_input(PORTA,5);gpio_input(PORTA,6);
-    gpio_input(PORTA,7);gpio_input(PORTA,9);
-    gpio_output(PORTA,0);gpio_output(PORTA,1);
-    gpio_output(PORTA,3);gpio_output(PORTA,4);
-    adc_input(PORTA,8);adc_input(PORTC,9);adc_input(PORTA,10);
+    if(hw.gpio_input(hw.ctx,118u,1u)||hw.gpio_input(hw.ctx,120u,1u)||hw.gpio_input(hw.ctx,121u,1u)||
+       hw.gpio_input(hw.ctx,2u,1u)||hw.gpio_input(hw.ctx,5u,1u)||hw.gpio_input(hw.ctx,6u,1u)||
+       hw.gpio_input(hw.ctx,7u,1u)||hw.gpio_input(hw.ctx,9u,1u))return -5;
+    if(hw.gpio_output(hw.ctx,0u,0u)||hw.gpio_output(hw.ctx,1u,0u)||
+       hw.gpio_output(hw.ctx,3u,0u)||hw.gpio_output(hw.ctx,4u,0u))return -6;
+    if(hw.adc_input(hw.ctx,8u)||hw.adc_input(hw.ctx,41u)||hw.adc_input(hw.ctx,10u))return -7;
 
     hybrid_ac79_scan_init(&scanner);
     ops.spi2_start=spi2_start;ops.gpio_sample=gpio_sample;
