@@ -58,6 +58,8 @@ int main(void)
         hybrid_ac79_adc_complete(&s,&o);
         if(i+1<HYBRID_SCAN_FAST_ADC) { tick(&s,&o); tick(&s,&o); }
     }
+    /* The last fast conversion must also settle the first slow mux. */
+    tick(&s,&o); tick(&s,&o);
     for(i=0;i<HYBRID_SCAN_SLOW_ADC;i++) {
         hybrid_ac79_adc_step_t a=hybrid_ac79_adc_next(&s);
         assert(a.kind==slow_kinds[i]&&a.index==i);
