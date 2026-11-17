@@ -25,8 +25,8 @@ typedef struct {
     void *ctx;
 } hybrid_ac79_scan_ops_t;
 typedef struct { uint8_t kind, index, adc_channel, mux_channel; } hybrid_ac79_adc_step_t;
-enum { HYBRID_ADC_PAD=0, HYBRID_ADC_FADER=1, HYBRID_ADC_PEDAL=2,
-       HYBRID_ADC_BATTERY=3, HYBRID_ADC_VBAT=4, HYBRID_ADC_REFERENCE=5 };
+enum { HYBRID_ADC_PAD=0, HYBRID_ADC_AUX_FAST=1, HYBRID_ADC_FADER=2, HYBRID_ADC_PEDAL=3,
+       HYBRID_ADC_BATTERY=4, HYBRID_ADC_VBAT=5, HYBRID_ADC_REFERENCE=6 };
 void hybrid_ac79_scan_init(hybrid_ac79_scan_t *s);
 void hybrid_ac79_scan_irq(hybrid_ac79_scan_t *s,const hybrid_ac79_scan_ops_t *ops,
                           uint32_t phase_mask,uint32_t led_mask,uint32_t mux_mask);
