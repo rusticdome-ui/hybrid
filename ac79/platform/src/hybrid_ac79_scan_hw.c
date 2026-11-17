@@ -60,6 +60,7 @@ static void adc_mux(void *ctx,uint8_t channel)
 }
 static void adc_start(void *ctx,uint8_t channel,uint8_t param)
 {
+    (void)ctx;
     if(channel==15u){ ANA->WLA_CON0&=~BIT(14); hw.adc_pmu_detect_enable(hw.ctx,param); }
     ADC->CON=5u|(4u<<12)|BIT(3)|BIT(5)|BIT(6)|(((uint32_t)channel&15u)<<8);
     ADC->CON|=BIT(4);
