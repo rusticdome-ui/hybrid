@@ -313,7 +313,7 @@ document.querySelectorAll('.quick-nav [data-jump]').forEach(btn=>btn.addEventLis
  const target=document.querySelector(btn.dataset.jump);
  if(target){target.scrollIntoView({behavior:'smooth',block:'start'});document.querySelectorAll('.quick-nav button').forEach(b=>b.classList.toggle('selected',b===btn));}
 }));
-const dx7Search=document.getElementById('dx7Search'),dx7Grid=document.getElementById('dx7VoiceGrid');
+const dx7Search=document.getElementById('dx7Search');
 if(dx7Search&&dx7Grid)dx7Search.addEventListener('input',()=>{
  const q=dx7Search.value.trim().toLocaleLowerCase('pt-PT');
  dx7Grid.querySelectorAll('button').forEach(b=>{b.hidden=!b.textContent.toLocaleLowerCase('pt-PT').includes(q)});
