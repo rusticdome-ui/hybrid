@@ -8,7 +8,7 @@ static uint8_t last_adc,last_mux;
 static uint32_t sample(void *c){(void)c;return ++sample_value;}
 static void spi(void *c,uint32_t w,uint8_t n){(void)c;(void)w;assert(n==4);++starts;}
 static void latch(void *c){(void)c;++latches;}
-static void soft_count(void *c){(void)c;++soft_count;}
+static void soft_irq(void *c){(void)c;++soft_count;}
 static void adc(void *c,uint8_t ch){(void)c;last_adc=ch;++adcs;}
 static void mux(void *c,uint8_t ch){(void)c;assert(ch<8);last_mux=ch;++muxes;}
 static void tick(hybrid_ac79_scan_t *s,hybrid_ac79_scan_ops_t *o)
@@ -23,7 +23,7 @@ int main(void)
     static const uint8_t slow_muxes[8]={4,5,6,7,6,7,0,0};
     hybrid_ac79_scan_t s;
     uint32_t out[HYBRID_SCAN_PHASES];
-    hybrid_ac79_scan_ops_t o={spi,sample,latch,soft_count,adc,mux,0};
+    hybrid_ac79_scan_ops_t o={spi,sample,latch,soft_irq,adc,mux,0};
     unsigned i;
 
     hybrid_ac79_scan_init(&s);
