@@ -10,7 +10,7 @@
 
 #define BIT(n) (1u << (n))
 #if defined(__GNUC__)
-#define HYBRID_IRQ_HANDLER __attribute__((interrupt(\"\")))
+#define HYBRID_IRQ_HANDLER __attribute__((interrupt("")))
 #else
 #define HYBRID_IRQ_HANDLER
 #endif
