@@ -110,7 +110,7 @@ claiming velocity/pressure parity. The tests validate sequencing only.
 board IRQs: SPI2 scan IRQ 37 (priority 5), software scan IRQ 122 (priority 4),
 and ADC IRQ 24 (priority 5). It configures SPI2 mode/baud/DMA address/count,
 acknowledges the SPI2/ADC status flags, applies the CD4051 mux selection,
-starts ADC conversions, and captures all 26 raw conversion results. GPIO
+starts ADC conversions with the reference three-SPI-tick settling window, and captures all 26 raw conversion results. VBAT's PMU-detect mode is passed through a required SDK callback; the analog reference-enable bit is cleared as in the Pro board source. GPIO
 configuration is delegated to mandatory SDK callbacks so the port DIR
 polarity and pad electrical configuration are not guessed. The scan latch
 edge is held across the SPI2 DMA submission, matching the Pro reference ISR.
