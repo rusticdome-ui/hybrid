@@ -10,7 +10,6 @@ extern "C" {
 #define HYBRID_AC79_AUDIO_RATE 44118u
 #define HYBRID_AC79_AUDIO_FRAMES 128u
 #define HYBRID_AC79_AUDIO_CHANNELS 2u
-
 typedef struct {
     uint32_t (*clock_hz)(void *context);
     uint32_t (*ticks)(void *context);
@@ -20,19 +19,11 @@ typedef struct {
     int (*irq_attach)(void *context, unsigned irq, void (*handler)(void), unsigned priority);
     void *context;
 } hybrid_ac79_audio_hw_t;
-
 typedef int (*hybrid_ac79_render_fn)(void *context, int32_t *stereo_q15, uint16_t frames);
 typedef struct {
-    uint32_t blocks;
-    uint32_t underruns;
-    uint32_t late_commits;
-    uint32_t render_errors;
-    uint32_t peak_ticks;
-    uint32_t last_ticks;
-    uint32_t interval_errors;
+    uint32_t blocks, underruns, late_commits, render_errors;
+    uint32_t peak_ticks, last_ticks, interval_errors;
 } hybrid_ac79_audio_stats_t;
-
-struct hybrid_core;
 int hybrid_ac79_audio_render_core(void *context, int32_t *stereo_q15, uint16_t frames);
 int hybrid_ac79_audio_startup(void *renderer_context);
 int hybrid_ac79_audio_init(const hybrid_ac79_audio_hw_t *hardware,
@@ -40,6 +31,8 @@ int hybrid_ac79_audio_init(const hybrid_ac79_audio_hw_t *hardware,
 void hybrid_ac79_audio_irq(void);
 void hybrid_ac79_audio_get_stats(hybrid_ac79_audio_stats_t *out);
 void hybrid_ac79_audio_mute(uint8_t mute);
+int hybrid_ac79_timer_init(void);
+uint32_t hybrid_ac79_timer_ticks(void);
 #ifdef __cplusplus
 }
 #endif
