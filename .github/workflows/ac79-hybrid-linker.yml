@@ -112,7 +112,8 @@ jobs:
           sdk="$RUNNER_TEMP/sdk"
           mkdir -p "$sdk"
           git -C "$sdk" init
-          git -C "$sdk" remote add origin https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git
+          # GitHub mirror resolves to the same immutable JieLi tag commit d179b4484759423312073f5fbb232501aa491047.
+          git -C "$sdk" remote add origin https://github.com/amitv87/fw-AC79_AIoT_SDK.git
           git -C "$sdk" config core.sparseCheckout true
           git -C "$sdk" config core.sparseCheckoutCone false
           cat > "$sdk/.git/info/sparse-checkout" <<'EOF'
