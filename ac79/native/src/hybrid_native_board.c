@@ -12,7 +12,6 @@ __attribute__((weak))
 void hybrid_midi_out_event(uint32_t packet) { (void)packet; }
 int hybrid_native_early_board_init(void)
 {
-    if (hybrid_ac79_timer_init() != 0) return -1;
     return hybrid_native_irq_init();
 }
 int hybrid_native_main(void)
