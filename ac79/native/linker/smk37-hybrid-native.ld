@@ -13,15 +13,15 @@ MEMORY
 }
 SECTIONS
 {
-    .entry ORIGIN(FLASH) : ALIGN(4) { KEEP(*(.entry)) } > FLASH
-    .text : ALIGN(4)
+    .entry ORIGIN(FLASH) : { KEEP(*(.entry)) } > FLASH
+    .text ALIGN(4) :
     {
         *(.text .text.*)
         *(.rodata .rodata.*)
         *(.hybrid_text .hybrid_text.*)
         . = ALIGN(4);
     } > FLASH
-    .hybrid_data : ALIGN(4)
+    .hybrid_data ALIGN(4) :
     {
         __hybrid_data_start = .;
         *(.data .data.*)
@@ -30,14 +30,14 @@ SECTIONS
         __hybrid_data_end = .;
     } > RAM AT > FLASH
     __hybrid_data_load = LOADADDR(.hybrid_data);
-    .hybrid_dma (NOLOAD) : ALIGN(32)
+    .hybrid_dma ALIGN(32) (NOLOAD) :
     {
         __hybrid_dma_start = .;
         *(.hybrid_dma .hybrid_dma.*)
         . = ALIGN(32);
         __hybrid_dma_end = .;
     } > RAM
-    .hybrid_bss (NOLOAD) : ALIGN(4)
+    .hybrid_bss ALIGN(4) (NOLOAD) :
     {
         __hybrid_bss_start = .;
         *(.bss .bss.*)
@@ -45,27 +45,27 @@ SECTIONS
         . = ALIGN(4);
         __hybrid_bss_end = .;
     } > RAM
-    .hybrid_noinit (NOLOAD) : ALIGN(4)
+    .hybrid_noinit ALIGN(4) (NOLOAD) :
     {
         __hybrid_noinit_start = .;
         *(.noinit .noinit.*)
         . = ALIGN(4);
         __hybrid_noinit_end = .;
     } > RAM
-    .hybrid_pool (NOLOAD) : ALIGN(16)
+    .hybrid_pool ALIGN(16) (NOLOAD) :
     {
         __hybrid_pool_start = .;
         *(.pool .pool.*)
         . = ALIGN(16);
         __hybrid_pool_end = .;
     } > RAM
-    .hybrid_copy_table : ALIGN(4)
+    .hybrid_copy_table ALIGN(4) :
     {
         __hybrid_copy_table_start = .;
         LONG(LOADADDR(.hybrid_data)); LONG(ADDR(.hybrid_data)); LONG(SIZEOF(.hybrid_data));
         __hybrid_copy_table_end = .;
     } > FLASH
-    .hybrid_zero_table : ALIGN(4)
+    .hybrid_zero_table ALIGN(4) :
     {
         __hybrid_zero_table_start = .;
         LONG(ADDR(.hybrid_dma)); LONG(SIZEOF(.hybrid_dma));
@@ -81,7 +81,7 @@ SECTIONS
     _ustack_top = __hybrid_stack_top;
     _sstack_lo = __hybrid_sstack_bottom;
     _sstack_top = __hybrid_sstack_top;
-    ASSERT(ADDR(.entry) == 0x02000120, "SMK-37 app entry must be 0x02000120")
-    ASSERT(SIZEOF(.entry) > 0, "missing native entry stub")
-    ASSERT(__hybrid_pool_end <= __hybrid_sstack_bottom, "HYBRID RAM overlaps system/user stacks")
+    ASSERT(ADDR(.entry) == 0x02000120, "SMK-37 app entry must be 0x02000120");
+    ASSERT(SIZEOF(.entry) > 0, "missing native entry stub");
+    ASSERT(__hybrid_pool_end <= __hybrid_sstack_bottom, "HYBRID RAM overlaps system/user stacks");
 }
