@@ -81,7 +81,7 @@ SECTIONS
     _ustack_top = __hybrid_stack_top;
     _sstack_lo = __hybrid_sstack_bottom;
     _sstack_top = __hybrid_sstack_top;
-    ASSERT(ADDR(.entry) == 0x02000120, "SMK-37 app entry must be 0x02000120");
-    ASSERT(SIZEOF(.entry) > 0, "missing native entry stub");
-    ASSERT(__hybrid_pool_end <= __hybrid_sstack_bottom, "HYBRID RAM overlaps system/user stacks");
+    ASSERT(ADDR(.entry) == 0x02000120, "SMK-37 app entry must be 0x02000120")
+    ASSERT(SIZEOF(.entry) > 0, "missing native entry stub")
+    ASSERT(__hybrid_pool_end <= __hybrid_sstack_bottom, "HYBRID RAM overlaps system/user stacks")
 }
