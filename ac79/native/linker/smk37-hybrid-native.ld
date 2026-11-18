@@ -21,14 +21,14 @@ SECTIONS
         *(.hybrid_text .hybrid_text.*)
         . = ALIGN(4);
     } > FLASH
-    .hybrid_data ALIGN(4) :
+    .hybrid_data ORIGIN(RAM) :
     {
         __hybrid_data_start = .;
         *(.data .data.*)
         *(.sdata .sdata.*)
         . = ALIGN(4);
         __hybrid_data_end = .;
-    } > RAM AT > FLASH
+    } > RAM AT>FLASH
     __hybrid_data_load = LOADADDR(.hybrid_data);
     .hybrid_dma ALIGN(32) (NOLOAD) :
     {
@@ -59,7 +59,7 @@ SECTIONS
         . = ALIGN(16);
         __hybrid_pool_end = .;
     } > RAM
-    .hybrid_copy_table ALIGN(4) :
+    .hybrid_copy_table LOADADDR(.hybrid_data) + SIZEOF(.hybrid_data) :
     {
         __hybrid_copy_table_start = .;
         LONG(LOADADDR(.hybrid_data)); LONG(ADDR(.hybrid_data)); LONG(SIZEOF(.hybrid_data));
