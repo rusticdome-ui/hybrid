@@ -18,6 +18,7 @@ CFLAGS = [
 SOURCES = [
     "ac79/native/src/hybrid_native_entry.S",
     "ac79/native/src/hybrid_native_memory.c",
+    "ac79/native/src/hybrid_native_libc.c",
     "ac79/native/src/hybrid_native_startup.c",
     "ac79/native/src/hybrid_native_irq.c",
     "ac79/native/src/hybrid_native_board.c",
