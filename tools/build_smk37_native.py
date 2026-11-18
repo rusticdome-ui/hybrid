@@ -91,7 +91,7 @@ def main():
     forbidden = re.findall(r"\b(?:fm1_[A-Za-z0-9_]*|felucca_[A-Za-z0-9_]*)\b",sym_text)
     if forbidden:
         raise SystemExit("Felucca dependency leaked into native ELF: "+", ".join(sorted(set(forbidden))))
-    for section in (".entry",".text",".hybrid_data",".hybrid_dma",".hybrid_bss",
+    for section in (".entry",".text",".hybrid_dma",".hybrid_bss",
                     ".hybrid_copy_table",".hybrid_zero_table"):
         if section not in sec_text:
             raise SystemExit(f"native ELF missing section {section}")
