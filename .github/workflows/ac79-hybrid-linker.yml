@@ -162,13 +162,13 @@ jobs:
               cp "$f" "$evidence/$f"
             fi
           done
-          find cpu/wl82 apps/demo/demo_hello -type f \( -iname '*crt0*' -o -iname '*start*' -o -iname '*vec*' -o -iname '*isr*' \\) -print0 2>/dev/null | while IFS= read -r -d '' f; do
-            mkdir -p "$evidence/$(dirname "$f")"
-            cp "$f" "$evidence/$f"
-          find cpu/wl82 include_lib/driver/cpu/wl82 -type f -name '*.ld' -print0 2>/dev/null | while IFS= read -r -d '' f; do
+          find cpu/wl82 apps/demo/demo_hello -type f \( -iname '*crt0*' -o -iname '*start*' -o -iname '*vec*' -o -iname '*isr*' \) -print0 2>/dev/null | while IFS= read -r -d '' f; do
             mkdir -p "$evidence/$(dirname "$f")"
             cp "$f" "$evidence/$f"
           done
+          find cpu/wl82 include_lib/driver/cpu/wl82 -type f -name '*.ld' -print0 2>/dev/null | while IFS= read -r -d '' f; do
+            mkdir -p "$evidence/$(dirname "$f")"
+            cp "$f" "$evidence/$f"
           done
           grep -RniE 'interrupt_init|vector|vec_table|_start|reset_handler|entry[[:space:]]*=|ORIGIN[[:space:]]*\(' \\
             cpu/wl82 apps/demo/demo_hello include_lib/driver/cpu/wl82 \\
