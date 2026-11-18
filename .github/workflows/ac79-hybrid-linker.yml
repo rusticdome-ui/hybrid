@@ -10,6 +10,7 @@ on:
       - "ac79/native/**"
       - "tools/ac79_link_engines.py"
       - "tools/ac79_profile_report.py"
+      - "tools/build_smk37_native.py"
       - "tests/**"
       - ".github/workflows/ac79-hybrid-linker.yml"
   pull_request:
@@ -20,6 +21,7 @@ on:
       - "include/**"
       - "tools/ac79_link_engines.py"
       - "tools/ac79_profile_report.py"
+      - "tools/build_smk37_native.py"
       - "tests/**"
       - ".github/workflows/ac79-hybrid-linker.yml"
 permissions:
@@ -65,10 +67,6 @@ jobs:
             ac79/native/tests/test_hybrid_native_memory.c \
             -o "$RUNNER_TEMP/test_hybrid_native_memory"
           "$RUNNER_TEMP/test_hybrid_native_memory"
-          cc -std=c99 -O2 -Wall -Wextra -Werror -Iac79/native/include \
-            -c ac79/native/src/hybrid_native_irq.c \
-            -o "$RUNNER_TEMP/hybrid_native_irq.o"
-          test -s "$RUNNER_TEMP/hybrid_native_irq.o"
       - name: Install JieLi pi32v2 toolchain
         shell: bash
         run: |
@@ -93,7 +91,7 @@ jobs:
           set -euo pipefail
           "$JIELI_TOOLCHAIN/pi32v2/bin/clang" -target pi32v2 -mcpu=r3 -mfprev1 -Oz -ffunction-sections -fdata-sections -fno-common -Wall -Wextra -Werror -Iinclude -Iac79/platform/include -c ac79/platform/src/hybrid_ac79_audio.c -o "$RUNNER_TEMP/hybrid_ac79_audio_ac79.o"
           test -s "$RUNNER_TEMP/hybrid_ac79_audio_ac79.o"
-          "$JIELI_TOOLCHAIN/pi32v2/bin/clang" -target pi32v2 -mcpu=r3 -mfprev1 -Oz -ffunction-sections -fdata-sections -fno-common -Wall -Wextra -Werror -Iac79/platform/include -c ac79/platform/src/hybrid_ac79_audio_board.c -o "$RUNNER_TEMP/hybrid_ac79_audio_board_ac79.o"
+          "$JIELI_TOOLCHAIN/pi32v2/bin/clang" -target pi32v2 -mcpu=r3 -mfprev1 -Oz -ffunction-sections -fdata-sections -fno-common -Wall -Wextra -Werror -Iac79/native/include -Iac79/platform/include -c ac79/platform/src/hybrid_ac79_audio_board.c -o "$RUNNER_TEMP/hybrid_ac79_audio_board_ac79.o"
           test -s "$RUNNER_TEMP/hybrid_ac79_audio_board_ac79.o"
       - name: Compile SPI2 scanner and ADC sequencing core with JieLi pi32v2
         shell: bash
@@ -183,6 +181,23 @@ jobs:
             > "$evidence/SDK-BOOT-MAP-MATCHES.txt" || true
           test -s "$evidence/SDK-INDEX.txt"
           tar -czf "$RUNNER_TEMP/native-sdk-evidence.tar.gz" -C "$RUNNER_TEMP" native-sdk-evidence
+      - name: Build standalone SMK-37 HYBRID native ELF
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/build_smk37_native.py --toolchain "$JIELI_TOOLCHAIN" --sdk "$AC79_SDK" --out "$RUNNER_TEMP/native-elf"
+      - name: Upload standalone native ELF and linker map
+        uses: actions/upload-artifact@v4
+        with:
+          name: smk37-hybrid-native-elf-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/native-elf/smk37-hybrid-native.elf
+            ${{ runner.temp }}/native-elf/smk37-hybrid-native.map
+            ${{ runner.temp }}/native-elf/NATIVE-ELF-REPORT.md
+            ${{ runner.temp }}/native-elf/sections.txt
+            ${{ runner.temp }}/native-elf/symbols.txt
+          if-no-files-found: error
+          retention-days: 14
       - name: Checkout SMK-37 AC79 board startup and codec base
         run: |
           git clone --depth 1 --branch ghoulbox-smk37 https://github.com/genkigenki/Felucca.git "$RUNNER_TEMP/Felucca"
