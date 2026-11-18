@@ -123,7 +123,14 @@ jobs:
           /cpu/wl82/tools/cfg/eq_cfg_hw.bin
           # Native-target evidence: platform setup, XIP/SDRAM link entry points,
           # shared WL82 linker fragments, CPU headers and demo board startup.
-          /cpu/wl82/**
+          /cpu/wl82/setup.c
+          /cpu/wl82/sdk_ld_sfc.c
+          /cpu/wl82/sdk_ld_sdram.c
+          /cpu/wl82/*.c
+          /cpu/wl82/*.h
+          /cpu/wl82/*.S
+          /cpu/wl82/*.s
+          /cpu/wl82/tools/**
           /include_lib/driver/cpu/wl82/**
           /apps/demo/demo_hello/**
           EOF
