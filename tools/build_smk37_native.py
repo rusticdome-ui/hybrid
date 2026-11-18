@@ -77,11 +77,12 @@ def main():
     elf, map_file = out/"smk37-hybrid-native.elf", out/"smk37-hybrid-native.map"
     script = ROOT/"ac79/native/linker/smk37-hybrid-native.ld"
     run([linker,"--gc-sections","-T",script,*objects,"-Map",map_file,"-o",elf])
-    file_text = subprocess.check_output([str(objdump),"-f",str(elf)],text=True,errors="replace")
     sym_text = subprocess.check_output([str(objdump),"-t",str(elf)],text=True,errors="replace")
     sec_text = subprocess.check_output([str(objdump),"-h",str(elf)],text=True,errors="replace")
-    if not re.search(r"start address 0x0*2000120", file_text, re.I):
-        raise SystemExit("ELF entry point is not 0x02000120")
+    start_line = next((line for line in sym_text.splitlines()
+                       if line.split() and line.split()[-1] == "_start"), None)
+    if not start_line or int(start_line.split()[0], 16) != 0x02000120:
+        raise SystemExit("ELF _start symbol is not at 0x02000120")
     (out/"symbols.txt").write_text(sym_text)
     (out/"sections.txt").write_text(sec_text)
     required = [
