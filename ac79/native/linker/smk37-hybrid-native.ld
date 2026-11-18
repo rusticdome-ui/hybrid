@@ -30,14 +30,14 @@ SECTIONS
         __hybrid_data_end = .;
     } > RAM AT>FLASH
     __hybrid_data_load = LOADADDR(.hybrid_data);
-    .hybrid_dma ALIGN(32) (NOLOAD) :
+    .hybrid_dma ALIGN(ADDR(.hybrid_data) + SIZEOF(.hybrid_data), 32) (NOLOAD) :
     {
         __hybrid_dma_start = .;
         *(.hybrid_dma .hybrid_dma.*)
         . = ALIGN(32);
         __hybrid_dma_end = .;
     } > RAM
-    .hybrid_bss ALIGN(4) (NOLOAD) :
+    .hybrid_bss ALIGN(ADDR(.hybrid_dma) + SIZEOF(.hybrid_dma), 4) (NOLOAD) :
     {
         __hybrid_bss_start = .;
         *(.bss .bss.*)
@@ -45,14 +45,14 @@ SECTIONS
         . = ALIGN(4);
         __hybrid_bss_end = .;
     } > RAM
-    .hybrid_noinit ALIGN(4) (NOLOAD) :
+    .hybrid_noinit ALIGN(ADDR(.hybrid_bss) + SIZEOF(.hybrid_bss), 4) (NOLOAD) :
     {
         __hybrid_noinit_start = .;
         *(.noinit .noinit.*)
         . = ALIGN(4);
         __hybrid_noinit_end = .;
     } > RAM
-    .hybrid_pool ALIGN(16) (NOLOAD) :
+    .hybrid_pool ALIGN(ADDR(.hybrid_noinit) + SIZEOF(.hybrid_noinit), 16) (NOLOAD) :
     {
         __hybrid_pool_start = .;
         *(.pool .pool.*)
@@ -65,7 +65,7 @@ SECTIONS
         LONG(LOADADDR(.hybrid_data)); LONG(ADDR(.hybrid_data)); LONG(SIZEOF(.hybrid_data));
         __hybrid_copy_table_end = .;
     } > FLASH
-    .hybrid_zero_table ALIGN(4) :
+    .hybrid_zero_table ADDR(.hybrid_copy_table) + SIZEOF(.hybrid_copy_table) :
     {
         __hybrid_zero_table_start = .;
         LONG(ADDR(.hybrid_dma)); LONG(SIZEOF(.hybrid_dma));
